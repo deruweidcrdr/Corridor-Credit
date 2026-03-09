@@ -7,6 +7,7 @@ import type {
   InboxNotification,
 } from "@/lib/inbox-data";
 import DocumentModal from "./document-modal";
+import Sidebar from "@/app/components/sidebar";
 
 interface Props {
   emails: Email[];
@@ -66,66 +67,7 @@ export default function InboxClient({ emails, notifications }: Props) {
   );
 }
 
-/* ================================================================== */
-/*  SIDEBAR                                                            */
-/* ================================================================== */
-
-const NAV_ITEMS = [
-  "Inbox & Alerts",
-  "Statement Analysis",
-  "Contract Analysis",
-  "Projections",
-  "Credit Analysis",
-  "Approvals",
-  "Enterprise",
-];
-
-function Sidebar() {
-  return (
-    <aside
-      className={`w-[172px] shrink-0 ${SURFACE} border-r ${BORDER} flex flex-col`}
-    >
-      {/* Logo */}
-      <div className="px-4 py-4 flex items-center gap-2">
-        <Logo />
-        <span className={`${TEXT3} text-lg`}>&#8801;</span>
-      </div>
-
-      {/* Section label */}
-      <div className="px-4 pb-2">
-        <span className="text-blue-400 text-[13px] font-semibold">
-          Workbench: Inbox
-        </span>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item}
-            className={`block w-full text-left px-3 py-1.5 rounded text-[13px] ${TEXT2} hover:bg-[#1a2332] transition-colors`}
-          >
-            {item}
-          </button>
-        ))}
-      </nav>
-    </aside>
-  );
-}
-
-function Logo() {
-  return (
-    <div className="flex items-baseline gap-0 select-none">
-      <span className="text-[15px] font-bold tracking-tight text-[#e2e8f0]">
-        CR
-      </span>
-      <span className="text-[15px] font-light text-[#5a6a7e] mx-px">/</span>
-      <span className="text-[15px] font-bold tracking-tight text-[#e2e8f0]">
-        DR
-      </span>
-    </div>
-  );
-}
+/* Sidebar is imported from @/app/components/sidebar */
 
 /* ================================================================== */
 /*  MESSAGE LIST                                                       */
