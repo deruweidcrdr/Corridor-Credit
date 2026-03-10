@@ -164,7 +164,7 @@ export default function CreditAnalysisClient() {
 
         {/* ── Step content ── */}
         {activeStep === 1 && <DealValueStep />}
-        {activeStep === 2 && <ComingSoon label="Policy Analysis" />}
+        {activeStep === 2 && <PolicyStep />}
         {activeStep === 3 && <ComingSoon label="Yardbook Assembly" />}
         {activeStep === 4 && <ComingSoon label="Approval" />}
       </div>
@@ -634,6 +634,773 @@ function PolicyBridge() {
 }
 
 /* ================================================================== */
+/*  STEP 2 — Policy Analysis                                           */
+/* ================================================================== */
+
+/* Variance chart dimension data */
+const VARIANCE_DIMS = [
+  { code: "PC", name: "Primary Coverage", metric: "DSCR 1.28x / min 1.25x", threshold: "1.25x", pctVar: 2.4, dir: "positive" as const, band: "pw" as const, trend: null },
+  { code: "PV", name: "Portfolio Value", metric: "LLCR 1.45x / min 1.20x", threshold: "1.20x", pctVar: 20.8, dir: "positive" as const, band: "sat" as const, trend: null },
+  { code: "PB", name: "Business Trend", metric: "GPM 48.3% / min 35% · trend ↓", threshold: "35%", pctVar: 13.3, dir: "positive" as const, band: "pw" as const, trend: "↓ trend" },
+  { code: "PQ", name: "Liquidity Quality", metric: "CR 1.62x / min 1.50x · trend ↑", threshold: "1.50x", pctVar: 8.0, dir: "positive" as const, band: "sat" as const, trend: "↑ improving" },
+  { code: "PM", name: "Cost Structure", metric: "OCR 67.8% / max 65.0% · trend ↓", threshold: "65%", pctVar: 2.8, dir: "negative" as const, band: "wdw" as const, trend: "↓ trend" },
+];
+
+/* Policy match rules */
+const MATCH_RULES = [
+  { label: "Product Type", value: "Term Loan / Construction", match: "✓ match" },
+  { label: "Collateral Class", value: "Renewable Energy / Project Finance", match: "✓ match" },
+  { label: "Facility Size", value: "$250MM · Senior Secured", match: "✓ within scope" },
+  { label: "Tenor", value: "7 years · within 10Y max", match: "✓ match" },
+  { label: "Regulatory Tier", value: "Senior Credit Committee", match: "→ routed", matchColor: ds.amber },
+  { label: "Alternative Policies", value: "None applicable", valueColor: ds.textMuted, match: null },
+];
+
+/* Threshold table rows */
+const THRESHOLD_ROWS = [
+  { dim: "PC", name: "Primary Coverage", axis: "X · Min DSCR", defaultThreshold: "≥ 1.25x", dealValue: "1.28x", dealColor: ds.pwColor, preConfirmed: true, isException: false },
+  { dim: "PV", name: "Portfolio Value", axis: "X · LLCR", defaultThreshold: "≥ 1.20x", dealValue: "1.45x", dealColor: ds.satColor, preConfirmed: true, isException: false },
+  { dim: "PB", name: "Business Trend", axis: "X · GPM · Y · Trend", defaultThreshold: "≥ 35%", dealValue: "48.3% ↓", dealColor: ds.pwColor, preConfirmed: true, isException: false },
+  { dim: "PQ", name: "Liquidity Quality", axis: "X · Current Ratio", defaultThreshold: "≥ 1.50x", dealValue: "1.62x ↑", dealColor: ds.satColor, preConfirmed: false, isException: false },
+  { dim: "PM", name: "Cost Structure", axis: "X · Op. Cost Ratio · Y · Trend", defaultThreshold: "≤ 65.0%", dealValue: "67.8% ↓", dealColor: ds.wdwColor, preConfirmed: false, isException: true },
+];
+
+/* Policy reference rows */
+const POLICY_REFS = [
+  { dim: "PC", section: "§3.1 · DSCR", text: "Minimum DSCR 1.25x at any point in the projection horizon. Marginal compliance (<1.30x) requires a funded DSCR reserve account equal to six months of scheduled P&I.", strongText: "Minimum DSCR 1.25x", flag: "Watch", flagBand: "pw" as const },
+  { dim: "PB", section: "§3.3 · GPM", text: "Deteriorating gross margin trend triggers escalation to quarterly financial reporting covenant regardless of current level. Management commentary on cost drivers required at origination.", strongText: "Deteriorating gross margin trend", flag: "Watch", flagBand: "pw" as const },
+  { dim: "PM", section: "§3.5 · OCR", text: "Operating cost ratio exceeding 65.0% constitutes a WDW breach. Approval requires formal exception with Senior Credit Committee sign-off and documented mitigant rationale.", strongText: "Operating cost ratio exceeding 65.0%", flag: "Exception Req'd", flagBand: "wdw" as const },
+  { dim: "—", section: "§4.1 · Route", text: "Any deal with one or more WDW composite dimensions is routed to Senior Credit Committee regardless of composite score. Standard approval path does not apply.", strongText: "one or more WDW composite dimensions", flag: "SCC Required", flagBand: "wdw" as const },
+  { dim: "—", section: "§5.2 · Future", text: "Secondary SOR dimensions (collateral coverage, covenant tightness) scheduled for v2.2. Will appear here when active.", strongText: null, flag: "Pending", flagBand: "neutral" as const, italic: true },
+];
+
+/* Gate checklist items */
+const INITIAL_GATE = [
+  { id: "policy", status: "ok" as const, text: "Policy assignment confirmed", detail: "CRD-POL-007 v2.1 governing" },
+  { id: "dims", status: "ok" as const, text: "All five dimensions computed", detail: "PC, PV, PB, PQ, PM values available" },
+  { id: "thresh", status: "warn" as const, text: "Thresholds:", detail: "3 / 5 confirmed — PQ and PM require confirmation" },
+  { id: "exc", status: "block" as const, text: "PM exception:", detail: "Rationale and acknowledgment required before Yardbook can run" },
+  { id: "routing", status: "ok" as const, text: "Routing confirmed", detail: "Senior Credit Committee path, 1 WDW dimension" },
+];
+
+function PolicyStep() {
+  const [confirmed, setConfirmed] = useState<Record<string, boolean>>({
+    PC: true, PV: true, PB: true, PQ: false, PM: false,
+  });
+  const [exceptionAcknowledged, setExceptionAcknowledged] = useState(false);
+  const [rationale, setRationale] = useState("");
+  const [escSCC, setEscSCC] = useState(false);
+  const [escYardbook, setEscYardbook] = useState(false);
+  const [rationaleError, setRationaleError] = useState(false);
+
+  const confirmedCount = Object.values(confirmed).filter(Boolean).length;
+  const allThreshConfirmed = confirmedCount === 5;
+  const gateOpen = allThreshConfirmed && exceptionAcknowledged;
+  const pendingCount = (allThreshConfirmed ? 0 : 1) + (exceptionAcknowledged ? 0 : 1);
+
+  const confirmThreshold = (dim: string) => {
+    setConfirmed((prev) => ({ ...prev, [dim]: true }));
+  };
+
+  const confirmAll = () => {
+    setConfirmed({ PC: true, PV: true, PB: true, PQ: true, PM: true });
+  };
+
+  const acknowledgeException = () => {
+    if (rationale.trim().length < 10) {
+      setRationaleError(true);
+      setTimeout(() => setRationaleError(false), 2000);
+      return;
+    }
+    setExceptionAcknowledged(true);
+  };
+
+  return (
+    <>
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px 80px" }}>
+        {/* Page header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            marginBottom: 20,
+            paddingBottom: 18,
+            borderBottom: `1px solid ${ds.border}`,
+          }}
+        >
+          <div>
+            <div style={{ fontFamily: ds.fontSerif, fontSize: 22, fontStyle: "italic", color: ds.text }}>
+              Policy Alignment
+            </div>
+            <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 4, letterSpacing: "0.04em" }}>
+              DEAL · GH-2026-0083 &nbsp;|&nbsp; GreenHorizon Energy LLC &nbsp;|&nbsp;
+              Confirm policy assignment · Validate thresholds · Acknowledge exceptions before Yardbook
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <ProgressStrip confirmedCount={confirmedCount} allThresh={allThreshConfirmed} exceptionDone={exceptionAcknowledged} />
+            <GhostButton label="Confirm All" onClick={confirmAll} />
+          </div>
+        </div>
+
+        {/* ── Section 1: Policy Assignment ── */}
+        <SectionDivider label="Policy Assignment" />
+        <PolicyMatchBanner />
+
+        {/* ── Section 2: Variance chart ── */}
+        <SectionDivider label="Deal Variance to Policy Thresholds — All Dimensions" />
+        <VarianceChart />
+
+        {/* ── Section 3: Threshold + Policy ref ── */}
+        <SectionDivider label="Threshold Confirmation & Policy Reference" />
+        <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 16, marginBottom: 20 }}>
+          <ThresholdTable confirmed={confirmed} onConfirm={confirmThreshold} onConfirmAll={confirmAll} confirmedCount={confirmedCount} />
+          <PolicyRefPanel />
+        </div>
+
+        {/* ── Section 4: Exception workflow ── */}
+        <SectionDivider label="Exception Acknowledgment — Required Before Yardbook" />
+        <ExceptionPanel
+          acknowledged={exceptionAcknowledged}
+          rationale={rationale}
+          setRationale={setRationale}
+          onAcknowledge={acknowledgeException}
+          escSCC={escSCC}
+          setEscSCC={setEscSCC}
+          escYardbook={escYardbook}
+          setEscYardbook={setEscYardbook}
+          rationaleError={rationaleError}
+        />
+
+        {/* ── Section 5: Confirmation gate ── */}
+        <ConfirmationGate
+          allThreshConfirmed={allThreshConfirmed}
+          exceptionAcknowledged={exceptionAcknowledged}
+          confirmedCount={confirmedCount}
+          gateOpen={gateOpen}
+          pendingCount={pendingCount}
+          onConfirmAll={confirmAll}
+        />
+
+        <div style={{ height: 60 }} />
+      </div>
+
+      {/* Footer */}
+      <div
+        style={{
+          background: ds.surfaceDeep,
+          borderTop: `1px solid ${ds.border}`,
+          padding: "12px 28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <FooterMeta label="Policy" value="CRD-POL-007 v2.1" />
+          <FooterMeta label="Dimensions" value="PC · PV · PB · PQ · PM" />
+          <FooterMeta
+            label="Exceptions"
+            value={exceptionAcknowledged ? "1 acknowledged" : "1 pending"}
+            valueColor={exceptionAcknowledged ? ds.amber : ds.wdwColor}
+          />
+          <FooterMeta label="Confirmed" value={`${confirmedCount} / 5`} />
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            style={{
+              padding: "8px 14px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: ds.coral,
+              color: "#fff",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Recommend Decline
+          </button>
+          <GhostButton label="Confirm All Thresholds" onClick={confirmAll} />
+          <button
+            disabled={!gateOpen}
+            style={{
+              padding: "8px 16px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: ds.gold,
+              color: "#18140a",
+              border: "none",
+              cursor: gateOpen ? "pointer" : "not-allowed",
+              opacity: gateOpen ? 1 : 0.4,
+            }}
+          >
+            Advance to Yardbook →
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── Progress strip ── */
+function ProgressStrip({ confirmedCount, allThresh, exceptionDone }: { confirmedCount: number; allThresh: boolean; exceptionDone: boolean }) {
+  const dots = THRESHOLD_ROWS.map((r) => {
+    const isConfirmed = confirmedCount > ["PC", "PV", "PB", "PQ", "PM"].indexOf(r.dim);
+    if (r.isException && !exceptionDone) return "warn";
+    return isConfirmed ? "done" : "pending";
+  });
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: ds.fontMono, fontSize: 9, color: ds.textMuted }}>
+      {dots.map((d, i) => (
+        <span
+          key={i}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: d === "done" ? ds.green : d === "warn" ? ds.amber : ds.surfaceRaised,
+            border: `1px solid ${d === "done" ? ds.satBorder : d === "warn" ? ds.pwBorder : ds.border}`,
+            boxShadow: d === "warn" ? "0 0 0 3px rgba(200,168,75,0.15)" : "none",
+          }}
+        />
+      ))}
+      <span style={{ marginLeft: 4 }}>{confirmedCount} / 5 thresholds confirmed</span>
+    </span>
+  );
+}
+
+/* ── Policy Match Banner ── */
+function PolicyMatchBanner() {
+  return (
+    <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "stretch" }}>
+        {/* Policy ID */}
+        <div style={{ padding: "20px 24px", borderRight: `1px solid ${ds.border}`, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, background: ds.surfaceRaised, minWidth: 240 }}>
+          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Applied Policy</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: ds.text, letterSpacing: "-0.01em" }}>Corridor Standard<br />Credit Policy</div>
+          <div style={{ fontFamily: ds.fontMono, fontSize: 10, color: ds.gold, marginTop: 2 }}>CRD-POL-007 · v2.1 · Active</div>
+          <div style={{ fontSize: 10, color: ds.textMuted, marginTop: 4 }}>Effective Feb 10, 2026 · No sunset date</div>
+        </div>
+
+        {/* Match logic */}
+        <div style={{ padding: "16px 24px", display: "flex", alignItems: "center", flexWrap: "wrap" }}>
+          {MATCH_RULES.map((rule, i) => (
+            <div key={rule.label} style={{ display: "flex", flexDirection: "column", gap: 3, padding: "0 20px", borderRight: i < MATCH_RULES.length - 1 ? `1px solid ${ds.border}` : "none", ...(i === 0 ? { paddingLeft: 0 } : {}) }}>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>{rule.label}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: rule.valueColor || ds.text, display: "flex", alignItems: "center", gap: 5 }}>
+                {rule.value}
+                {rule.match && (
+                  <span style={{ fontFamily: ds.fontMono, fontSize: 9, color: rule.matchColor || ds.green }}>{rule.match}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div style={{ padding: "16px 20px", borderLeft: `1px solid ${ds.border}`, display: "flex", flexDirection: "column", gap: 8, justifyContent: "center", background: ds.surfaceRaised, minWidth: 180 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, color: ds.green, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: ds.green, boxShadow: "0 0 0 3px rgba(76,175,130,0.2)" }} />
+            Policy Confirmed
+          </div>
+          <ReassessButton label="↗ Open Policy Admin" />
+          <ReassessButton label="Change Policy" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Variance Chart ── */
+function VarianceChart() {
+  const axisTicks = [
+    { label: "−30%", color: ds.wdwColor },
+    { label: "−20%", color: ds.textMuted },
+    { label: "−10%", color: ds.textMuted },
+    { label: "0 · threshold", color: ds.textDim, bold: true },
+    { label: "+10%", color: ds.textMuted },
+    { label: "+20%", color: ds.textMuted },
+    { label: "+30%", color: ds.satColor },
+  ];
+
+  const legendItems = [
+    { color: ds.satColor, label: "SAT — clear headroom" },
+    { color: ds.pwColor, label: "PW — marginal" },
+    { color: ds.wdwColor, label: "WDW — breach or adverse trend" },
+    { color: "rgba(224,112,96,0.15)", border: "rgba(224,112,96,0.3)", label: "Breach zone" },
+  ];
+
+  return (
+    <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 20 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}` }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: ds.textDim, fontFamily: ds.fontMono }}>
+          Normalized Distance to Threshold · 0 = policy minimum · Right = headroom · Left = breach
+        </div>
+        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          {legendItems.map((item) => (
+            <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, fontFamily: ds.fontMono, color: ds.textMuted }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: item.color, opacity: item.border ? 1 : 0.7, border: item.border ? `1px solid ${item.border}` : "none" }} />
+              {item.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart body */}
+      <div style={{ padding: "24px 28px 20px", paddingRight: 100 }}>
+        {/* Axis row */}
+        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", marginBottom: 0 }}>
+          <div />
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "0 4px 10px", borderBottom: `1px solid ${ds.borderAccent}`, marginBottom: 18 }}>
+            {axisTicks.map((t) => (
+              <span key={t.label} style={{ fontFamily: ds.fontMono, fontSize: 9, color: t.color, fontWeight: t.bold ? 600 : 400 }}>
+                {t.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Dimension rows */}
+        {VARIANCE_DIMS.map((dim, i) => (
+          <VarianceDimRow key={dim.code} dim={dim} isLast={i === VARIANCE_DIMS.length - 1} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Variance dimension row ── */
+function VarianceDimRow({ dim, isLast }: { dim: (typeof VARIANCE_DIMS)[number]; isLast: boolean }) {
+  const maxPct = 30;
+  const barWidthPct = (dim.pctVar / maxPct) * 50;
+  const bandColors = {
+    sat: { bg: "rgba(76,175,130,0.3)", border: ds.satBorder, labelColor: ds.satColor },
+    pw: { bg: "rgba(232,160,64,0.22)", border: ds.pwBorder, labelColor: ds.pwColor },
+    wdw: { bg: "rgba(224,112,96,0.4)", border: ds.wdwBorder, labelColor: ds.wdwColor },
+  };
+  const c = bandColors[dim.band];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", alignItems: "center", marginBottom: isLast ? 0 : 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingRight: 16 }}>
+        <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ds.gold, letterSpacing: "0.04em" }}>{dim.code}</div>
+        <div style={{ fontSize: 10, color: ds.textDim }}>{dim.name}</div>
+        <div style={{ fontFamily: ds.fontMono, fontSize: 9, color: ds.textMuted }}>{dim.metric}</div>
+      </div>
+      <div style={{ position: "relative", height: 32 }}>
+        {/* Zero line */}
+        <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: ds.borderAccent, zIndex: 1 }} />
+        {/* Track bg */}
+        <div style={{ position: "absolute", inset: "6px 0", background: ds.surfaceRaised, borderRadius: 3 }} />
+        {/* Breach zone */}
+        <div style={{ position: "absolute", top: 6, bottom: 6, left: 0, width: "50%", background: "rgba(224,112,96,0.04)", borderRadius: "3px 0 0 3px" }} />
+        {/* Bar */}
+        {dim.dir === "positive" ? (
+          <div style={{ position: "absolute", top: 6, bottom: 6, left: "50%", width: `${barWidthPct}%`, background: c.bg, border: `1px solid ${c.border}`, borderRadius: "0 3px 3px 0", display: "flex", alignItems: "center" }}>
+            {/* Trend overlay for PB */}
+            {dim.code === "PB" && (
+              <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "30%", background: "repeating-linear-gradient(135deg, transparent, transparent 2px, rgba(224,112,96,0.25) 2px, rgba(224,112,96,0.25) 4px)", borderRadius: "0 3px 3px 0" }} />
+            )}
+            <span style={{ position: "absolute", left: "calc(100% + 6px)", fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: c.labelColor }}>
+              +{dim.pctVar}%{dim.trend && <> <span style={{ color: dim.trend.includes("↓") ? ds.coral : ds.green }}>{dim.trend}</span></>}
+            </span>
+          </div>
+        ) : (
+          <div style={{ position: "absolute", top: 6, bottom: 6, right: "50%", width: `${barWidthPct}%`, background: c.bg, border: `1px solid ${c.border}`, borderRadius: "3px 0 0 3px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+            <span style={{ position: "absolute", right: "calc(100% + 6px)", fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: ds.wdwColor }}>
+              −{dim.pctVar}% breach{dim.trend && <> <span>{dim.trend}</span></>}
+            </span>
+          </div>
+        )}
+        {/* Threshold label */}
+        <span style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", fontFamily: ds.fontMono, fontSize: 8, color: ds.textMuted, whiteSpace: "nowrap", background: ds.surface, padding: "0 4px" }}>
+          {dim.threshold}
+        </span>
+        {/* Band chip */}
+        <span style={{ position: "absolute", right: -80, top: "50%", transform: "translateY(-50%)" }}>
+          <Chip label={dim.band.toUpperCase()} band={dim.band} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Threshold Table ── */
+function ThresholdTable({ confirmed, onConfirm, onConfirmAll, confirmedCount }: {
+  confirmed: Record<string, boolean>;
+  onConfirm: (dim: string) => void;
+  onConfirmAll: () => void;
+  confirmedCount: number;
+}) {
+  return (
+    <Panel title="Threshold Confirmation" sub="These values will be locked into the Yardbook prompt. Edit requires rationale." chipRight={{ label: `${confirmedCount} / 5`, band: "neutral" }}>
+      <div style={{ padding: 0 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${ds.border}` }}>
+              {["Dim", "Dimension", "Axis", "Threshold", "Deal Value", "Status"].map((h, i) => (
+                <th key={h} style={{ fontFamily: ds.fontMono, fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, padding: "0 8px 10px", textAlign: i === 5 ? "center" : "left", ...(i === 0 ? { paddingLeft: 18 } : {}), ...(i === 5 ? { paddingRight: 18 } : {}) }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {THRESHOLD_ROWS.map((row) => {
+              const isConfirmed = confirmed[row.dim];
+              return (
+                <tr key={row.dim} style={{ borderBottom: `1px solid ${ds.border}` }}>
+                  <td style={{ padding: "10px 8px", paddingLeft: 18 }}>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ds.gold, letterSpacing: "0.04em" }}>{row.dim}</span>
+                  </td>
+                  <td style={{ padding: "10px 8px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: ds.text }}>{row.name}</span>
+                  </td>
+                  <td style={{ padding: "10px 8px" }}>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 10, color: ds.textDim }}>{row.axis}</span>
+                  </td>
+                  <td style={{ padding: "10px 8px" }}>
+                    <span style={{
+                      fontFamily: ds.fontMono,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: isConfirmed ? ds.textDim : ds.text,
+                      background: "transparent",
+                      border: `1px solid ${isConfirmed ? "transparent" : ds.border}`,
+                      borderRadius: 4,
+                      padding: "3px 6px",
+                      display: "inline-block",
+                      textAlign: "center",
+                      width: 80,
+                    }}>
+                      {row.defaultThreshold}
+                    </span>
+                  </td>
+                  <td style={{ padding: "10px 8px" }}>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: row.dealColor }}>{row.dealValue}</span>
+                  </td>
+                  <td style={{ padding: "10px 8px", paddingRight: 18, textAlign: "center" }}>
+                    {isConfirmed ? (
+                      row.isException ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, width: 80, height: 26, borderRadius: 4, fontFamily: ds.fontMono, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.wdwBg, color: ds.wdwColor, border: `1px solid ${ds.wdwBorder}` }}>Exception</span>
+                      ) : (
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, width: 80, height: 26, borderRadius: 4, fontFamily: ds.fontMono, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.greenDim, color: ds.green, border: `1px solid ${ds.satBorder}` }}>✓ Locked</span>
+                      )
+                    ) : (
+                      <button
+                        onClick={() => onConfirm(row.dim)}
+                        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 80, height: 26, borderRadius: 4, cursor: "pointer", fontFamily: ds.fontMono, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.surfaceRaised, color: ds.textMuted, border: `1px solid ${ds.border}` }}
+                      >
+                        Confirm
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ padding: "12px 18px", borderTop: `1px solid ${ds.border}`, background: ds.surfaceRaised, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 10, color: ds.textMuted, fontFamily: ds.fontMono }}>
+          Locked thresholds are read-only for this assessment run. Editing requires a rationale note.
+        </span>
+        <ReassessButton label="Unlock All for Edit" />
+      </div>
+    </Panel>
+  );
+}
+
+/* ── Policy Reference Panel ── */
+function PolicyRefPanel() {
+  return (
+    <Panel title="Policy Reference — Flagged Provisions" sub="Sections implicated by PW / WDW dimensions in this deal" action="↗ Full Policy Doc">
+      <div style={{ padding: "16px 18px" }}>
+        {POLICY_REFS.map((ref, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 0", borderBottom: i < POLICY_REFS.length - 1 ? `1px solid ${ds.border}` : "none" }}>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, color: ref.dim === "—" ? ds.textMuted : ds.gold, width: 24, flexShrink: 0, paddingTop: 1 }}>{ref.dim}</div>
+            <div style={{ fontSize: 9, fontFamily: ds.fontMono, color: ds.textMuted, width: 80, flexShrink: 0, paddingTop: 2 }}>{ref.section}</div>
+            <div style={{ fontSize: 11, color: ref.italic ? ds.textMuted : ds.textDim, lineHeight: 1.5, flex: 1, fontStyle: ref.italic ? "italic" : "normal" }}>
+              {ref.strongText ? (
+                <>
+                  <strong style={{ color: ds.text, fontWeight: 600 }}>{ref.strongText}</strong>{" "}
+                  {ref.text.replace(ref.strongText, "").trim()}
+                </>
+              ) : ref.text}
+            </div>
+            <PolicyRefFlag label={ref.flag} band={ref.flagBand} />
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function PolicyRefFlag({ label, band }: { label: string; band: "sat" | "pw" | "wdw" | "neutral" }) {
+  const styles: Record<string, { bg: string; color: string; border: string }> = {
+    sat: { bg: ds.satBg, color: ds.satColor, border: ds.satBorder },
+    pw: { bg: ds.pwBg, color: ds.pwColor, border: ds.pwBorder },
+    wdw: { bg: ds.wdwBg, color: ds.wdwColor, border: ds.wdwBorder },
+    neutral: { bg: "transparent", color: ds.textMuted, border: ds.border },
+  };
+  const s = styles[band];
+  return (
+    <span style={{ fontFamily: ds.fontMono, fontSize: 9, fontWeight: 600, textTransform: "uppercase", padding: "2px 6px", borderRadius: 3, flexShrink: 0, whiteSpace: "nowrap", marginTop: 1, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
+      {label}
+    </span>
+  );
+}
+
+/* ── Exception Panel ── */
+function ExceptionPanel({
+  acknowledged,
+  rationale,
+  setRationale,
+  onAcknowledge,
+  escSCC,
+  setEscSCC,
+  escYardbook,
+  setEscYardbook,
+  rationaleError,
+}: {
+  acknowledged: boolean;
+  rationale: string;
+  setRationale: (v: string) => void;
+  onAcknowledge: () => void;
+  escSCC: boolean;
+  setEscSCC: (v: boolean) => void;
+  escYardbook: boolean;
+  setEscYardbook: (v: boolean) => void;
+  rationaleError: boolean;
+}) {
+  return (
+    <div style={{ background: ds.surface, border: `1px solid ${ds.wdwBorder}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 20 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: "rgba(224,112,96,0.06)", borderBottom: `1px solid ${ds.wdwBorder}` }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.wdwColor, fontFamily: ds.fontMono, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13 }}>⚠</span>
+          WDW Exception · 1 dimension requires formal acknowledgment
+        </div>
+        <div style={{ fontFamily: ds.fontMono, fontSize: 10, color: acknowledged ? ds.amber : ds.wdwColor }}>
+          {acknowledged ? "1 / 1 acknowledged" : "0 / 1 acknowledged"}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ display: "grid", gridTemplateColumns: "200px 1fr auto", alignItems: "stretch", borderBottom: "none" }}>
+        {/* Dim info */}
+        <div style={{ padding: "14px 18px", borderRight: `1px solid ${ds.border}`, display: "flex", flexDirection: "column", justifyContent: "center", gap: 4 }}>
+          <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ds.wdwColor }}>PM</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: ds.text }}>Cost Structure — OCR</div>
+          <div style={{ fontSize: 10, color: ds.textDim, fontFamily: ds.fontMono, marginTop: 2 }}>
+            Actual: <span style={{ color: ds.wdwColor, fontWeight: 600 }}>67.8%</span> / Policy max: <span style={{ color: ds.wdwColor, fontWeight: 600 }}>65.0%</span>
+            <br />
+            Breach: <span style={{ color: ds.wdwColor, fontWeight: 600 }}>+2.8 ppt</span> · Trend: <span style={{ color: ds.wdwColor, fontWeight: 600 }}>↓ deteriorating</span>
+          </div>
+        </div>
+
+        {/* Rationale */}
+        <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>
+            Mitigant Rationale <span style={{ color: ds.wdwColor }}>*required</span>
+          </div>
+          <textarea
+            value={rationale}
+            onChange={(e) => setRationale(e.target.value)}
+            placeholder="Describe the structural mitigant or business justification that supports approval despite the OCR breach…"
+            style={{
+              background: ds.surfaceDeep,
+              border: `1px solid ${rationaleError ? ds.wdwColor : rationale.length > 10 ? "rgba(232,160,64,0.35)" : ds.border}`,
+              borderRadius: ds.radius,
+              color: ds.text,
+              fontFamily: ds.fontSerif,
+              fontStyle: "italic",
+              fontSize: 12,
+              lineHeight: 1.6,
+              padding: "8px 10px",
+              outline: "none",
+              resize: "none",
+              minHeight: 56,
+              width: "100%",
+              ...(rationale.length > 10 ? { background: "rgba(232,160,64,0.04)" } : {}),
+            }}
+          />
+        </div>
+
+        {/* Actions */}
+        <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8, justifyContent: "center", borderLeft: `1px solid ${ds.border}`, minWidth: 160 }}>
+          <div>
+            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 6 }}>Escalation</div>
+            <ExcCheckbox label="Flag for SCC pre-discussion" checked={escSCC} onChange={() => setEscSCC(!escSCC)} />
+          </div>
+          <div>
+            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 6 }}>Yardbook context</div>
+            <ExcCheckbox label="Pass rationale to Yardbook" checked={escYardbook} onChange={() => setEscYardbook(!escYardbook)} />
+          </div>
+          <button
+            onClick={onAcknowledge}
+            disabled={acknowledged}
+            style={{
+              width: "100%",
+              padding: 7,
+              borderRadius: ds.radius,
+              cursor: acknowledged ? "default" : "pointer",
+              fontFamily: ds.fontMono,
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              border: "none",
+              ...(acknowledged
+                ? { background: ds.amberDim, color: ds.amber, border: `1px solid rgba(232,160,64,0.4)` }
+                : { background: ds.wdwBg, color: ds.wdwColor, border: `1px solid ${ds.wdwBorder}` }),
+            }}
+          >
+            {acknowledged ? "✓ Exception Acknowledged" : "Acknowledge Exception"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExcCheckbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+  return (
+    <div
+      onClick={onChange}
+      style={{ display: "flex", alignItems: "center", gap: 7, background: ds.surfaceRaised, border: `1px solid ${ds.border}`, borderRadius: ds.radius, padding: "7px 10px", cursor: "pointer" }}
+    >
+      <div style={{
+        width: 14,
+        height: 14,
+        borderRadius: 3,
+        border: `1px solid ${checked ? "rgba(232,160,64,0.5)" : ds.border}`,
+        background: checked ? ds.amberDim : ds.surfaceDeep,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 9,
+        fontWeight: 700,
+        color: ds.amber,
+      }}>
+        {checked && "✓"}
+      </div>
+      <div style={{ fontSize: 10, color: ds.textDim, fontFamily: ds.fontMono }}>{label}</div>
+    </div>
+  );
+}
+
+/* ── Confirmation Gate ── */
+function ConfirmationGate({
+  allThreshConfirmed,
+  exceptionAcknowledged,
+  confirmedCount,
+  gateOpen,
+  pendingCount,
+  onConfirmAll,
+}: {
+  allThreshConfirmed: boolean;
+  exceptionAcknowledged: boolean;
+  confirmedCount: number;
+  gateOpen: boolean;
+  pendingCount: number;
+  onConfirmAll: () => void;
+}) {
+  const gateItems = INITIAL_GATE.map((item) => {
+    if (item.id === "thresh") {
+      return allThreshConfirmed
+        ? { ...item, status: "ok" as const, text: "All thresholds confirmed", detail: "locked for this assessment run" }
+        : { ...item, status: "warn" as const, text: "Thresholds:", detail: `${confirmedCount} / 5 confirmed — ${["PC", "PV", "PB", "PQ", "PM"].filter((d) => !({ PC: true, PV: true, PB: true, PQ: confirmedCount >= 4, PM: confirmedCount >= 5 })[d]).join(", ") || "PM"} pending` };
+    }
+    if (item.id === "exc") {
+      return exceptionAcknowledged
+        ? { ...item, status: "ok" as const, text: "PM exception acknowledged", detail: "rationale captured, routing to SCC" }
+        : item;
+    }
+    return item;
+  });
+
+  return (
+    <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 20 }}>
+      <div style={{ padding: "12px 18px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>
+          Yardbook Unlock Gate — All conditions must be met before advancing
+        </div>
+        <div style={{ fontFamily: ds.fontMono, fontSize: 10, color: gateOpen ? ds.green : ds.wdwColor }}>
+          {gateOpen ? "READY — Yardbook unlocked" : `BLOCKED · ${pendingCount} item${pendingCount !== 1 ? "s" : ""} pending`}
+        </div>
+      </div>
+      <div style={{ padding: "20px 18px", display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {gateItems.map((item) => (
+            <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11 }}>
+              <div style={{
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                fontSize: 9,
+                fontWeight: 700,
+                ...(item.status === "ok"
+                  ? { background: ds.greenDim, color: ds.green, border: `1px solid ${ds.satBorder}` }
+                  : item.status === "warn"
+                    ? { background: ds.amberDim, color: ds.amber, border: `1px solid ${ds.pwBorder}` }
+                    : { background: ds.wdwBg, color: ds.wdwColor, border: `1px solid ${ds.wdwBorder}` }),
+              }}>
+                {item.status === "ok" ? "✓" : item.status === "warn" ? "!" : "✕"}
+              </div>
+              <div style={{ color: ds.textDim }}>
+                <strong style={{ color: ds.text, fontWeight: 600 }}>{item.text}</strong> — {item.detail}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 200 }}>
+          <div style={{ fontSize: 10, color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 8, textAlign: "center", lineHeight: 1.5 }}>
+            Confirming will lock thresholds<br />and pass exception context<br />to CRDR_PROMPT_16
+          </div>
+          <button
+            disabled={!gateOpen}
+            style={{
+              padding: "8px 16px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: ds.gold,
+              color: "#18140a",
+              border: "none",
+              cursor: gateOpen ? "pointer" : "not-allowed",
+              opacity: gateOpen ? 1 : 0.4,
+            }}
+          >
+            Launch Yardbook →
+          </button>
+          <GhostButton label="Quick-confirm all thresholds" onClick={onConfirmAll} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
 /*  Shared components                                                  */
 /* ================================================================== */
 
@@ -729,9 +1496,9 @@ function SessionChip() {
   );
 }
 
-function GhostButton({ label }: { label: string }) {
+function GhostButton({ label, onClick }: { label: string; onClick?: () => void }) {
   return (
-    <button style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer", whiteSpace: "nowrap" }}>
+    <button onClick={onClick} style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer", whiteSpace: "nowrap" }}>
       {label}
     </button>
   );
