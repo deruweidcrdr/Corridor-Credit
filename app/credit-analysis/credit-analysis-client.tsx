@@ -165,7 +165,7 @@ export default function CreditAnalysisClient() {
         {/* ── Step content ── */}
         {activeStep === 1 && <DealValueStep />}
         {activeStep === 2 && <PolicyStep />}
-        {activeStep === 3 && <ComingSoon label="Yardbook Assembly" />}
+        {activeStep === 3 && <YardbookStep />}
         {activeStep === 4 && <ComingSoon label="Approval" />}
       </div>
     </div>
@@ -1395,6 +1395,386 @@ function ConfirmationGate({
           </button>
           <GhostButton label="Quick-confirm all thresholds" onClick={onConfirmAll} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  STEP 3 — Yardbook Assembly                                         */
+/* ================================================================== */
+
+const NARRATIVES: Record<string, { fullName: string; text: string }> = {
+  PC: {
+    fullName: "Primary Coverage — Minimum DSCR at Stress Point",
+    text: "GreenHorizon's debt service coverage reaches its local minimum in Q1 of each projection year, driven by the confluence of reduced solar generation during the low-irradiance winter period and the semi-annual debt service obligation that falls in February. At the stress point, projected DSCR of 1.28x clears the policy threshold of 1.25x but with only 240 basis points of headroom — insufficient to absorb a material revenue shortfall without breach. The trajectory of the stress-point coverage is stable, meaning this is not a structural deterioration but an embedded seasonal feature of the asset. The mitigating factors are the predictability of the trough — it is not stochastic but schedule-driven — and the offtake agreement that floors revenue at a level above the stress scenario. However, the compressed headroom warrants the PW classification and reinforces the case for a funded DSCR reserve account as a structural condition of approval.",
+  },
+  PV: {
+    fullName: "Portfolio Value Coverage — Loan Life Coverage Ratio",
+    text: "The loan life coverage ratio of 1.45x confirms that the cumulative value of projected cash flows available for debt service, discounted at the policy rate, exceeds outstanding debt by a meaningful margin. This is the structural solvency counterweight to the point-in-time stress captured by PC — even if individual periods are compressed, the total proposition over the loan life is positive. The stable trend on LLCR reflects consistent project economics through the projection horizon, with no material step-down in generation capacity or contracted revenue anticipated. The SAT classification here is well-founded and provides a foundation for the conditioned approval recommendation: the obligor is not impaired, it is seasonally pressured.",
+  },
+  PB: {
+    fullName: "Business Trend — Gross Profit Margin Trajectory",
+    text: "GreenHorizon's gross profit margin of 48.3% currently clears the SAT threshold, but the deteriorating trend over the trailing projection period — approximately 180 basis points of compression per year — is the most consequential forward-looking signal in this assessment. The compression originates from operating and maintenance costs growing at a faster rate than contracted generation revenue, a pattern consistent with early-phase equipment aging in utility-scale solar assets. If this trajectory continues at the current rate, the stress-point DSCR will breach the policy threshold in year 4 of the loan. This forward pressure is the primary driver of the quarterly financial reporting condition and the elevated monitoring classification. The PW composite reflects the adequate current level offset by an adverse trend that requires active surveillance.",
+  },
+  PQ: {
+    fullName: "Liquidity Quality — Current Ratio",
+    text: "The current ratio of 1.62x and its improving trend represent the most constructive data point in this assessment. GreenHorizon's near-term financial flexibility has been building, driven by the accumulation of operating cash flows in advance of the scheduled capital expenditure cycle and the reduction of accounts payable to contracted vendors. This liquidity buffer is the principal absorber of the Q1 seasonal coverage compression — the obligor does not need to draw on credit facilities or impair trade relationships to navigate the trough. The SAT composite here, and particularly the improving trend, provides meaningful offset to the PB and PM concerns and supports the overall conditioned approval rather than special mention routing.",
+  },
+  PM: {
+    fullName: "Cost Structure Management — Operating Cost Ratio",
+    text: "The operating cost ratio of 67.8% is elevated relative to the policy threshold of 65.0%, and the deteriorating trend — the most adverse band in the assessment — reflects systematic cost growth that is outpacing revenue growth. Labor, insurance, and scheduled maintenance costs are all trending upward on a per-megawatt-hour basis as the asset ages, and the contracted revenue escalators do not fully offset these increases. The WDW trend classification is the governing band for the PM composite, producing the only WDW dimension result in the assessment. Critically, this cost structure pressure is not yet manifesting in coverage breach — the current ratio and LLCR provide adequate buffer — but it represents the trajectory risk that must be monitored actively and was the proximate driver of the composite PW recommendation rather than SAT.",
+  },
+};
+
+const DIM_CARDS_DATA = [
+  { code: "PC", name: "Primary Coverage", metric: "Min DSCR at Stress Point", axes: [{ label: "X · Level", value: "1.28x", band: "pw" as const }, { label: "Y · Trend", value: "STABLE", band: "pw" as const }], composite: "pw" as const },
+  { code: "PV", name: "Portfolio Value", metric: "Loan Life Coverage Ratio", axes: [{ label: "X · Level", value: "1.45x", band: "sat" as const }, { label: "Y · Trend", value: "STABLE", band: "sat" as const }], composite: "sat" as const },
+  { code: "PB", name: "Business Trend", metric: "Gross Profit Margin", axes: [{ label: "X · Level", value: "48.3%", band: "sat" as const }, { label: "Y · Trend", value: "DETERIORATING", band: "pw" as const }], composite: "pw" as const },
+  { code: "PQ", name: "Liquidity Quality", metric: "Current Ratio", axes: [{ label: "X · Level", value: "1.62x", band: "sat" as const }, { label: "Y · Trend", value: "IMPROVING", band: "sat" as const }], composite: "sat" as const },
+  { code: "PM", name: "Cost Structure", metric: "Operating Cost Ratio", axes: [{ label: "X · Level", value: "67.8%", band: "pw" as const }, { label: "Y · Trend", value: "DETERIORATING", band: "wdw" as const }], composite: "wdw" as const },
+];
+
+const CONDITIONS_DATA = [
+  { num: 1, title: "Updated FIRREA-compliant appraisal within 60 days of closing", trigger: "Triggered by: PV dimension — collateral appraisal age exceeds policy threshold", tag: "Pre-Close" },
+  { num: 2, title: "Quarterly financial reporting covenant (not semi-annual as proposed)", trigger: "Triggered by: PB/PM deteriorating trend — increased monitoring frequency warranted", tag: "Covenant" },
+  { num: 3, title: "DSCR reserve account funded to 6 months of P&I at closing", trigger: "Triggered by: PC stress point compression — structural mitigant required", tag: "Structural" },
+];
+
+const RISK_TEXT = "The primary risk factor is the compression of debt service coverage at the seasonal trough — a function of reduced solar generation in Q1 intersecting with semi-annual debt service obligations. This is a structural feature of the asset class rather than an idiosyncratic weakness, and it is observable, predictable, and mitigable through reserve account requirements. Secondary risk factors include the sustained deterioration in gross profit margin, which has declined approximately 180 basis points over the trailing projection period, and the elevated operating cost ratio, which is trending adversely as labor and maintenance costs grow faster than generation revenue. Mitigants include the long-term offtake agreement with investment-grade counterparties providing revenue certainty through 2034, the DSCR reserve account funded to six months of debt service, and the improving current ratio which indicates adequate near-term liquidity buffer despite the coverage compression at the stress point.";
+
+const SYNTHESIS_TEXT = "GreenHorizon demonstrates adequate coverage at the temporal minimum, but with compressed headroom that warrants conditioned approval. The seasonal revenue trough in Q1 drives the stress point, and while LLCR confirms cumulative solvency, the deteriorating gross margin trend and elevated operating cost ratio signal structural pressure on future coverage capacity that should be mitigated through enhanced covenant monitoring and semi-annual financial review.";
+
+function YardbookStep() {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [validated, setValidated] = useState<Record<string, boolean>>({ PC: true, PV: false, PB: false, PQ: false, PM: false });
+  const [overridden, setOverridden] = useState<Record<string, boolean>>({ PC: false, PV: false, PB: false, PQ: false, PM: false });
+
+  const validatedCount = Object.values(validated).filter(Boolean).length;
+  const overrideCount = Object.values(overridden).filter(Boolean).length;
+  const allValidated = validatedCount === 5;
+
+  const toggleCard = (dim: string) => {
+    setExpanded((prev) => (prev === dim ? null : dim));
+  };
+
+  const validateDim = (dim: string) => {
+    setValidated((prev) => ({ ...prev, [dim]: true }));
+  };
+
+  const validateAll = () => {
+    setValidated({ PC: true, PV: true, PB: true, PQ: true, PM: true });
+  };
+
+  return (
+    <>
+      <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px 80px" }}>
+        {/* Page header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${ds.border}` }}>
+          <div>
+            <div style={{ fontFamily: ds.fontSerif, fontSize: 22, fontStyle: "italic", color: ds.text, letterSpacing: "-0.01em" }}>
+              Yardbook Credit Narrative
+            </div>
+            <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 4, letterSpacing: "0.04em" }}>
+              DEAL · GH-2026-0083 &nbsp;|&nbsp; COUNTERPARTY · GreenHorizon Energy LLC &nbsp;|&nbsp;
+              POLICY · CRD-POL-007 &nbsp;|&nbsp; RUN DATE · 2026-02-26
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <GhostButton label="↺  Re-run Yardbook" />
+            <GhostButton label="⤓  Export PDF" />
+          </div>
+        </div>
+
+        {/* Composite rating banner */}
+        <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: "20px 24px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 24, alignItems: "center", marginBottom: 24, position: "relative", overflow: "hidden" }}>
+          {/* Left accent bar */}
+          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: ds.pwColor }} />
+          {/* Composite badge */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono }}>Composite</div>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 36, fontWeight: 500, lineHeight: 1, color: ds.pwColor }}>6.2</div>
+            <Chip label="PW" band="pw" />
+          </div>
+          {/* Meta */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", gap: 32 }}>
+              <YBMetaItem label="Reg Classification" value={<span style={{ display: "inline-flex", alignItems: "center", fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 10px", borderRadius: 20, background: ds.amberDim, color: ds.amber, border: "1px solid rgba(232,160,64,0.35)" }}>Special Mention</span>} />
+              <YBMetaItem label="Routing" value={<span style={{ color: ds.pwColor }}>APPROVE WITH CONDITIONS</span>} />
+              <YBMetaItem label="Approval Path" value="SENIOR CREDIT COMMITTEE" />
+              <YBMetaItem label="Stress Point" value="Q1 SEASONAL TROUGH" />
+            </div>
+            {/* Score bar */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                <span style={{ fontSize: 9, fontFamily: ds.fontMono, color: ds.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>Continuous Score Range</span>
+                <span style={{ fontSize: 11, fontFamily: ds.fontMono, fontWeight: 500, color: ds.text }}>6.2 / 10</span>
+              </div>
+              <div style={{ height: 3, background: ds.surfaceRaised, borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: "62%", borderRadius: 2, background: `linear-gradient(90deg, ${ds.pwColor}, ${ds.gold})` }} />
+              </div>
+            </div>
+          </div>
+          {/* Synthesis */}
+          <div style={{ fontFamily: ds.fontSerif, fontStyle: "italic", fontSize: 14, lineHeight: 1.65, color: ds.textDim, maxWidth: 580, paddingLeft: 20, borderLeft: `2px solid ${ds.borderAccent}` }}>
+            {SYNTHESIS_TEXT}
+          </div>
+        </div>
+
+        {/* Validation track */}
+        <YBSectionHeader title="Dimension Validation Status" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 24 }}>
+          {["PC", "PV", "PB", "PQ", "PM"].map((dim) => (
+            <div key={dim} style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radius, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                background: validated[dim] ? (overridden[dim] ? ds.amber : ds.green) : ds.textMuted,
+                boxShadow: validated[dim] ? `0 0 0 3px ${overridden[dim] ? "rgba(232,160,64,0.2)" : "rgba(76,175,130,0.2)"}` : "none",
+              }} />
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: ds.textDim, fontFamily: ds.fontMono, letterSpacing: "0.04em" }}>{dim}</div>
+                <div style={{ fontSize: 9, color: ds.textMuted, fontFamily: ds.fontMono }}>
+                  {validated[dim] ? (overridden[dim] ? "Overridden" : "Validated") : "Pending"}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Dimension cards */}
+        <YBSectionHeader title="Five Dimensions — Click to Expand Narrative" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
+          {DIM_CARDS_DATA.map((card) => (
+            <DimCard
+              key={card.code}
+              card={card}
+              isExpanded={expanded === card.code}
+              isOverridden={overridden[card.code]}
+              onClick={() => toggleCard(card.code)}
+            />
+          ))}
+        </div>
+
+        {/* Narrative expansion panel */}
+        {expanded && (
+          <NarrativePanel
+            dim={expanded}
+            validated={validated[expanded]}
+            overridden={overridden[expanded]}
+            onValidate={() => validateDim(expanded)}
+            onOverride={() => setOverridden((prev) => ({ ...prev, [expanded]: !prev[expanded] }))}
+            onClose={() => setExpanded(null)}
+          />
+        )}
+
+        {/* Risk factors */}
+        <RiskFactorsSection />
+
+        <div style={{ height: 1, background: ds.border, margin: "24px 0" }} />
+
+        {/* Conditions */}
+        <ConditionsSection />
+
+        <div style={{ height: 60 }} />
+      </div>
+
+      {/* Footer */}
+      <div style={{ background: ds.surfaceDeep, borderTop: `1px solid ${ds.border}`, padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textMuted, letterSpacing: "0.04em" }}>
+            Status: <strong style={{ color: allValidated ? ds.green : ds.textDim }}>{allValidated ? "READY FOR APPROVAL" : "PENDING VALIDATION"}</strong>
+          </div>
+          <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textMuted }}>
+            Validated: <strong style={{ color: ds.textDim }}>{validatedCount} / 5</strong> dimensions
+          </div>
+          {overrideCount > 0 && (
+            <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textMuted }}>
+              Overrides: <strong style={{ color: ds.amber }}>{overrideCount}</strong>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <GhostButton label="Validate All" onClick={validateAll} />
+          <button style={{ padding: "8px 14px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.coral, border: `1px solid rgba(224,112,96,0.35)`, cursor: "pointer" }}>
+            Recommend Decline
+          </button>
+          <button style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.gold, color: "#18140a", border: "none", cursor: "pointer" }}>
+            Advance for Approval
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function YBMetaItem({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <span style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: ds.text, fontFamily: ds.fontMono }}>{typeof value === "string" ? value : value}</span>
+    </div>
+  );
+}
+
+function YBSectionHeader({ title }: { title: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: ds.textMuted, fontFamily: ds.fontMono, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ display: "inline-block", width: 16, height: 1, background: ds.borderAccent }} />
+        {title}
+      </div>
+    </div>
+  );
+}
+
+function DimCard({ card, isExpanded, isOverridden, onClick }: {
+  card: (typeof DIM_CARDS_DATA)[number];
+  isExpanded: boolean;
+  isOverridden: boolean;
+  onClick: () => void;
+}) {
+  const bandColors = { sat: ds.satColor, pw: ds.pwColor, wdw: ds.wdwColor };
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: ds.surface,
+        border: `1px solid ${isExpanded ? "rgba(200,168,75,0.25)" : ds.border}`,
+        borderRadius: ds.radiusLg,
+        overflow: "hidden",
+        cursor: "pointer",
+        transition: "all 0.18s",
+        boxShadow: isExpanded ? "0 0 0 1px rgba(200,168,75,0.12)" : "none",
+      }}
+    >
+      <div style={{ padding: "14px 16px 12px", borderBottom: `1px solid ${ds.border}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 500, letterSpacing: "0.1em", color: ds.textMuted, marginBottom: 2 }}>{card.code}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: ds.text, letterSpacing: "-0.01em" }}>{card.name}</div>
+            <div style={{ fontSize: 10, color: ds.textMuted, marginTop: 2 }}>{card.metric}</div>
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {isOverridden && (
+              <span style={{ fontFamily: ds.fontMono, fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: ds.amberDim, color: ds.amber, border: "1px solid rgba(232,160,64,0.3)", padding: "1px 6px", borderRadius: 3 }}>OVR</span>
+            )}
+            <span style={{ fontSize: 9, color: ds.textMuted, transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "none" }}>▶</span>
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: "14px 16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+          {card.axes.map((axis) => (
+            <div key={axis.label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              <div style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>{axis.label}</div>
+              <div style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: ds.text }}>{axis.value}</div>
+              <Chip label={axis.band.toUpperCase()} band={axis.band} />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}`, marginTop: 2 }}>
+          <span style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Composite</span>
+          <Chip label={card.composite.toUpperCase()} band={card.composite} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NarrativePanel({ dim, validated: isValidated, overridden: isOverridden, onValidate, onOverride, onClose }: {
+  dim: string;
+  validated: boolean;
+  overridden: boolean;
+  onValidate: () => void;
+  onOverride: () => void;
+  onClose: () => void;
+}) {
+  const n = NARRATIVES[dim];
+  if (!n) return null;
+  return (
+    <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ds.gold, letterSpacing: "0.06em" }}>{dim}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: ds.text }}>{n.fullName}</span>
+          {isOverridden && (
+            <span style={{ fontFamily: ds.fontMono, fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: ds.amberDim, color: ds.amber, border: "1px solid rgba(232,160,64,0.3)", padding: "1px 6px", borderRadius: 3 }}>Override Active</span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={(e) => { e.stopPropagation(); onOverride(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer" }}>
+            {isOverridden ? "↩ Clear Override" : "✎ Override Narrative"}
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onValidate(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", border: "none", cursor: "pointer", ...(isValidated ? { background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}` } : { background: ds.green, color: "#0e1f18" }) }}>
+            {isValidated ? "✓ Validated" : "Validate"}
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 10, fontWeight: 700, background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer" }}>✕</button>
+        </div>
+      </div>
+      <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr auto", gap: 24 }}>
+        <div style={{ fontFamily: ds.fontSerif, fontStyle: "italic", fontSize: 14, lineHeight: 1.75, color: ds.textDim }}>
+          {n.text}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 180 }}>
+          <div style={{ padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}` }}>
+            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Validation</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: isValidated ? ds.green : ds.textMuted, boxShadow: isValidated ? "0 0 0 3px rgba(76,175,130,0.2)" : "none" }} />
+              <span style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textDim }}>{isValidated ? "Validated" : "Pending"}</span>
+            </div>
+          </div>
+          <div style={{ padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}` }}>
+            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Source</div>
+            <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: isOverridden ? ds.amber : ds.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              {isOverridden ? "Manual Override" : <>YARDBOOK_v1<br />CRDR_PROMPT_16</>}
+            </div>
+          </div>
+          <div style={{ padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}` }}>
+            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Run Date</div>
+            <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textDim, marginTop: 4 }}>2026-02-26</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RiskFactorsSection() {
+  return (
+    <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}` }}>
+        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>Risk Factors & Mitigants</div>
+        <ReassessButton label="Edit" />
+      </div>
+      <div style={{ padding: "16px 20px" }}>
+        <div style={{ fontFamily: ds.fontSerif, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.75, color: ds.textDim }}>
+          {RISK_TEXT}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConditionsSection() {
+  return (
+    <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}` }}>
+        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>Conditions of Approval</div>
+        <ReassessButton label="+ Add Condition" />
+      </div>
+      <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {CONDITIONS_DATA.map((c) => (
+          <div key={c.num} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}` }}>
+            <div style={{ marginTop: 2, width: 16, height: 16, borderRadius: 3, background: ds.pwBg, border: `1px solid ${ds.pwBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <span style={{ color: ds.pwColor, fontSize: 9, fontWeight: 700 }}>{c.num}</span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: ds.text }}>{c.title}</div>
+              <div style={{ fontSize: 10, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 2 }}>{c.trigger}</div>
+            </div>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 9, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "2px 8px", borderRadius: 3, background: ds.pwBg, color: ds.pwColor, border: `1px solid ${ds.pwBorder}` }}>{c.tag}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
