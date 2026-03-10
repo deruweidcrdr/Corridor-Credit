@@ -189,3 +189,8 @@ The demo shows the full pipeline: email arrives with CIM and term sheet → docu
 - Don't create throwaway prototypes. Everything built here should be production-path code.
 - Don't use generic placeholder data when Solar Valley scenario data is available.
 - Don't spread related information across many small pages. Credit analysts need information density.
+
+
+## Design System
+
+Apply the design system defined in DESIGN_SYSTEM.md. Use Syne for body/UI text, DM Mono for all data values and codes, and Instrument Serif italic for narrative/LLM-generated text only. Background #1e2128, surfaces #252930 / #2c3038. SAT = #4caf82, PW = #e8a040, WDW = #e07060. Gold #c8a84b for primary actions. Match panel, chip, button, and section divider patterns exactly as specified.
