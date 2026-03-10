@@ -239,7 +239,7 @@ function DocumentStep({
 
       {/* Statement selector row */}
       <div
-        className={`px-5 py-2.5 border-b ${BORDER} flex items-center gap-5 shrink-0`}
+        className={`px-5 py-2.5 border-b ${BORDER} flex items-center justify-between shrink-0`}
       >
         <div className="flex items-center gap-2">
           <span
@@ -253,6 +253,16 @@ function DocumentStep({
             <ChevronDownIcon />
           </span>
         </div>
+        <button
+          className="text-sm px-4 py-1.5 rounded font-medium transition-colors border"
+          style={{
+            backgroundColor: GOLD,
+            borderColor: GOLD,
+            color: "#0b0f15",
+          }}
+        >
+          Validate Financial Statement
+        </button>
       </div>
 
       {/* Three-panel content */}
@@ -468,19 +478,9 @@ function DocumentStep({
         {/* RIGHT: Action & edit panel */}
         <div className="w-[260px] shrink-0 flex flex-col">
           <div
-            className={`px-4 py-2.5 border-b ${BORDER} flex items-center justify-between gap-2`}
+            className={`px-4 py-2.5 border-b ${BORDER} flex items-center justify-end`}
           >
-            <button
-              className="text-xs px-3 py-1.5 rounded font-medium transition-colors border"
-              style={{
-                backgroundColor: GOLD,
-                borderColor: GOLD,
-                color: "#0b0f15",
-              }}
-            >
-              Validate Financial Statement
-            </button>
-            <button className="text-xs border border-blue-400/50 text-blue-400 px-3 py-1.5 rounded font-medium hover:bg-[#1a2a40] transition-colors whitespace-nowrap">
+            <button className="text-sm border border-[#3b4f6b] text-blue-400 px-3 py-1 rounded hover:bg-[#1a2a40] transition-colors">
               Edit Financial Statement
             </button>
           </div>
