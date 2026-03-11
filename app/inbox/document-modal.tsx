@@ -3,6 +3,34 @@
 import { useState } from "react";
 import type { Attachment, Email } from "@/lib/inbox-data";
 
+/* ================================================================== */
+/*  Design-system tokens (from DESIGN_SYSTEM.md v3)                    */
+/* ================================================================== */
+const ds = {
+  bg: "#0d1017",
+  surface: "#131920",
+  surfaceRaised: "#1a2130",
+  surfaceDeep: "#090c13",
+  border: "rgba(255,255,255,0.07)",
+  borderAccent: "rgba(255,255,255,0.14)",
+  gold: "#c8a84b",
+  goldDim: "rgba(200,168,75,0.15)",
+  green: "#4caf82",
+  greenDim: "rgba(76,175,130,0.13)",
+  amber: "#e8a040",
+  coral: "#e07060",
+  coralDim: "rgba(224,112,96,0.14)",
+  blue: "#5b9bd5",
+  text: "#e4e8f0",
+  textDim: "#9aa4b2",
+  textMuted: "#5e6a7a",
+  fontBody: "'Syne', sans-serif",
+  fontMono: "'DM Mono', monospace",
+  fontSerif: "'Instrument Serif', serif",
+  radius: 6,
+  radiusLg: 10,
+};
+
 interface Props {
   attachment: Attachment;
   email: Email | null;
@@ -15,60 +43,171 @@ export default function DocumentModal({ attachment, email, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 flex flex-col"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        background: "rgba(0,0,0,0.70)",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: ds.fontBody,
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      {/* ---- Top bar ---- */}
-      <div className="shrink-0 flex flex-wrap items-start gap-4 px-6 py-4">
+      {/* ── Top bar ── */}
+      <div
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "flex-start",
+          gap: 16,
+          padding: "16px 24px",
+        }}
+      >
         {/* Counterparty card */}
-        <div className="border border-[#3d4f63] rounded-lg px-5 py-3 bg-[#0b0f15]/80 backdrop-blur">
-          <p className="text-white text-sm font-medium leading-tight">
+        <div
+          style={{
+            border: `1px solid ${ds.borderAccent}`,
+            borderRadius: ds.radiusLg,
+            padding: "12px 20px",
+            background: `${ds.bg}cc`,
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontFamily: ds.fontBody,
+              fontSize: 14,
+              fontWeight: 600,
+              color: ds.text,
+              lineHeight: 1.3,
+            }}
+          >
             {attachment.counterparty_name}
           </p>
-          <p className="text-[#5a6a7e] text-xs mt-0.5">
+          <p
+            style={{
+              margin: "3px 0 0",
+              fontFamily: ds.fontMono,
+              fontSize: 11,
+              color: ds.textMuted,
+            }}
+          >
             {attachment.counterparty_type}
           </p>
         </div>
 
         {/* Classification card */}
-        <div className="border border-[#3d4f63] rounded-lg px-5 py-3 bg-[#0b0f15]/80 backdrop-blur">
-          <p className="text-white text-sm font-medium leading-tight">
+        <div
+          style={{
+            border: `1px solid ${ds.borderAccent}`,
+            borderRadius: ds.radiusLg,
+            padding: "12px 20px",
+            background: `${ds.bg}cc`,
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontFamily: ds.fontBody,
+              fontSize: 14,
+              fontWeight: 600,
+              color: ds.text,
+              lineHeight: 1.3,
+            }}
+          >
             {attachment.classification}
           </p>
-          <p className="text-[#5a6a7e] text-xs mt-0.5">
+          <p
+            style={{
+              margin: "3px 0 0",
+              fontFamily: ds.fontMono,
+              fontSize: 11,
+              color: ds.textMuted,
+            }}
+          >
             {attachment.classification_role}
           </p>
         </div>
 
         {/* Spacer */}
-        <div className="flex-1" />
+        <div style={{ flex: 1 }} />
 
         {/* Actions + meta */}
-        <div className="flex flex-col gap-1.5 items-end">
-          <button className="w-56 rounded px-3 py-1.5 text-sm font-medium bg-[#e8c84a] text-[#1a1a1a] hover:bg-[#d4b63e] transition-colors text-left">
-            Confirm &amp; Advance Workflow
-          </button>
-          <button className="w-56 rounded px-3 py-1.5 text-sm font-medium bg-[#d4845a] text-[#1a1a1a] hover:bg-[#c0764e] transition-colors text-left">
-            Edit Workflow
-          </button>
-          <button className="w-56 rounded px-3 py-1.5 text-sm font-medium bg-[#8b9bb4] text-[#1a1a1a] hover:bg-[#7d8da4] transition-colors text-left">
-            Archive or Reassign
-          </button>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            alignItems: "flex-end",
+          }}
+        >
+          <ActionButton
+            label="Confirm & Advance Workflow"
+            bg={ds.gold}
+            hoverBg="#d9b85a"
+            textColor="#18140a"
+          />
+          <ActionButton
+            label="Edit Workflow"
+            bg={ds.amber}
+            hoverBg="#d4945a"
+            textColor="#18140a"
+          />
+          <ActionButton
+            label="Archive or Reassign"
+            bg={ds.textDim}
+            hoverBg="#8a94a8"
+            textColor="#18140a"
+          />
           {email && (
-            <div className="text-[11px] text-[#5a6a7e] mt-1 text-right">
-              <p>{email.from}</p>
-              <p>{email.sent_at}</p>
+            <div
+              style={{
+                fontFamily: ds.fontMono,
+                fontSize: 11,
+                color: ds.textMuted,
+                marginTop: 4,
+                textAlign: "right",
+                lineHeight: 1.5,
+              }}
+            >
+              <p style={{ margin: 0 }}>{email.from}</p>
+              <p style={{ margin: 0 }}>{email.sent_at}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ---- PDF viewer area ---- */}
-      <div className="flex-1 flex flex-col mx-6 mb-6 overflow-hidden rounded-lg border border-[#1e2d3d] bg-[#111820]">
+      {/* ── PDF viewer area ── */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          margin: "0 24px 24px",
+          overflow: "hidden",
+          borderRadius: ds.radiusLg,
+          border: `1px solid ${ds.border}`,
+          background: ds.surface,
+        }}
+      >
         {/* Toolbar */}
-        <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-[#1e2d3d] bg-[#0d1219]">
+        <div
+          style={{
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "8px 16px",
+            borderBottom: `1px solid ${ds.border}`,
+            background: ds.surfaceDeep,
+          }}
+        >
           {/* Page nav */}
           <input
             type="text"
@@ -77,106 +216,140 @@ export default function DocumentModal({ attachment, email, onClose }: Props) {
               const v = parseInt(e.target.value, 10);
               if (!isNaN(v) && v >= 1 && v <= attachment.pages) setPage(v);
             }}
-            className="w-8 text-center text-sm bg-[#1a2332] border border-[#2d3f52] rounded px-1 py-0.5 text-[#e2e8f0]"
+            style={{
+              width: 32,
+              textAlign: "center",
+              fontFamily: ds.fontMono,
+              fontSize: 13,
+              background: ds.surfaceRaised,
+              border: `1px solid ${ds.borderAccent}`,
+              borderRadius: 4,
+              padding: "2px 4px",
+              color: ds.text,
+              outline: "none",
+            }}
           />
-          <span className="text-sm text-[#8b9bb4]">
+          <span
+            style={{
+              fontFamily: ds.fontMono,
+              fontSize: 13,
+              color: ds.textDim,
+            }}
+          >
             of {attachment.pages}
           </span>
 
-          <div className="w-px h-5 bg-[#1e2d3d] mx-1" />
+          <div
+            style={{
+              width: 1,
+              height: 20,
+              background: ds.borderAccent,
+              margin: "0 4px",
+            }}
+          />
 
           {/* Zoom */}
-          <button
+          <ToolbarButton
+            label="−"
             onClick={() => setZoom((z) => Math.max(50, z - 10))}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#1a2332] text-[#8b9bb4] text-lg"
+          />
+          <span
+            style={{
+              fontFamily: ds.fontMono,
+              fontSize: 13,
+              color: ds.textDim,
+              width: 40,
+              textAlign: "center",
+            }}
           >
-            &minus;
-          </button>
-          <span className="text-sm text-[#8b9bb4] w-10 text-center">
             {zoom}%
           </span>
-          <button
+          <ToolbarButton
+            label="+"
             onClick={() => setZoom((z) => Math.min(200, z + 10))}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#1a2332] text-[#8b9bb4] text-lg"
-          >
-            +
-          </button>
+          />
 
-          <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#1a2332] text-[#8b9bb4]">
-            <ExpandIcon />
-          </button>
+          <ToolbarButton icon={<ExpandIcon />} />
 
           {/* Spacer */}
-          <div className="flex-1" />
+          <div style={{ flex: 1 }} />
 
           {/* Right toolbar icons */}
-          <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#1a2332] text-[#8b9bb4]">
-            <SplitIcon />
-          </button>
-          <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#1a2332] text-[#8b9bb4]">
-            <MoveIcon />
-          </button>
-          <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#1a2332] text-[#8b9bb4]">
-            <SearchIcon />
-          </button>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#1a2332] text-[#8b9bb4]"
-          >
-            &middot;&middot;&middot;
-          </button>
+          <ToolbarButton icon={<SplitIcon />} />
+          <ToolbarButton icon={<MoveIcon />} />
+          <ToolbarButton icon={<SearchIcon />} />
+          <ToolbarButton label="···" onClick={onClose} />
         </div>
 
         {/* Document preview */}
-        <div className="flex-1 overflow-auto flex justify-center py-8 bg-[#1a2332]">
+        <div
+          style={{
+            flex: 1,
+            overflow: "auto",
+            display: "flex",
+            justifyContent: "center",
+            padding: 32,
+            background: ds.surfaceRaised,
+          }}
+        >
           <div
-            className="bg-white text-black rounded shadow-2xl"
             style={{
+              background: "white",
+              color: "black",
+              borderRadius: ds.radius,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
               width: `${Math.round(595 * (zoom / 100))}px`,
               minHeight: `${Math.round(842 * (zoom / 100))}px`,
               padding: `${Math.round(80 * (zoom / 100))}px ${Math.round(60 * (zoom / 100))}px`,
             }}
           >
-            <div className="flex flex-col items-start gap-10">
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 40,
+              }}
+            >
               {/* Title */}
               <h1
-                className="font-bold tracking-wide self-center"
-                style={{ fontSize: `${Math.round(22 * (zoom / 100))}px` }}
+                style={{
+                  margin: 0,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  alignSelf: "center",
+                  fontSize: `${Math.round(22 * (zoom / 100))}px`,
+                }}
               >
                 {attachment.mock_doc.title}
               </h1>
 
               {/* Date */}
-              <p style={{ fontSize: `${Math.round(14 * (zoom / 100))}px` }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: `${Math.round(14 * (zoom / 100))}px`,
+                }}
+              >
                 dated as of {attachment.mock_doc.date}
               </p>
 
               {/* Parties */}
               {attachment.mock_doc.parties.map((party, i) => (
                 <div key={i}>
-                  {i === 0 && (
-                    <p
-                      className="text-blue-700 mb-2"
-                      style={{
-                        fontSize: `${Math.round(14 * (zoom / 100))}px`,
-                      }}
-                    >
-                      by
-                    </p>
-                  )}
-                  {i > 0 && (
-                    <p
-                      className="text-blue-700 mb-2"
-                      style={{
-                        fontSize: `${Math.round(14 * (zoom / 100))}px`,
-                      }}
-                    >
-                      in favor of
-                    </p>
-                  )}
                   <p
-                    className="font-bold"
                     style={{
+                      margin: "0 0 8px",
+                      color: "#2563eb",
+                      fontSize: `${Math.round(14 * (zoom / 100))}px`,
+                    }}
+                  >
+                    {i === 0 ? "by" : "in favor of"}
+                  </p>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontWeight: 700,
                       fontSize: `${Math.round(14 * (zoom / 100))}px`,
                     }}
                   >
@@ -184,6 +357,7 @@ export default function DocumentModal({ attachment, email, onClose }: Props) {
                   </p>
                   <p
                     style={{
+                      margin: 0,
                       fontSize: `${Math.round(13 * (zoom / 100))}px`,
                     }}
                   >
@@ -199,7 +373,89 @@ export default function DocumentModal({ attachment, email, onClose }: Props) {
   );
 }
 
-/* ---- Toolbar SVG icons ---- */
+/* ================================================================== */
+/*  Shared sub-components                                              */
+/* ================================================================== */
+
+function ActionButton({
+  label,
+  bg,
+  hoverBg,
+  textColor,
+}: {
+  label: string;
+  bg: string;
+  hoverBg: string;
+  textColor: string;
+}) {
+  return (
+    <button
+      style={{
+        width: 224,
+        borderRadius: ds.radius,
+        padding: "7px 12px",
+        fontFamily: ds.fontBody,
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        background: bg,
+        color: textColor,
+        border: "none",
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "background 0.15s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = hoverBg;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = bg;
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ToolbarButton({
+  label,
+  icon,
+  onClick,
+}: {
+  label?: string;
+  icon?: React.ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: 28,
+        height: 28,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 4,
+        background: "transparent",
+        border: "none",
+        color: ds.textDim,
+        fontSize: 16,
+        cursor: "pointer",
+        transition: "background 0.15s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = ds.surfaceRaised;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      {icon || label}
+    </button>
+  );
+}
+
+/* ── Toolbar SVG icons ── */
 
 function ExpandIcon() {
   return (

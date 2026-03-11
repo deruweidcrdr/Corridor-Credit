@@ -9,24 +9,53 @@ import type {
 import DocumentModal from "./document-modal";
 import Sidebar from "@/app/components/sidebar";
 
+/* ================================================================== */
+/*  Design-system tokens (from DESIGN_SYSTEM.md v3)                    */
+/* ================================================================== */
+const ds = {
+  bg: "#0d1017",
+  surface: "#131920",
+  surfaceRaised: "#1a2130",
+  surfaceDeep: "#090c13",
+  border: "rgba(255,255,255,0.07)",
+  borderAccent: "rgba(255,255,255,0.14)",
+  gold: "#c8a84b",
+  goldDim: "rgba(200,168,75,0.15)",
+  green: "#4caf82",
+  greenDim: "rgba(76,175,130,0.13)",
+  amber: "#e8a040",
+  amberDim: "rgba(232,160,64,0.13)",
+  coral: "#e07060",
+  coralDim: "rgba(224,112,96,0.14)",
+  blue: "#5b9bd5",
+  blueDim: "rgba(91,155,213,0.12)",
+  text: "#e4e8f0",
+  textDim: "#9aa4b2",
+  textMuted: "#5e6a7a",
+  fontBody: "'Syne', sans-serif",
+  fontMono: "'DM Mono', monospace",
+  fontSerif: "'Instrument Serif', serif",
+  radius: 6,
+  radiusLg: 10,
+  satColor: "#4caf82",
+  satBg: "rgba(76,175,130,0.12)",
+  satBorder: "rgba(76,175,130,0.30)",
+  pwColor: "#e8a040",
+  pwBg: "rgba(232,160,64,0.12)",
+  pwBorder: "rgba(232,160,64,0.32)",
+  wdwColor: "#e07060",
+  wdwBg: "rgba(224,112,96,0.12)",
+  wdwBorder: "rgba(224,112,96,0.30)",
+};
+
 interface Props {
   emails: Email[];
   notifications: InboxNotification[];
 }
 
-/* ------------------------------------------------------------------ */
-/*  Colour / style tokens                                              */
-/* ------------------------------------------------------------------ */
-const BG = "bg-[#0b0f15]";
-const SURFACE = "bg-[#111820]";
-const BORDER = "border-[#1e2d3d]";
-const TEXT1 = "text-[#e2e8f0]";
-const TEXT2 = "text-[#8b9bb4]";
-const TEXT3 = "text-[#5a6a7e]";
-
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Root component                                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export default function InboxClient({ emails, notifications }: Props) {
   const [selectedEmailId, setSelectedEmailId] = useState(emails[0]?.id ?? "");
@@ -36,7 +65,16 @@ export default function InboxClient({ emails, notifications }: Props) {
 
   return (
     <>
-      <div className={`flex h-screen overflow-hidden ${BG} ${TEXT1}`}>
+      <div
+        style={{
+          display: "flex",
+          height: "100vh",
+          overflow: "hidden",
+          background: ds.bg,
+          color: ds.text,
+          fontFamily: ds.fontBody,
+        }}
+      >
         {/* ---- Sidebar ---- */}
         <Sidebar />
 
@@ -67,8 +105,6 @@ export default function InboxClient({ emails, notifications }: Props) {
   );
 }
 
-/* Sidebar is imported from @/app/components/sidebar */
-
 /* ================================================================== */
 /*  MESSAGE LIST                                                       */
 /* ================================================================== */
@@ -86,36 +122,86 @@ function MessageList({
 }) {
   return (
     <div
-      className={`w-[290px] shrink-0 border-r ${BORDER} flex flex-col overflow-y-auto`}
+      style={{
+        width: 290,
+        flexShrink: 0,
+        borderRight: `1px solid ${ds.border}`,
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "auto",
+        background: ds.surfaceDeep,
+      }}
     >
-      {/* Header */}
-      <div className="px-4 py-3 flex items-center gap-2">
+      {/* ── Inbox header ── */}
+      <div
+        style={{
+          padding: "14px 16px 8px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
         <MailIcon />
-        <span className="text-blue-400 text-sm font-medium">Inbox</span>
+        <span
+          style={{
+            fontFamily: ds.fontMono,
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            color: ds.blue,
+          }}
+        >
+          Inbox
+        </span>
       </div>
 
-      {/* Email items */}
-      <div className="px-2 space-y-0.5">
+      {/* ── Email items ── */}
+      <div style={{ padding: "0 8px" }}>
         {emails.map((email) => {
           const active = email.id === selectedId;
           return (
             <button
               key={email.id}
               onClick={() => onSelect(email.id)}
-              className={`w-full text-left px-3 py-2.5 rounded transition-colors ${
-                active ? "bg-[#1c2940]" : "hover:bg-[#151d28]"
-              }`}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "10px 12px",
+                borderRadius: ds.radius,
+                border: "none",
+                cursor: "pointer",
+                transition: "background 0.15s",
+                background: active ? ds.surfaceRaised : "transparent",
+                display: "block",
+                marginBottom: 2,
+              }}
+              onMouseEnter={(e) => {
+                if (!active) e.currentTarget.style.background = ds.surface;
+              }}
+              onMouseLeave={(e) => {
+                if (!active) e.currentTarget.style.background = "transparent";
+              }}
             >
-              <div className="flex items-start gap-2.5">
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                 <span
-                  className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
-                    email.is_read ? "bg-transparent" : "bg-blue-500"
-                  }`}
+                  style={{
+                    marginTop: 6,
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    background: email.is_read ? "transparent" : ds.gold,
+                  }}
                 />
                 <span
-                  className={`text-[13px] leading-snug ${
-                    active ? TEXT1 : TEXT2
-                  }`}
+                  style={{
+                    fontFamily: ds.fontBody,
+                    fontSize: 13,
+                    lineHeight: 1.4,
+                    color: active ? ds.text : ds.textDim,
+                    fontWeight: active ? 600 : 400,
+                  }}
                 >
                   {email.subject}
                 </span>
@@ -125,31 +211,106 @@ function MessageList({
         })}
       </div>
 
-      {/* Alerts header */}
-      <div className="px-4 pt-5 pb-2 flex items-center gap-2">
+      {/* ── Alerts section divider ── */}
+      <div
+        style={{
+          padding: "20px 16px 8px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
         <BellIcon />
-        <span className="text-red-400 text-sm font-medium">Alerts</span>
+        <span
+          style={{
+            fontFamily: ds.fontMono,
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            color: ds.coral,
+          }}
+        >
+          Alerts
+        </span>
       </div>
 
-      {/* Notification items */}
-      <div className="px-2 space-y-0.5 pb-4">
+      {/* ── Notification items ── */}
+      <div style={{ padding: "0 8px", paddingBottom: 16 }}>
         {notifications.map((n) => (
           <div
             key={n.id}
-            className={`px-3 py-2 rounded flex items-start gap-2.5 hover:bg-[#151d28] transition-colors`}
+            style={{
+              padding: "8px 12px",
+              borderRadius: ds.radius,
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              cursor: "pointer",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = ds.surface;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
           >
             {n.type === "workflow" ? (
-              <span className="mt-0.5 w-5 h-5 rounded shrink-0 bg-[#3b1a2a] flex items-center justify-center">
+              <span
+                style={{
+                  marginTop: 2,
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                  flexShrink: 0,
+                  background: ds.coralDim,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <DocMiniIcon />
               </span>
             ) : (
-              <span className="mt-0.5 w-5 h-5 shrink-0 flex items-center justify-center">
+              <span
+                style={{
+                  marginTop: 2,
+                  width: 20,
+                  height: 20,
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <BellIcon small />
               </span>
             )}
-            <span className={`text-[13px] leading-snug ${TEXT2}`}>
-              {n.label}
-            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span
+                style={{
+                  fontFamily: ds.fontBody,
+                  fontSize: 13,
+                  lineHeight: 1.4,
+                  color: ds.textDim,
+                  display: "block",
+                }}
+              >
+                {n.label}
+              </span>
+              <span
+                style={{
+                  fontFamily: ds.fontMono,
+                  fontSize: 11,
+                  color: ds.textMuted,
+                  marginTop: 2,
+                  display: "block",
+                }}
+              >
+                {n.timestamp}
+              </span>
+            </div>
           </div>
         ))}
       </div>
@@ -170,31 +331,86 @@ function EmailDetail({
 }) {
   if (!email) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <span className={TEXT3}>Select an email to view</span>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: ds.fontBody,
+            fontSize: 14,
+            color: ds.textMuted,
+          }}
+        >
+          Select an email to view
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Subject bar */}
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      {/* ── Subject bar ── */}
       <div
-        className={`px-6 py-3 border-b ${BORDER} flex items-center justify-between shrink-0`}
+        style={{
+          padding: "12px 24px",
+          borderBottom: `1px solid ${ds.border}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+          background: ds.surfaceDeep,
+        }}
       >
-        <div className="flex items-center gap-3">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <ListIcon />
-          <h2 className="text-base font-medium">{email.subject}</h2>
+          <h2
+            style={{
+              margin: 0,
+              fontFamily: ds.fontBody,
+              fontSize: 15,
+              fontWeight: 600,
+              color: ds.text,
+            }}
+          >
+            {email.subject}
+          </h2>
         </div>
-        <button className={`${TEXT3} text-xl leading-none px-2`}>
+        <button
+          style={{
+            background: "none",
+            border: "none",
+            color: ds.textMuted,
+            fontSize: 20,
+            cursor: "pointer",
+            padding: "0 8px",
+          }}
+        >
           &middot;&middot;&middot;
         </button>
       </div>
 
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto">
+      {/* ── Scrollable body ── */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
         {/* Metadata grid */}
-        <div className={`grid grid-cols-2 border-b ${BORDER} text-sm`}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            borderBottom: `1px solid ${ds.border}`,
+          }}
+        >
           <MetaCell label="To" value={email.to} borderRight />
           <MetaCell label="From" value={email.from} />
           <MetaCell label="Subject" value={email.subject} borderRight borderTop />
@@ -202,29 +418,164 @@ function EmailDetail({
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 text-sm leading-relaxed whitespace-pre-wrap">
+        <div
+          style={{
+            padding: "20px 24px",
+            fontFamily: ds.fontBody,
+            fontSize: 14,
+            lineHeight: 1.75,
+            whiteSpace: "pre-wrap",
+            color: ds.textDim,
+          }}
+        >
           {email.body}
         </div>
 
-        {/* Attachments */}
+        {/* ── Attachments section ── */}
         {email.attachments.length > 0 && (
-          <div className="px-6 pb-6 grid grid-cols-2 gap-3">
-            {email.attachments.map((att) => (
-              <button
-                key={att.id}
-                onClick={() => onOpenAttachment(att)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg ${SURFACE} border ${BORDER} hover:bg-[#1a2332] transition-colors text-left`}
+          <div style={{ padding: "0 24px 24px" }}>
+            {/* Section divider */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 16,
+              }}
+            >
+              <span
+                style={{
+                  flex: "0 0 16px",
+                  height: 1,
+                  background: ds.borderAccent,
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: ds.fontMono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.12em",
+                  color: ds.textMuted,
+                  whiteSpace: "nowrap",
+                }}
               >
-                <AttachmentIcon />
-                <span className="text-[13px] truncate">{att.file_name}</span>
-              </button>
-            ))}
+                Attachments
+              </span>
+              <span
+                style={{ flex: 1, height: 1, background: ds.border }}
+              />
+            </div>
+
+            {/* Attachment cards */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+              }}
+            >
+              {email.attachments.map((att) => (
+                <button
+                  key={att.id}
+                  onClick={() => onOpenAttachment(att)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 16px",
+                    borderRadius: ds.radiusLg,
+                    background: ds.surface,
+                    border: `1px solid ${ds.border}`,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = ds.surfaceRaised;
+                    e.currentTarget.style.borderColor = ds.borderAccent;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = ds.surface;
+                    e.currentTarget.style.borderColor = ds.border;
+                  }}
+                >
+                  <AttachmentIcon />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span
+                      style={{
+                        fontFamily: ds.fontBody,
+                        fontSize: 13,
+                        color: ds.text,
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {att.file_name}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: ds.fontMono,
+                        fontSize: 11,
+                        color: ds.textMuted,
+                        marginTop: 2,
+                        display: "block",
+                      }}
+                    >
+                      {att.pages} pages · {att.classification_role}
+                    </span>
+                  </div>
+                  <ClassificationChip classification={att.classification} />
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
+
+/* ================================================================== */
+/*  Classification chip                                                */
+/* ================================================================== */
+
+function ClassificationChip({ classification }: { classification: string }) {
+  const isContract = classification.includes("CONTRACT");
+  const color = isContract ? ds.amber : ds.blue;
+  const bg = isContract ? ds.amberDim : ds.blueDim;
+  const borderColor = isContract
+    ? "rgba(232,160,64,0.32)"
+    : "rgba(91,155,213,0.28)";
+  const label = isContract ? "TERMS" : "FIN";
+
+  return (
+    <span
+      style={{
+        fontFamily: ds.fontMono,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        padding: "3px 8px",
+        borderRadius: 3,
+        background: bg,
+        color,
+        border: `1px solid ${borderColor}`,
+        flexShrink: 0,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/* ================================================================== */
+/*  Meta cell                                                          */
+/* ================================================================== */
 
 function MetaCell({
   label,
@@ -239,10 +590,37 @@ function MetaCell({
 }) {
   return (
     <div
-      className={`px-6 py-2 flex gap-4 ${borderRight ? `border-r ${BORDER}` : ""} ${borderTop ? `border-t ${BORDER}` : ""}`}
+      style={{
+        padding: "8px 24px",
+        display: "flex",
+        gap: 16,
+        ...(borderRight ? { borderRight: `1px solid ${ds.border}` } : {}),
+        ...(borderTop ? { borderTop: `1px solid ${ds.border}` } : {}),
+      }}
     >
-      <span className={`${TEXT3} w-14 shrink-0`}>{label}</span>
-      <span className={TEXT2}>{value}</span>
+      <span
+        style={{
+          fontFamily: ds.fontMono,
+          fontSize: 11,
+          fontWeight: 500,
+          color: ds.textMuted,
+          width: 56,
+          flexShrink: 0,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: ds.fontBody,
+          fontSize: 13,
+          color: ds.textDim,
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -258,11 +636,10 @@ function MailIcon() {
       height="16"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
+      stroke={ds.blue}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-blue-400"
     >
       <rect x="2" y="4" width="20" height="16" rx="2" />
       <path d="M22 7l-10 7L2 7" />
@@ -278,11 +655,10 @@ function BellIcon({ small }: { small?: boolean }) {
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
+      stroke={ds.coral}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-red-400"
     >
       <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
       <path d="M13.73 21a2 2 0 01-3.46 0" />
@@ -297,11 +673,10 @@ function DocMiniIcon() {
       height="12"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
+      stroke={ds.coral}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-red-300"
     >
       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
       <polyline points="14 2 14 8 20 8" />
@@ -316,11 +691,10 @@ function ListIcon() {
       height="18"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
+      stroke={ds.textMuted}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={TEXT3}
     >
       <line x1="3" y1="6" x2="21" y2="6" />
       <line x1="3" y1="12" x2="21" y2="12" />
@@ -336,11 +710,11 @@ function AttachmentIcon() {
       height="16"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
+      stroke={ds.textMuted}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-[#5a6a7e] shrink-0"
+      style={{ flexShrink: 0 }}
     >
       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
       <polyline points="14 2 14 8 20 8" />
