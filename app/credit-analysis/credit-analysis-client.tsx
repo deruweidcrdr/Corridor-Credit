@@ -1249,7 +1249,6 @@ function ExceptionPanel({
               fontWeight: 700,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
-              border: "none",
               ...(acknowledged
                 ? { background: ds.amberDim, color: ds.amber, border: `1px solid rgba(232,160,64,0.4)` }
                 : { background: ds.wdwBg, color: ds.wdwColor, border: `1px solid ${ds.wdwBorder}` }),
@@ -1696,7 +1695,7 @@ function NarrativePanel({ dim, validated: isValidated, overridden: isOverridden,
           <button onClick={(e) => { e.stopPropagation(); onOverride(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer" }}>
             {isOverridden ? "↩ Clear Override" : "✎ Override Narrative"}
           </button>
-          <button onClick={(e) => { e.stopPropagation(); onValidate(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", border: "none", cursor: "pointer", ...(isValidated ? { background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}` } : { background: ds.green, color: "#0e1f18" }) }}>
+          <button onClick={(e) => { e.stopPropagation(); onValidate(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", ...(isValidated ? { background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}` } : { background: ds.green, color: "#0e1f18", border: "none" }) }}>
             {isValidated ? "✓ Validated" : "Validate"}
           </button>
           <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer" }}>✕</button>
@@ -1785,7 +1784,7 @@ function Panel({
   title: string;
   sub: string;
   action?: string;
-  chipRight?: { label: string; band: "sat" | "pw" | "wdw" };
+  chipRight?: { label: string; band: "sat" | "pw" | "wdw" | "blue" | "gold" | "neutral" };
   children: React.ReactNode;
 }) {
   return (

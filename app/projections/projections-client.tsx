@@ -15,20 +15,48 @@ import {
   ReferenceArea,
 } from "recharts";
 
-/* ------------------------------------------------------------------ */
-/*  Colour / style tokens                                              */
-/* ------------------------------------------------------------------ */
-const BG = "bg-[#0b0f15]";
-const SURFACE = "bg-[#111820]";
-const BORDER = "border-[#1e2d3d]";
-const TEXT1 = "text-[#e2e8f0]";
-const TEXT2 = "text-[#8b9bb4]";
-const TEXT3 = "text-[#5a6a7e]";
-const GOLD = "#d4a843";
+/* ================================================================== */
+/*  Design-system tokens (from DESIGN_SYSTEM.md v3)                    */
+/* ================================================================== */
+const ds = {
+  bg: "#0d1017",
+  surface: "#131920",
+  surfaceRaised: "#1a2130",
+  surfaceDeep: "#090c13",
+  border: "rgba(255,255,255,0.07)",
+  borderAccent: "rgba(255,255,255,0.14)",
+  gold: "#c8a84b",
+  goldDim: "rgba(200,168,75,0.15)",
+  green: "#4caf82",
+  greenDim: "rgba(76,175,130,0.13)",
+  amber: "#e8a040",
+  amberDim: "rgba(232,160,64,0.13)",
+  coral: "#e07060",
+  coralDim: "rgba(224,112,96,0.14)",
+  blue: "#5b9bd5",
+  blueDim: "rgba(91,155,213,0.12)",
+  text: "#e4e8f0",
+  textDim: "#9aa4b2",
+  textMuted: "#5e6a7a",
+  fontBody: "'Syne', sans-serif",
+  fontMono: "'DM Mono', monospace",
+  fontSerif: "'Instrument Serif', serif",
+  radius: 6,
+  radiusLg: 10,
+  satColor: "#4caf82",
+  satBg: "rgba(76,175,130,0.12)",
+  satBorder: "rgba(76,175,130,0.30)",
+  pwColor: "#e8a040",
+  pwBg: "rgba(232,160,64,0.12)",
+  pwBorder: "rgba(232,160,64,0.32)",
+  wdwColor: "#e07060",
+  wdwBg: "rgba(224,112,96,0.12)",
+  wdwBorder: "rgba(224,112,96,0.30)",
+};
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Workflow steps                                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 const STEPS = [
   { number: 1, label: "Obligation Term Structure" },
   { number: 2, label: "Projections" },
@@ -36,9 +64,9 @@ const STEPS = [
   { number: 4, label: "Approval" },
 ];
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Mock obligation term structure data                                */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 interface ObligationPayment {
   id: string;
   paymentNumber: number;
@@ -72,9 +100,9 @@ const MOCK_PAYMENTS: ObligationPayment[] = [
   { id: `PMT_${CONTRACT_ID}_18`, paymentNumber: 18, paymentDueDate: "2027-12-01", scheduledPrincipal: 118333, scheduledInterest: 45959, scheduledTotalPayment: 164292, remainingBalance: 6370006 },
 ];
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Obligation summary properties                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 const OBLIGATION_PROPERTIES_LEFT: { label: string; value: string }[] = [
   { label: "Obligation ID", value: "OBL_20260305_001" },
   { label: "Obligation Type", value: "PAYMENT_OBLIGATION" },
@@ -95,9 +123,9 @@ const OBLIGATION_PROPERTIES_RIGHT: { label: string; value: string }[] = [
   { label: "Measurement Frequency", value: "MONTHLY" },
 ];
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Mock projection profile properties                                 */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 const PROFILE_PROPERTIES_LEFT: { label: string; value: string }[] = [
   { label: "Profile ID", value: "PRF_MFG_MID_GRW_01" },
   { label: "Industry", value: "Manufacturing — Precision Components" },
@@ -118,9 +146,9 @@ const PROFILE_PROPERTIES_RIGHT: { label: string; value: string }[] = [
   { label: "Assignment Confidence", value: "0.87" },
 ];
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Mock DSCR corridor projection data                                 */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 interface CorridorDataPoint {
   period: string;
   month: number;
@@ -141,17 +169,15 @@ function generateCorridorData(): CorridorDataPoint[] {
     "Jan 2029", "Feb 2029", "Mar 2029", "Apr 2029", "May 2029", "Jun 2029",
   ];
 
-  // Base DSCR trajectory: stable → stress → recovery → stabilize
   const baseDscr = [
-    1.48, 1.46, 1.44, 1.45, 1.43, 1.41,   // Q3-Q4 2026: stable
-    1.38, 1.35, 1.31, 1.27, 1.24, 1.18,   // Q1-Q2 2027: pressure building
-    1.14, 1.11, 1.08, 1.12, 1.16, 1.21,   // Q3-Q4 2027: stress trough → early recovery
-    1.25, 1.28, 1.31, 1.34, 1.37, 1.39,   // Q1-Q2 2028: recovery
-    1.41, 1.43, 1.44, 1.46, 1.47, 1.48,   // Q3-Q4 2028: stabilizing
-    1.49, 1.50, 1.51, 1.50, 1.52, 1.53,   // Q1-Q2 2029: stable maturity
+    1.48, 1.46, 1.44, 1.45, 1.43, 1.41,
+    1.38, 1.35, 1.31, 1.27, 1.24, 1.18,
+    1.14, 1.11, 1.08, 1.12, 1.16, 1.21,
+    1.25, 1.28, 1.31, 1.34, 1.37, 1.39,
+    1.41, 1.43, 1.44, 1.46, 1.47, 1.48,
+    1.49, 1.50, 1.51, 1.50, 1.52, 1.53,
   ];
 
-  // Corridor width: narrow during stable, wide during uncertainty
   const corridorWidth = [
     0.08, 0.08, 0.09, 0.09, 0.10, 0.11,
     0.12, 0.14, 0.16, 0.18, 0.20, 0.23,
@@ -185,80 +211,91 @@ const TEMPORAL_MIN = CORRIDOR_DATA.reduce(
   CORRIDOR_DATA[0]
 );
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Root component                                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 export default function ProjectionsClient() {
   const [activeStep, setActiveStep] = useState(1);
   const [selectedPayment, setSelectedPayment] =
     useState<ObligationPayment | null>(null);
 
   return (
-    <div className={`flex h-screen overflow-hidden ${BG} ${TEXT1}`}>
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        overflow: "hidden",
+        background: ds.bg,
+        color: ds.text,
+        fontFamily: ds.fontBody,
+        fontSize: 13,
+      }}
+    >
       <Sidebar />
 
-      {/* Main workbench area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Step indicator bar */}
-        <div className="flex shrink-0">
-          {STEPS.map((step, i) => {
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* ── Topbar / stage tabs ── */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "stretch",
+            height: 48,
+            background: ds.surfaceDeep,
+            borderBottom: `1px solid ${ds.border}`,
+            flexShrink: 0,
+          }}
+        >
+          {STEPS.map((step) => {
             const isActive = step.number === activeStep;
-            const isPast = step.number < activeStep;
-            const isLast = i === STEPS.length - 1;
+            const isDone = step.number < activeStep;
             return (
               <button
                 key={step.number}
                 onClick={() => setActiveStep(step.number)}
-                className={`flex-1 flex items-center gap-2.5 px-5 py-2.5 text-sm font-medium transition-colors relative ${
-                  isActive
-                    ? "bg-blue-600 text-white"
-                    : isPast
-                      ? "bg-[#1a2a40] text-blue-300"
-                      : "bg-[#151d28] text-[#5a6a7e]"
-                }`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "0 24px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  fontFamily: ds.fontBody,
+                  color: isActive ? ds.text : isDone ? ds.textDim : ds.textMuted,
+                  background: isActive ? ds.bg : "transparent",
+                  borderBottom: isActive ? `2px solid ${ds.gold}` : "2px solid transparent",
+                  borderRight: `1px solid ${ds.border}`,
+                  borderTop: "none",
+                  borderLeft: "none",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
               >
                 <span
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    isActive
-                      ? "bg-white text-blue-600"
-                      : isPast
-                        ? "bg-blue-400/30 text-blue-300"
-                        : "bg-[#1e2d3d] text-[#5a6a7e]"
-                  }`}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: isDone ? 12 : 11,
+                    fontWeight: 700,
+                    fontFamily: ds.fontMono,
+                    background: isActive ? ds.gold : isDone ? ds.greenDim : ds.surfaceRaised,
+                    color: isActive ? "#1a1a14" : isDone ? ds.green : ds.textDim,
+                  }}
                 >
-                  {step.number}
+                  {isDone ? "✓" : step.number}
                 </span>
                 {step.label}
-                {/* Chevron separator */}
-                {!isLast && (
-                  <div className="absolute right-0 top-0 bottom-0 flex items-center">
-                    <svg
-                      width="20"
-                      height="40"
-                      viewBox="0 0 20 40"
-                      className="translate-x-[10px] z-10"
-                    >
-                      <path
-                        d="M0 0 L15 20 L0 40"
-                        fill={
-                          isActive
-                            ? "#2563eb"
-                            : isPast
-                              ? "#1a2a40"
-                              : "#151d28"
-                        }
-                        stroke={isActive ? "#2563eb" : "#1e2d3d"}
-                        strokeWidth="1"
-                      />
-                    </svg>
-                  </div>
-                )}
               </button>
             );
           })}
         </div>
 
-        {/* Step content */}
+        {/* ── Step content ── */}
         {activeStep === 1 && (
           <ObligationTermStructureStep
             selectedPayment={selectedPayment}
@@ -266,8 +303,8 @@ export default function ProjectionsClient() {
           />
         )}
         {activeStep === 2 && <ProjectionsStep />}
-        {activeStep === 3 && <ComingSoonPlaceholder label="Coverage" />}
-        {activeStep === 4 && <ComingSoonPlaceholder label="Approval" />}
+        {activeStep === 3 && <ComingSoon label="Coverage" />}
+        {activeStep === 4 && <ComingSoon label="Approval" />}
       </div>
     </div>
   );
@@ -286,276 +323,248 @@ function ObligationTermStructureStep({
 }) {
   return (
     <>
-      {/* Toolbar row */}
-      <div className={`px-5 py-2 border-b ${BORDER} shrink-0`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-5">
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-xs font-medium ${TEXT3} uppercase tracking-wide`}
-              >
-                Deal to Process
-              </span>
-              <span className="text-sm bg-[#1a2a40] text-blue-400 px-3 py-1 rounded font-mono flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-400" />
-                DEAL_20260222_49346d04
-                <ChevronDownIcon />
-              </span>
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px 80px" }}>
+        {/* Page header */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontFamily: ds.fontSerif, fontSize: 28, fontStyle: "italic", color: ds.text, letterSpacing: "-0.01em", lineHeight: 1.15 }}>
+              Obligation Term Structure
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <GhostButton label="Edit Term Structure" />
+              <GhostButtonWarn label="Flag Term Structure" />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              className="text-sm px-3 py-1.5 rounded font-medium transition-colors border"
-              style={{
-                backgroundColor: GOLD,
-                borderColor: GOLD,
-                color: "#0b0f15",
-              }}
-            >
-              Validate Obligation Term Structure
-            </button>
-            <button className="text-sm border border-blue-400/50 text-blue-400 px-3 py-1.5 rounded font-medium hover:bg-[#1a2a40] transition-colors">
-              Edit Term Structure
-            </button>
-            <button className="text-sm border border-red-400/50 text-red-400 px-3 py-1.5 rounded font-medium hover:bg-[#2a1a1a] transition-colors">
-              Flag Term Structure
-            </button>
+          <DealSubheader items={[
+            { label: "DEAL", value: "DEAL_20260222_49346d04" },
+            { label: "COUNTERPARTY", value: "Meridian Precision Manufacturing, LLC" },
+            { label: "CONTRACT", value: CONTRACT_ID },
+            { label: "OBLIGATION", value: "OBL_20260305_001" },
+          ]} />
+        </div>
+
+        {/* ── Obligation Summary ── */}
+        <SectionDivider label="Obligation Summary" />
+        <div
+          style={{
+            background: ds.surface,
+            border: `1px solid ${ds.border}`,
+            borderRadius: ds.radiusLg,
+            overflow: "hidden",
+            marginBottom: 24,
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 20px",
+              background: ds.surfaceRaised,
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
+              Obligation Properties
+            </span>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
+              PAYMENT_OBLIGATION · STRAIGHT_LINE
+            </span>
+          </div>
+          <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+            <div>
+              {OBLIGATION_PROPERTIES_LEFT.map((prop) => (
+                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
+              ))}
+            </div>
+            <div>
+              {OBLIGATION_PROPERTIES_RIGHT.map((prop) => (
+                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Payment Schedule ── */}
+        <SectionDivider label="Payment Schedule" />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
+            {MOCK_PAYMENTS.length} of 60 payments shown
+          </span>
+        </div>
+
+        <div
+          style={{
+            background: ds.surface,
+            border: `1px solid ${ds.border}`,
+            borderRadius: ds.radiusLg,
+            overflow: "hidden",
+            marginBottom: 20,
+          }}
+        >
+          {/* Table header */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "60px 1fr 140px 140px 140px 160px",
+              background: ds.surfaceRaised,
+              borderBottom: `1px solid ${ds.border}`,
+            }}
+          >
+            {["#", "Payment Due Date", "Principal", "Interest", "Total Payment", "Remaining Balance"].map((h, i) => (
+              <div
+                key={h}
+                style={{
+                  padding: "10px 14px",
+                  fontFamily: ds.fontMono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.12em",
+                  color: ds.textDim,
+                  textAlign: i >= 2 ? "right" : "left",
+                }}
+              >
+                {h}
+              </div>
+            ))}
+          </div>
+
+          {/* Table rows */}
+          {MOCK_PAYMENTS.map((payment) => {
+            const isSelected = selectedPayment?.id === payment.id;
+            return (
+              <button
+                key={payment.id}
+                onClick={() => onSelectPayment(payment)}
+                style={{
+                  width: "100%",
+                  display: "grid",
+                  gridTemplateColumns: "60px 1fr 140px 140px 140px 160px",
+                  borderBottom: `1px solid ${ds.border}`,
+                  background: isSelected ? ds.surfaceRaised : "transparent",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  border: "none",
+                  borderBlockEnd: `1px solid ${ds.border}`,
+                  transition: "background 0.1s",
+                  fontFamily: ds.fontMono,
+                }}
+              >
+                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textMuted }}>
+                  {payment.paymentNumber}
+                </div>
+                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, fontFamily: ds.fontMono }}>
+                  {payment.paymentDueDate}
+                </div>
+                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, textAlign: "right" }}>
+                  {formatCurrency(payment.scheduledPrincipal)}
+                </div>
+                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, textAlign: "right" }}>
+                  {formatCurrency(payment.scheduledInterest)}
+                </div>
+                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.gold : ds.amber, textAlign: "right" }}>
+                  {formatCurrency(payment.scheduledTotalPayment)}
+                </div>
+                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, textAlign: "right" }}>
+                  {formatCurrency(payment.remainingBalance)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Summary cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 16 }}>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 10 }}>
+              Total Debt Service (Shown)
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 20 }}>
+              <div>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Principal: </span>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
+                  {formatCurrency(MOCK_PAYMENTS.reduce((sum, p) => sum + p.scheduledPrincipal, 0))}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Interest: </span>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
+                  {formatCurrency(MOCK_PAYMENTS.reduce((sum, p) => sum + p.scheduledInterest, 0))}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Total: </span>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.gold }}>
+                  {formatCurrency(MOCK_PAYMENTS.reduce((sum, p) => sum + p.scheduledTotalPayment, 0))}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 16 }}>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 10 }}>
+              Balance Trajectory
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 20 }}>
+              <div>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Starting: </span>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>$8,500,000</span>
+              </div>
+              <div>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>After Pmt 18: </span>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
+                  {formatCurrency(MOCK_PAYMENTS[MOCK_PAYMENTS.length - 1].remainingBalance)}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Paydown: </span>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.green }}>
+                  {(((8500000 - MOCK_PAYMENTS[MOCK_PAYMENTS.length - 1].remainingBalance) / 8500000) * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Counterparty header card */}
-        <div className={`px-5 py-4 border-b ${BORDER}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-              <BuildingIcon />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className={`text-base font-medium ${TEXT1}`}>
-                  Meridian Precision Manufacturing, LLC
-                </span>
-                <StarIcon />
-              </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={`text-sm ${TEXT3}`}>
-                  Obligation Term Structure &mdash; Payment Schedule Validation
-                </span>
-                <LockIcon />
-              </div>
-            </div>
-          </div>
+      {/* Footer action bar */}
+      <div
+        style={{
+          background: ds.surfaceDeep,
+          borderTop: `1px solid ${ds.border}`,
+          padding: "12px 28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <FooterMeta label="Contract" value={CONTRACT_ID} />
+          <FooterMeta label="Obligation" value="OBL_20260305_001" />
+          <FooterMeta label="Principal" value="$8,500,000" />
+          <FooterMeta label="All-in Rate" value="8.50%" valueColor={ds.amber} />
         </div>
-
-        {/* Obligation properties section */}
-        <div className={`px-5 py-4 border-b ${BORDER}`}>
-          <div className="flex items-center gap-2 mb-4">
-            <PropertiesIcon />
-            <span className={`text-sm font-semibold ${TEXT1}`}>
-              Obligation Summary
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1">
-            <div className="space-y-1 min-w-0">
-              {OBLIGATION_PROPERTIES_LEFT.map((prop) => (
-                <PropertyRow
-                  key={prop.label}
-                  label={prop.label}
-                  value={prop.value}
-                />
-              ))}
-            </div>
-            <div className="space-y-1 min-w-0">
-              {OBLIGATION_PROPERTIES_RIGHT.map((prop) => (
-                <PropertyRow
-                  key={prop.label}
-                  label={prop.label}
-                  value={prop.value}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Payment schedule table */}
-        <div className="px-5 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <TableIcon />
-              <span className={`text-sm font-semibold ${TEXT1}`}>
-                Payment Schedule
-              </span>
-              <span className={`text-xs ${TEXT3} ml-2`}>
-                {MOCK_PAYMENTS.length} of 60 payments shown
-              </span>
-            </div>
-          </div>
-
-          <div className={`border ${BORDER} rounded overflow-hidden`}>
-            {/* Table header */}
-            <div
-              className={`grid grid-cols-[60px_1fr_140px_140px_140px_160px] ${SURFACE} border-b ${BORDER}`}
-            >
-              <div
-                className={`px-3 py-2.5 text-xs font-semibold ${TEXT2} uppercase tracking-wide`}
-              >
-                #
-              </div>
-              <div
-                className={`px-3 py-2.5 text-xs font-semibold ${TEXT2} uppercase tracking-wide`}
-              >
-                Payment Due Date
-              </div>
-              <div
-                className={`px-3 py-2.5 text-xs font-semibold ${TEXT2} uppercase tracking-wide text-right`}
-              >
-                Principal
-              </div>
-              <div
-                className={`px-3 py-2.5 text-xs font-semibold ${TEXT2} uppercase tracking-wide text-right`}
-              >
-                Interest
-              </div>
-              <div
-                className={`px-3 py-2.5 text-xs font-semibold ${TEXT2} uppercase tracking-wide text-right`}
-              >
-                Total Payment
-              </div>
-              <div
-                className={`px-3 py-2.5 text-xs font-semibold ${TEXT2} uppercase tracking-wide text-right`}
-              >
-                Remaining Balance
-              </div>
-            </div>
-
-            {/* Table rows */}
-            {MOCK_PAYMENTS.map((payment) => {
-              const isSelected = selectedPayment?.id === payment.id;
-              return (
-                <button
-                  key={payment.id}
-                  onClick={() => onSelectPayment(payment)}
-                  className={`w-full grid grid-cols-[60px_1fr_140px_140px_140px_160px] border-b border-[#1e2d3d]/50 transition-colors text-left ${
-                    isSelected ? "bg-[#1c2940]" : "hover:bg-[#151d28]"
-                  }`}
-                >
-                  <div
-                    className={`px-3 py-2.5 text-sm font-mono ${isSelected ? TEXT1 : TEXT3}`}
-                  >
-                    {payment.paymentNumber}
-                  </div>
-                  <div
-                    className={`px-3 py-2.5 text-sm ${isSelected ? TEXT1 : TEXT2}`}
-                  >
-                    {payment.paymentDueDate}
-                  </div>
-                  <div
-                    className={`px-3 py-2.5 text-sm font-mono text-right ${isSelected ? TEXT1 : TEXT2}`}
-                  >
-                    {formatCurrency(payment.scheduledPrincipal)}
-                  </div>
-                  <div
-                    className={`px-3 py-2.5 text-sm font-mono text-right ${isSelected ? TEXT1 : TEXT2}`}
-                  >
-                    {formatCurrency(payment.scheduledInterest)}
-                  </div>
-                  <div
-                    className={`px-3 py-2.5 text-sm font-mono text-right font-medium ${isSelected ? "text-blue-300" : "text-blue-400"}`}
-                  >
-                    {formatCurrency(payment.scheduledTotalPayment)}
-                  </div>
-                  <div
-                    className={`px-3 py-2.5 text-sm font-mono text-right ${isSelected ? TEXT1 : TEXT2}`}
-                  >
-                    {formatCurrency(payment.remainingBalance)}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Summary row */}
-          <div
-            className={`mt-4 grid grid-cols-2 gap-4`}
+        <div style={{ display: "flex", gap: 8 }}>
+          <GhostButtonWarn label="Reject Structure" />
+          <button
+            style={{
+              padding: "8px 16px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: ds.gold,
+              color: "#18140a",
+              border: "none",
+              cursor: "pointer",
+            }}
           >
-            <div className={`border ${BORDER} rounded p-4`}>
-              <div className={`text-xs ${TEXT3} uppercase tracking-wide mb-2`}>
-                Total Debt Service (Shown)
-              </div>
-              <div className="flex items-baseline gap-4">
-                <div>
-                  <span className={`text-xs ${TEXT3}`}>Principal: </span>
-                  <span className={`text-sm font-mono ${TEXT1}`}>
-                    {formatCurrency(
-                      MOCK_PAYMENTS.reduce(
-                        (sum, p) => sum + p.scheduledPrincipal,
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-                <div>
-                  <span className={`text-xs ${TEXT3}`}>Interest: </span>
-                  <span className={`text-sm font-mono ${TEXT1}`}>
-                    {formatCurrency(
-                      MOCK_PAYMENTS.reduce(
-                        (sum, p) => sum + p.scheduledInterest,
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-                <div>
-                  <span className={`text-xs ${TEXT3}`}>Total: </span>
-                  <span className="text-sm font-mono text-blue-400 font-medium">
-                    {formatCurrency(
-                      MOCK_PAYMENTS.reduce(
-                        (sum, p) => sum + p.scheduledTotalPayment,
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className={`border ${BORDER} rounded p-4`}>
-              <div className={`text-xs ${TEXT3} uppercase tracking-wide mb-2`}>
-                Balance Trajectory
-              </div>
-              <div className="flex items-baseline gap-4">
-                <div>
-                  <span className={`text-xs ${TEXT3}`}>Starting: </span>
-                  <span className={`text-sm font-mono ${TEXT1}`}>
-                    $8,500,000
-                  </span>
-                </div>
-                <div>
-                  <span className={`text-xs ${TEXT3}`}>After Pmt 18: </span>
-                  <span className={`text-sm font-mono ${TEXT1}`}>
-                    {formatCurrency(
-                      MOCK_PAYMENTS[MOCK_PAYMENTS.length - 1].remainingBalance
-                    )}
-                  </span>
-                </div>
-                <div>
-                  <span className={`text-xs ${TEXT3}`}>Paydown: </span>
-                  <span className="text-sm font-mono text-green-400">
-                    {(
-                      ((8500000 -
-                        MOCK_PAYMENTS[MOCK_PAYMENTS.length - 1]
-                          .remainingBalance) /
-                        8500000) *
-                      100
-                    ).toFixed(1)}
-                    %
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+            Validate Structure →
+          </button>
         </div>
       </div>
     </>
@@ -589,377 +598,431 @@ function ProjectionsStep() {
 
   return (
     <>
-      {/* Toolbar row */}
-      <div className={`px-5 py-2 border-b ${BORDER} shrink-0`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-medium ${TEXT3} uppercase tracking-wide`}>
-              Projection Profile
-            </span>
-            <span className="text-sm bg-[#1a2a40] text-blue-400 px-3 py-1 rounded font-mono flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-green-400" />
-              PRF_MFG_MID_GRW_01
-              <ChevronDownIcon />
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              className="text-sm px-3 py-1.5 rounded font-medium transition-colors border"
-              style={{
-                backgroundColor: GOLD,
-                borderColor: GOLD,
-                color: "#0b0f15",
-              }}
-            >
-              Confirm Profile Assignment
-            </button>
-            <button className="text-sm border border-blue-400/50 text-blue-400 px-3 py-1.5 rounded font-medium hover:bg-[#1a2a40] transition-colors">
-              Override Profile Assignment
-            </button>
-            <button className="text-sm border border-red-400/50 text-red-400 px-3 py-1.5 rounded font-medium hover:bg-[#2a1a1a] transition-colors">
-              Create Scenario
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Counterparty header card */}
-        <div className={`px-5 py-4 border-b ${BORDER}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-              <BuildingIcon />
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px 80px" }}>
+        {/* Page header */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontFamily: ds.fontSerif, fontSize: 28, fontStyle: "italic", color: ds.text, letterSpacing: "-0.01em", lineHeight: 1.15 }}>
+              Coverage Corridor Analysis
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className={`text-base font-medium ${TEXT1}`}>
-                  Meridian Precision Manufacturing, LLC
-                </span>
-                <StarIcon />
-              </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={`text-sm ${TEXT3}`}>
-                  Projection Profile Assignment &mdash; Coverage Corridor
-                  Analysis
-                </span>
-                <LockIcon />
-              </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <GhostButton label="Override Profile Assignment" />
+              <GhostButton label="Create Scenario" />
             </div>
           </div>
+          <DealSubheader items={[
+            { label: "DEAL", value: "DEAL_20260222_49346d04" },
+            { label: "COUNTERPARTY", value: "Meridian Precision Manufacturing, LLC" },
+            { label: "PROFILE", value: "PRF_MFG_MID_GRW_01" },
+            { label: "HORIZON", value: "36 months" },
+          ]} />
         </div>
 
-        {/* Profile properties section */}
-        <div className={`px-5 py-4 border-b ${BORDER}`}>
-          <div className="flex items-center gap-2 mb-4">
-            <PropertiesIcon />
-            <span className={`text-sm font-semibold ${TEXT1}`}>
-              Projection Profile Properties
+        {/* ── Profile Properties ── */}
+        <SectionDivider label="Projection Profile Properties" />
+        <div
+          style={{
+            background: ds.surface,
+            border: `1px solid ${ds.border}`,
+            borderRadius: ds.radiusLg,
+            overflow: "hidden",
+            marginBottom: 24,
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 20px",
+              background: ds.surfaceRaised,
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
+              Profile Assignment
             </span>
             <span
-              className="ml-2 text-xs px-2 py-0.5 rounded"
               style={{
-                backgroundColor: "rgba(34,197,94,0.15)",
-                color: "#22c55e",
+                fontFamily: ds.fontMono,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                padding: "3px 8px",
+                borderRadius: 3,
+                background: ds.satBg,
+                color: ds.satColor,
+                border: `1px solid ${ds.satBorder}`,
               }}
             >
               System-Assigned
             </span>
           </div>
-
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1">
-            <div className="space-y-1 min-w-0">
+          <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+            <div>
               {PROFILE_PROPERTIES_LEFT.map((prop) => (
-                <PropertyRow
-                  key={prop.label}
-                  label={prop.label}
-                  value={prop.value}
-                />
+                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
               ))}
             </div>
-            <div className="space-y-1 min-w-0">
+            <div>
               {PROFILE_PROPERTIES_RIGHT.map((prop) => (
-                <PropertyRow
-                  key={prop.label}
-                  label={prop.label}
-                  value={prop.value}
-                />
+                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
               ))}
             </div>
           </div>
         </div>
 
-        {/* Coverage Corridor Chart */}
-        <div className="px-5 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <ChartIcon />
-              <span className={`text-sm font-semibold ${TEXT1}`}>
-                Coverage Ratio Projection Corridors
+        {/* ── Coverage Corridor Chart ── */}
+        <SectionDivider label="Coverage Ratio Projection Corridors" />
+
+        {/* Temporal minimum + covenant callout */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: ds.wdwBg,
+                border: `1px solid ${ds.wdwBorder}`,
+                borderRadius: 4,
+                padding: "5px 12px",
+              }}
+            >
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: ds.wdwColor }} />
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.wdwColor }}>
+                Temporal Min: {TEMPORAL_MIN.dscrBase.toFixed(2)}x at {TEMPORAL_MIN.period}
               </span>
             </div>
-
-            {/* Temporal minimum callout */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded px-3 py-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-xs text-red-400">
-                  Temporal Min: {TEMPORAL_MIN.dscrBase.toFixed(2)}x at{" "}
-                  {TEMPORAL_MIN.period}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 bg-[#d4a843]/10 border border-[#d4a843]/30 rounded px-3 py-1.5">
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: GOLD }}
-                />
-                <span className="text-xs" style={{ color: GOLD }}>
-                  Covenant: 1.25x
-                </span>
-              </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: ds.goldDim,
+                border: `1px solid rgba(200,168,75,0.30)`,
+                borderRadius: 4,
+                padding: "5px 12px",
+              }}
+            >
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: ds.gold }} />
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.gold }}>
+                Covenant: 1.25x
+              </span>
             </div>
           </div>
+        </div>
 
-          {/* Scenario tabs + ratio selector */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-0.5">
-              {scenarioTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveScenario(tab.key)}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-t transition-colors ${
-                    activeScenario === tab.key
-                      ? "bg-[#1a2a40] text-blue-400 border border-[#1e2d3d] border-b-transparent"
-                      : `${TEXT3} hover:text-[#8b9bb4]`
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5">
-              {ratioButtons.map((btn) => (
-                <button
-                  key={btn.key}
-                  onClick={() => setActiveRatio(btn.key)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
-                    activeRatio === btn.key
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : `${SURFACE} ${TEXT2} ${BORDER} hover:bg-[#1a2332]`
-                  }`}
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
+        {/* Scenario tabs + ratio selector */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 2 }}>
+            {scenarioTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveScenario(tab.key)}
+                style={{
+                  padding: "7px 16px",
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  borderRadius: `${ds.radius}px ${ds.radius}px 0 0`,
+                  border: activeScenario === tab.key ? `1px solid ${ds.border}` : "1px solid transparent",
+                  borderBottom: activeScenario === tab.key ? `1px solid ${ds.bg}` : `1px solid ${ds.border}`,
+                  background: activeScenario === tab.key ? ds.surface : "transparent",
+                  color: activeScenario === tab.key ? ds.gold : ds.textMuted,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {ratioButtons.map((btn) => (
+              <button
+                key={btn.key}
+                onClick={() => setActiveRatio(btn.key)}
+                style={{
+                  padding: "5px 12px",
+                  fontFamily: ds.fontMono,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  borderRadius: 4,
+                  border: activeRatio === btn.key
+                    ? `1px solid ${ds.gold}`
+                    : `1px solid ${ds.border}`,
+                  background: activeRatio === btn.key ? ds.goldDim : "transparent",
+                  color: activeRatio === btn.key ? ds.gold : ds.textMuted,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          {/* Chart area */}
-          <div
-            className={`border ${BORDER} rounded-lg p-4`}
-            style={{ backgroundColor: "#0d1219" }}
-          >
-            <div style={{ width: "100%", height: 420 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
-                  data={CORRIDOR_DATA}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#1e2d3d"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="period"
-                    tick={{ fill: "#5a6a7e", fontSize: 11 }}
-                    tickLine={{ stroke: "#1e2d3d" }}
-                    axisLine={{ stroke: "#1e2d3d" }}
-                    interval={2}
-                    angle={-30}
-                    textAnchor="end"
-                    height={50}
-                  />
-                  <YAxis
-                    domain={[0.6, 2.0]}
-                    tick={{ fill: "#5a6a7e", fontSize: 11 }}
-                    tickLine={{ stroke: "#1e2d3d" }}
-                    axisLine={{ stroke: "#1e2d3d" }}
-                    tickFormatter={(v: number) => `${v.toFixed(1)}x`}
-                    width={50}
-                  />
-                  <Tooltip content={<CorridorTooltip />} />
-
-                  {/* Corridor band (shaded area between upper and lower) */}
-                  <Area
-                    dataKey="corridor"
-                    fill="#3b82f6"
-                    fillOpacity={0.12}
-                    stroke="none"
-                  />
-
-                  {/* Covenant threshold */}
-                  <ReferenceLine
-                    y={1.25}
-                    stroke={GOLD}
-                    strokeDasharray="8 4"
-                    strokeWidth={1.5}
-                    label={{
-                      value: "Covenant 1.25x",
-                      position: "right",
-                      fill: GOLD,
-                      fontSize: 11,
-                    }}
-                  />
-
-                  {/* Breakeven line */}
-                  <ReferenceLine
-                    y={1.0}
-                    stroke="#ef4444"
-                    strokeWidth={1.5}
-                    label={{
-                      value: "B/E 1.0x",
-                      position: "right",
-                      fill: "#ef4444",
-                      fontSize: 11,
-                    }}
-                  />
-
-                  {/* Stress zone highlight */}
-                  <ReferenceArea
-                    x1="May 2027"
-                    x2="Nov 2027"
-                    fill="#ef4444"
-                    fillOpacity={0.06}
-                    strokeOpacity={0}
-                  />
-
-                  {/* Upper corridor boundary */}
-                  <Line
-                    dataKey="dscrUpper"
-                    stroke="#3b82f6"
-                    strokeWidth={1}
-                    strokeDasharray="4 3"
-                    dot={false}
-                    opacity={0.5}
-                  />
-
-                  {/* Lower corridor boundary */}
-                  <Line
-                    dataKey="dscrLower"
-                    stroke="#3b82f6"
-                    strokeWidth={1}
-                    strokeDasharray="4 3"
-                    dot={false}
-                    opacity={0.5}
-                  />
-
-                  {/* Base case DSCR line */}
-                  <Line
-                    dataKey="dscrBase"
-                    stroke="#60a5fa"
-                    strokeWidth={2.5}
-                    dot={(props: DotProps) => {
-                      const { cx, cy, payload } = props;
-                      if (
-                        payload &&
-                        payload.dscrBase === TEMPORAL_MIN.dscrBase &&
-                        payload.period === TEMPORAL_MIN.period
-                      ) {
-                        return (
-                          <circle
-                            key={`min-${payload.period}`}
-                            cx={cx}
-                            cy={cy}
-                            r={6}
-                            fill="#ef4444"
-                            stroke="#fff"
-                            strokeWidth={2}
-                          />
-                        );
-                      }
-                      return (
-                        <circle
-                          key={`dot-${payload?.period}`}
-                          cx={cx}
-                          cy={cy}
-                          r={0}
-                          fill="transparent"
-                        />
-                      );
-                    }}
-                    activeDot={{
-                      r: 5,
-                      fill: "#60a5fa",
-                      stroke: "#fff",
-                      strokeWidth: 2,
-                    }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Chart legend */}
-            <div className="flex items-center justify-center gap-6 mt-2 pt-3 border-t border-[#1e2d3d]">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-0.5 bg-[#60a5fa] rounded" />
-                <span className={`text-xs ${TEXT2}`}>DSCR (Base Case)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-5 h-3 rounded opacity-30"
-                  style={{ backgroundColor: "#3b82f6" }}
+        {/* Chart panel */}
+        <div
+          style={{
+            background: ds.surface,
+            border: `1px solid ${ds.border}`,
+            borderRadius: ds.radiusLg,
+            padding: 20,
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ width: "100%", height: 420 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart
+                data={CORRIDOR_DATA}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={ds.border}
+                  vertical={false}
                 />
-                <span className={`text-xs ${TEXT2}`}>Projection Corridor</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-5 h-0.5 rounded"
-                  style={{
-                    backgroundColor: GOLD,
-                    backgroundImage: `repeating-linear-gradient(90deg, ${GOLD} 0px, ${GOLD} 5px, transparent 5px, transparent 8px)`,
+                <XAxis
+                  dataKey="period"
+                  tick={{ fill: ds.textMuted, fontSize: 11, fontFamily: ds.fontMono }}
+                  tickLine={{ stroke: ds.border }}
+                  axisLine={{ stroke: ds.border }}
+                  interval={2}
+                  angle={-30}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis
+                  domain={[0.6, 2.0]}
+                  tick={{ fill: ds.textMuted, fontSize: 11, fontFamily: ds.fontMono }}
+                  tickLine={{ stroke: ds.border }}
+                  axisLine={{ stroke: ds.border }}
+                  tickFormatter={(v: number) => `${v.toFixed(1)}x`}
+                  width={50}
+                />
+                <Tooltip content={<CorridorTooltip />} />
+
+                {/* Corridor band */}
+                <Area
+                  dataKey="corridor"
+                  fill={ds.blue}
+                  fillOpacity={0.12}
+                  stroke="none"
+                />
+
+                {/* Covenant threshold */}
+                <ReferenceLine
+                  y={1.25}
+                  stroke={ds.gold}
+                  strokeDasharray="8 4"
+                  strokeWidth={1.5}
+                  label={{
+                    value: "Covenant 1.25x",
+                    position: "right",
+                    fill: ds.gold,
+                    fontSize: 11,
                   }}
                 />
-                <span className={`text-xs ${TEXT2}`}>Covenant Threshold</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-0.5 bg-red-500 rounded" />
-                <span className={`text-xs ${TEXT2}`}>Breakeven</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white" />
-                <span className={`text-xs ${TEXT2}`}>Temporal Minimum</span>
-              </div>
-            </div>
+
+                {/* Breakeven line */}
+                <ReferenceLine
+                  y={1.0}
+                  stroke={ds.coral}
+                  strokeWidth={1.5}
+                  label={{
+                    value: "B/E 1.0x",
+                    position: "right",
+                    fill: ds.coral,
+                    fontSize: 11,
+                  }}
+                />
+
+                {/* Stress zone highlight */}
+                <ReferenceArea
+                  x1="May 2027"
+                  x2="Nov 2027"
+                  fill={ds.coral}
+                  fillOpacity={0.06}
+                  strokeOpacity={0}
+                />
+
+                {/* Upper corridor boundary */}
+                <Line
+                  dataKey="dscrUpper"
+                  stroke={ds.blue}
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                  dot={false}
+                  opacity={0.5}
+                />
+
+                {/* Lower corridor boundary */}
+                <Line
+                  dataKey="dscrLower"
+                  stroke={ds.blue}
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                  dot={false}
+                  opacity={0.5}
+                />
+
+                {/* Base case DSCR line */}
+                <Line
+                  dataKey="dscrBase"
+                  stroke={ds.blue}
+                  strokeWidth={2.5}
+                  dot={(props: DotProps) => {
+                    const { cx, cy, payload } = props;
+                    if (
+                      payload &&
+                      payload.dscrBase === TEMPORAL_MIN.dscrBase &&
+                      payload.period === TEMPORAL_MIN.period
+                    ) {
+                      return (
+                        <circle
+                          key={`min-${payload.period}`}
+                          cx={cx}
+                          cy={cy}
+                          r={6}
+                          fill={ds.coral}
+                          stroke="#fff"
+                          strokeWidth={2}
+                        />
+                      );
+                    }
+                    return (
+                      <circle
+                        key={`dot-${payload?.period}`}
+                        cx={cx}
+                        cy={cy}
+                        r={0}
+                        fill="transparent"
+                      />
+                    );
+                  }}
+                  activeDot={{
+                    r: 5,
+                    fill: ds.blue,
+                    stroke: "#fff",
+                    strokeWidth: 2,
+                  }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
 
-          {/* Key metrics summary below chart */}
-          <div className="mt-4 grid grid-cols-4 gap-4">
-            <MetricCard
-              label="Temporal Min DSCR"
-              value={`${TEMPORAL_MIN.dscrBase.toFixed(2)}x`}
-              sub={TEMPORAL_MIN.period}
-              accent="red"
-            />
-            <MetricCard
-              label="Covenant Cushion"
-              value={`${(((TEMPORAL_MIN.dscrBase - 1.25) / 1.25) * 100).toFixed(1)}%`}
-              sub="At temporal minimum"
-              accent={TEMPORAL_MIN.dscrBase < 1.25 ? "red" : "gold"}
-            />
-            <MetricCard
-              label="Average DSCR"
-              value={`${(CORRIDOR_DATA.reduce((s, d) => s + d.dscrBase, 0) / CORRIDOR_DATA.length).toFixed(2)}x`}
-              sub="36-month projection"
-              accent="blue"
-            />
-            <MetricCard
-              label="Max Corridor Width"
-              value={`${(Math.max(...CORRIDOR_DATA.map((d) => d.dscrUpper - d.dscrLower))).toFixed(2)}x`}
-              sub="Peak uncertainty spread"
-              accent="blue"
-            />
+          {/* Chart legend */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 24,
+              marginTop: 8,
+              paddingTop: 12,
+              borderTop: `1px solid ${ds.border}`,
+            }}
+          >
+            <LegendItem color={ds.blue} label="DSCR (Base Case)" type="line" />
+            <LegendItem color={ds.blue} label="Projection Corridor" type="area" />
+            <LegendItem color={ds.gold} label="Covenant Threshold" type="dashed" />
+            <LegendItem color={ds.coral} label="Breakeven" type="line" />
+            <LegendItem color={ds.coral} label="Temporal Minimum" type="dot" />
           </div>
+        </div>
+
+        {/* Key metrics summary */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
+          <MetricCard
+            label="Temporal Min DSCR"
+            value={`${TEMPORAL_MIN.dscrBase.toFixed(2)}x`}
+            sub={TEMPORAL_MIN.period}
+            accent={ds.wdwColor}
+          />
+          <MetricCard
+            label="Covenant Cushion"
+            value={`${(((TEMPORAL_MIN.dscrBase - 1.25) / 1.25) * 100).toFixed(1)}%`}
+            sub="At temporal minimum"
+            accent={TEMPORAL_MIN.dscrBase < 1.25 ? ds.wdwColor : ds.gold}
+          />
+          <MetricCard
+            label="Average DSCR"
+            value={`${(CORRIDOR_DATA.reduce((s, d) => s + d.dscrBase, 0) / CORRIDOR_DATA.length).toFixed(2)}x`}
+            sub="36-month projection"
+            accent={ds.blue}
+          />
+          <MetricCard
+            label="Max Corridor Width"
+            value={`${(Math.max(...CORRIDOR_DATA.map((d) => d.dscrUpper - d.dscrLower))).toFixed(2)}x`}
+            sub="Peak uncertainty spread"
+            accent={ds.amber}
+          />
+        </div>
+      </div>
+
+      {/* Footer action bar */}
+      <div
+        style={{
+          background: ds.surfaceDeep,
+          borderTop: `1px solid ${ds.border}`,
+          padding: "12px 28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <FooterMeta label="Profile" value="PRF_MFG_MID_GRW_01" />
+          <FooterMeta label="Scenario" value="Base Case" />
+          <FooterMeta label="Temporal Min" value={`${TEMPORAL_MIN.dscrBase.toFixed(2)}x`} valueColor={ds.wdwColor} />
+          <FooterMeta label="Covenant Cushion" value={`${(((TEMPORAL_MIN.dscrBase - 1.25) / 1.25) * 100).toFixed(1)}%`} valueColor={TEMPORAL_MIN.dscrBase < 1.25 ? ds.wdwColor : ds.green} />
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <GhostButton label="Override Profile" />
+          <button
+            style={{
+              padding: "8px 14px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: ds.coral,
+              color: "#fff",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Flag for Review
+          </button>
+          <button
+            style={{
+              padding: "8px 16px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: ds.gold,
+              color: "#18140a",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Confirm Profile →
+          </button>
         </div>
       </div>
     </>
@@ -971,8 +1034,8 @@ function ProjectionsStep() {
 /* ================================================================== */
 
 interface DotProps {
-  cx: number;
-  cy: number;
+  cx?: number;
+  cy?: number;
   payload?: CorridorDataPoint;
 }
 
@@ -998,41 +1061,52 @@ function CorridorTooltip({
 
   return (
     <div
-      className="rounded-lg px-4 py-3 shadow-xl border"
       style={{
-        backgroundColor: "#111820",
-        borderColor: "#1e2d3d",
+        borderRadius: ds.radiusLg,
+        padding: "12px 16px",
+        background: ds.surfaceRaised,
+        border: `1px solid ${ds.borderAccent}`,
       }}
     >
-      <p className="text-xs font-medium text-[#e2e8f0] mb-2">{label}</p>
+      <p style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.text, marginBottom: 8 }}>{label}</p>
       {baseVal !== undefined && (
-        <p className="text-sm">
-          <span className="text-[#5a6a7e]">DSCR: </span>
+        <p style={{ fontSize: 13, marginBottom: 4 }}>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>DSCR: </span>
           <span
-            className={`font-mono font-semibold ${baseVal < 1.25 ? "text-red-400" : "text-blue-400"}`}
+            style={{
+              fontFamily: ds.fontMono,
+              fontSize: 15,
+              fontWeight: 500,
+              color: baseVal < 1.25 ? ds.wdwColor : ds.blue,
+            }}
           >
             {baseVal.toFixed(2)}x
           </span>
           {isMin && (
-            <span className="ml-2 text-xs text-red-400 font-medium">
+            <span style={{ marginLeft: 8, fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, color: ds.wdwColor }}>
               TEMPORAL MIN
             </span>
           )}
         </p>
       )}
       {corridorVal && (
-        <p className="text-sm">
-          <span className="text-[#5a6a7e]">Corridor: </span>
-          <span className="font-mono text-[#8b9bb4]">
+        <p style={{ fontSize: 13, marginBottom: 4 }}>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Corridor: </span>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 13, color: ds.textDim }}>
             {corridorVal[0].toFixed(2)}x – {corridorVal[1].toFixed(2)}x
           </span>
         </p>
       )}
       {baseVal !== undefined && (
-        <p className="text-sm">
-          <span className="text-[#5a6a7e]">Covenant Cushion: </span>
+        <p style={{ fontSize: 13 }}>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Covenant Cushion: </span>
           <span
-            className={`font-mono ${baseVal < 1.25 ? "text-red-400" : "text-green-400"}`}
+            style={{
+              fontFamily: ds.fontMono,
+              fontSize: 13,
+              fontWeight: 500,
+              color: baseVal < 1.25 ? ds.wdwColor : ds.green,
+            }}
           >
             {(((baseVal - 1.25) / 1.25) * 100).toFixed(1)}%
           </span>
@@ -1042,32 +1116,36 @@ function CorridorTooltip({
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  accent: "red" | "gold" | "blue" | "green";
-}) {
-  const accentColors = {
-    red: "text-red-400",
-    gold: `text-[${GOLD}]`,
-    blue: "text-blue-400",
-    green: "text-green-400",
-  };
+function LegendItem({ color, label, type }: { color: string; label: string; type: "line" | "area" | "dashed" | "dot" }) {
   return (
-    <div className={`border ${BORDER} rounded p-4`}>
-      <div className={`text-xs ${TEXT3} uppercase tracking-wide mb-1`}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {type === "line" && (
+        <div style={{ width: 20, height: 2, background: color, borderRadius: 1 }} />
+      )}
+      {type === "area" && (
+        <div style={{ width: 20, height: 12, background: color, opacity: 0.3, borderRadius: 2 }} />
+      )}
+      {type === "dashed" && (
+        <div style={{ width: 20, height: 2, borderRadius: 1, backgroundImage: `repeating-linear-gradient(90deg, ${color} 0px, ${color} 5px, transparent 5px, transparent 8px)` }} />
+      )}
+      {type === "dot" && (
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, border: "2px solid #fff" }} />
+      )}
+      <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textDim }}>{label}</span>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, sub, accent }: { label: string; value: string; sub: string; accent: string }) {
+  return (
+    <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 16 }}>
+      <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
         {label}
       </div>
-      <div className={`text-lg font-mono font-semibold ${accentColors[accent]}`}>
+      <div style={{ fontFamily: ds.fontMono, fontSize: 22, fontWeight: 500, color: accent }}>
         {value}
       </div>
-      <div className={`text-xs ${TEXT3} mt-0.5`}>{sub}</div>
+      <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, marginTop: 2 }}>{sub}</div>
     </div>
   );
 }
@@ -1076,28 +1154,47 @@ function MetricCard({
 /*  Coming Soon placeholder                                            */
 /* ================================================================== */
 
-function ComingSoonPlaceholder({ label }: { label: string }) {
+function ComingSoon({ label }: { label: string }) {
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="text-center">
-        <span className={`text-lg ${TEXT3}`}>
-          {label} &mdash; coming soon
-        </span>
-      </div>
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <span style={{ fontSize: 16, color: ds.textMuted, fontFamily: ds.fontSerif, fontStyle: "italic" }}>
+        {label} — coming soon
+      </span>
     </div>
   );
 }
 
 /* ================================================================== */
-/*  Helpers                                                            */
+/*  Shared components                                                  */
 /* ================================================================== */
 
-function formatCurrency(amount: number): string {
-  return "$" + amount.toLocaleString("en-US");
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+      <span style={{ flex: "0 0 16px", height: 1, background: ds.borderAccent }} />
+      <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, whiteSpace: "nowrap" }}>
+        {label}
+      </span>
+      <span style={{ flex: 1, height: 1, background: ds.border }} />
+    </div>
+  );
+}
+
+function DealSubheader({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 0, paddingBottom: 12, borderBottom: `1px solid ${ds.borderAccent}` }}>
+      {items.map((item, i) => (
+        <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+          {i > 0 && <span style={{ width: 1, height: 18, background: ds.borderAccent, margin: "0 14px", flexShrink: 0 }} />}
+          <span style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginRight: 6 }}>{item.label}</span>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: ds.text, letterSpacing: "0.02em" }}>{item.value}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function PropertyRow({ label, value }: { label: string; value: string }) {
-  const isEmpty = !value;
   const isHighlighted =
     value === "PAYMENT_OBLIGATION" ||
     value === "STRAIGHT_LINE" ||
@@ -1110,106 +1207,45 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
     value.startsWith("OBL_") ||
     value.startsWith("CNT_") ||
     value.startsWith("PRF_");
+
   return (
-    <div className="flex items-baseline gap-3 py-1.5">
-      <span className="text-sm text-blue-400 w-[180px] shrink-0 truncate">
-        {label}
+    <div style={{ display: "flex", alignItems: "baseline", gap: 12, padding: "5px 0", borderBottom: `1px solid ${ds.border}` }}>
+      <span style={{ fontFamily: ds.fontBody, fontSize: 13, fontWeight: 400, color: ds.textDim, width: 200, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: isHighlighted ? 500 : 400, color: isHighlighted ? ds.text : ds.textDim }}>
+        {value}
       </span>
-      {isEmpty ? (
-        <span className={`text-sm italic ${TEXT3}`}>No value</span>
-      ) : isHighlighted ? (
-        <span className="text-sm font-semibold text-[#e2e8f0]">{value}</span>
-      ) : (
-        <span className={`text-sm ${TEXT2}`}>{value}</span>
-      )}
+    </div>
+  );
+}
+
+function GhostButton({ label, onClick }: { label: string; onClick?: () => void }) {
+  return (
+    <button onClick={onClick} style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer", whiteSpace: "nowrap" }}>
+      {label}
+    </button>
+  );
+}
+
+function GhostButtonWarn({ label }: { label: string }) {
+  return (
+    <button style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.coral, border: `1px solid rgba(224,112,96,0.38)`, cursor: "pointer", whiteSpace: "nowrap" }}>
+      {label}
+    </button>
+  );
+}
+
+function FooterMeta({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+  return (
+    <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted }}>
+      {label}: <strong style={{ color: valueColor || ds.textDim }}>{value}</strong>
     </div>
   );
 }
 
 /* ================================================================== */
-/*  Icons                                                              */
+/*  Helpers                                                            */
 /* ================================================================== */
 
-function BuildingIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="2" width="16" height="20" rx="2" />
-      <line x1="9" y1="6" x2="9" y2="6.01" />
-      <line x1="15" y1="6" x2="15" y2="6.01" />
-      <line x1="9" y1="10" x2="9" y2="10.01" />
-      <line x1="15" y1="10" x2="15" y2="10.01" />
-      <line x1="9" y1="14" x2="9" y2="14.01" />
-      <line x1="15" y1="14" x2="15" y2="14.01" />
-      <path d="M9 18h6v4H9z" />
-    </svg>
-  );
-}
-
-function StarIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a6a7e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0110 0v4" />
-    </svg>
-  );
-}
-
-function PropertiesIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b9bb4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="8" y1="6" x2="21" y2="6" />
-      <line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" />
-      <line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
-  );
-}
-
-function TableIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b9bb4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <line x1="3" y1="9" x2="21" y2="9" />
-      <line x1="3" y1="15" x2="21" y2="15" />
-      <line x1="9" y1="3" x2="9" y2="21" />
-    </svg>
-  );
-}
-
-function ChartIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b9bb4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 3v18h18" />
-      <path d="M18 17V9" />
-      <path d="M13 17V5" />
-      <path d="M8 17v-3" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
+function formatCurrency(amount: number): string {
+  return "$" + amount.toLocaleString("en-US");
 }
