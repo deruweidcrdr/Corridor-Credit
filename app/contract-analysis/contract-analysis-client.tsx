@@ -142,7 +142,7 @@ export default function ContractAnalysisClient() {
       <Sidebar />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* ── Topbar / stage tabs ── */}
+        {/* ── Topbar / stage tabs + centered dropdowns + right action ── */}
         <div
           style={{
             display: "flex",
@@ -153,6 +153,7 @@ export default function ContractAnalysisClient() {
             flexShrink: 0,
           }}
         >
+          {/* Left: stage breadcrumb tabs */}
           {STEPS.map((step) => {
             const isActive = step.number === activeStep;
             const isDone = step.number < activeStep;
@@ -201,6 +202,52 @@ export default function ContractAnalysisClient() {
               </button>
             );
           })}
+
+          {/* Center: workflow-state selectors */}
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 20,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
+                Deal to Process
+              </span>
+              <DropdownChip label="DEAL_20260126_48f8e7cf" dotColor={ds.green} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
+                Contract to Process
+              </span>
+              <DropdownChip label="WF_1772683175197_hpghfbgk6" dotColor={ds.green} />
+            </div>
+          </div>
+
+          {/* Right: primary action */}
+          <div style={{ display: "flex", alignItems: "center", paddingRight: 20 }}>
+            <button
+              style={{
+                padding: "7px 14px",
+                borderRadius: ds.radius,
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: ds.gold,
+                color: "#18140a",
+                border: "none",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Validate Contract &amp; Terms →
+            </button>
+          </div>
         </div>
 
         {/* ── Step content ── */}
@@ -251,48 +298,34 @@ function DocumentStep({
 }) {
   return (
     <>
-      {/* Toolbar row */}
+      {/* Page title + deal subheader */}
       <div
         style={{
-          padding: "10px 20px",
+          padding: "18px 28px 14px",
           borderBottom: `1px solid ${ds.border}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
           flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
-              Deal to Process
-            </span>
-            <DropdownChip label="DEAL_20260126_48f8e7cf" dotColor={ds.green} />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
-              Contract to Process
-            </span>
-            <DropdownChip label="WF_1772683175197_hpghfbgk6" dotColor={ds.green} />
-          </div>
-        </div>
-        <button
+        <h1
           style={{
-            padding: "7px 14px",
-            borderRadius: ds.radius,
-            fontFamily: ds.fontBody,
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            background: ds.gold,
-            color: "#18140a",
-            border: "none",
-            cursor: "pointer",
+            margin: "0 0 12px",
+            fontFamily: ds.fontSerif,
+            fontStyle: "italic",
+            fontSize: 28,
+            fontWeight: 400,
+            color: ds.text,
+            letterSpacing: "-0.01em",
+            lineHeight: 1.15,
           }}
         >
-          Validate Contract &amp; Terms
-        </button>
+          Contract Analysis
+        </h1>
+        <DealSubheader items={[
+          { label: "DEAL", value: "DEAL_20260126_48f8e7cf" },
+          { label: "COUNTERPARTY", value: "Solar Valley Holdings" },
+          { label: "FACILITY", value: "$250MM Sr. Secured Term · SOFR + 275 bps" },
+          { label: "TERMS", value: `${MOCK_TERMS.length} extracted` },
+        ]} />
       </div>
 
       {/* Three-panel content */}
@@ -629,23 +662,6 @@ function DocumentStep({
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <GhostButtonWarn label="Reject Terms" />
-          <button
-            style={{
-              padding: "8px 16px",
-              borderRadius: ds.radius,
-              fontFamily: ds.fontBody,
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              background: ds.gold,
-              color: "#18140a",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            Validate Contract →
-          </button>
         </div>
       </div>
     </>
