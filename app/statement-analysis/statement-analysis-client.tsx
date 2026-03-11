@@ -3,28 +3,56 @@
 import { useState } from "react";
 import Sidebar from "@/app/components/sidebar";
 
-/* ------------------------------------------------------------------ */
-/*  Colour / style tokens                                              */
-/* ------------------------------------------------------------------ */
-const BG = "bg-[#0b0f15]";
-const SURFACE = "bg-[#111820]";
-const BORDER = "border-[#1e2d3d]";
-const TEXT1 = "text-[#e2e8f0]";
-const TEXT2 = "text-[#8b9bb4]";
-const TEXT3 = "text-[#5a6a7e]";
-const GOLD = "#d4a843";
+/* ================================================================== */
+/*  Design-system tokens (from DESIGN_SYSTEM.md v3)                    */
+/* ================================================================== */
+const ds = {
+  bg: "#0d1017",
+  surface: "#131920",
+  surfaceRaised: "#1a2130",
+  surfaceDeep: "#090c13",
+  border: "rgba(255,255,255,0.07)",
+  borderAccent: "rgba(255,255,255,0.14)",
+  gold: "#c8a84b",
+  goldDim: "rgba(200,168,75,0.15)",
+  green: "#4caf82",
+  greenDim: "rgba(76,175,130,0.13)",
+  amber: "#e8a040",
+  amberDim: "rgba(232,160,64,0.13)",
+  coral: "#e07060",
+  coralDim: "rgba(224,112,96,0.14)",
+  blue: "#5b9bd5",
+  blueDim: "rgba(91,155,213,0.12)",
+  text: "#e4e8f0",
+  textDim: "#9aa4b2",
+  textMuted: "#5e6a7a",
+  fontBody: "'Syne', sans-serif",
+  fontMono: "'DM Mono', monospace",
+  fontSerif: "'Instrument Serif', serif",
+  radius: 6,
+  radiusLg: 10,
+  satColor: "#4caf82",
+  satBg: "rgba(76,175,130,0.12)",
+  satBorder: "rgba(76,175,130,0.30)",
+  pwColor: "#e8a040",
+  pwBg: "rgba(232,160,64,0.12)",
+  pwBorder: "rgba(232,160,64,0.32)",
+  wdwColor: "#e07060",
+  wdwBg: "rgba(224,112,96,0.12)",
+  wdwBorder: "rgba(224,112,96,0.30)",
+};
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Workflow steps                                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 const STEPS = [
   { number: 1, label: "Document" },
   { number: 2, label: "Approval" },
 ];
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Mock extracted financial metrics                                   */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 interface FinancialMetric {
   id: string;
   name: string;
@@ -54,9 +82,9 @@ const MOCK_METRICS: FinancialMetric[] = [
   { id: "20", name: "Current Ratio", value: "2.35x" },
 ];
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Root component                                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 export default function StatementAnalysisClient() {
   const [selectedMetric, setSelectedMetric] = useState<FinancialMetric | null>(
     MOCK_METRICS[0]
@@ -76,71 +104,82 @@ export default function StatementAnalysisClient() {
   }
 
   return (
-    <div className={`flex h-screen overflow-hidden ${BG} ${TEXT1}`}>
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        overflow: "hidden",
+        background: ds.bg,
+        color: ds.text,
+        fontFamily: ds.fontBody,
+        fontSize: 13,
+      }}
+    >
       <Sidebar />
 
-      {/* Main workbench area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Step indicator bar */}
-        <div className="flex shrink-0">
-          {STEPS.map((step, i) => {
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* ── Topbar / stage tabs ── */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "stretch",
+            height: 48,
+            background: ds.surfaceDeep,
+            borderBottom: `1px solid ${ds.border}`,
+            flexShrink: 0,
+          }}
+        >
+          {STEPS.map((step) => {
             const isActive = step.number === activeStep;
-            const isPast = step.number < activeStep;
-            const isLast = i === STEPS.length - 1;
+            const isDone = step.number < activeStep;
             return (
               <button
                 key={step.number}
                 onClick={() => setActiveStep(step.number)}
-                className={`flex-1 flex items-center gap-2.5 px-5 py-2.5 text-sm font-medium transition-colors relative ${
-                  isActive
-                    ? "bg-blue-600 text-white"
-                    : isPast
-                      ? "bg-[#1a2a40] text-blue-300"
-                      : "bg-[#151d28] text-[#5a6a7e]"
-                }`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "0 24px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  fontFamily: ds.fontBody,
+                  color: isActive ? ds.text : isDone ? ds.textDim : ds.textMuted,
+                  background: isActive ? ds.bg : "transparent",
+                  borderBottom: isActive ? `2px solid ${ds.gold}` : "2px solid transparent",
+                  borderRight: `1px solid ${ds.border}`,
+                  borderTop: "none",
+                  borderLeft: "none",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
               >
                 <span
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    isActive
-                      ? "bg-white text-blue-600"
-                      : isPast
-                        ? "bg-blue-400/30 text-blue-300"
-                        : "bg-[#1e2d3d] text-[#5a6a7e]"
-                  }`}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: isDone ? 12 : 11,
+                    fontWeight: 700,
+                    fontFamily: ds.fontMono,
+                    background: isActive ? ds.gold : isDone ? ds.greenDim : ds.surfaceRaised,
+                    color: isActive ? "#1a1a14" : isDone ? ds.green : ds.textDim,
+                  }}
                 >
-                  {step.number}
+                  {isDone ? "✓" : step.number}
                 </span>
                 {step.label}
-                {/* Chevron separator */}
-                {!isLast && (
-                  <div className="absolute right-0 top-0 bottom-0 flex items-center">
-                    <svg
-                      width="20"
-                      height="40"
-                      viewBox="0 0 20 40"
-                      className="translate-x-[10px] z-10"
-                    >
-                      <path
-                        d="M0 0 L15 20 L0 40"
-                        fill={
-                          isActive
-                            ? "#2563eb"
-                            : isPast
-                              ? "#1a2a40"
-                              : "#151d28"
-                        }
-                        stroke={isActive ? "#2563eb" : "#1e2d3d"}
-                        strokeWidth="1"
-                      />
-                    </svg>
-                  </div>
-                )}
               </button>
             );
           })}
         </div>
 
-        {/* Step content */}
+        {/* ── Step content ── */}
         {activeStep === 1 && (
           <DocumentStep
             selectedMetric={selectedMetric}
@@ -156,7 +195,7 @@ export default function StatementAnalysisClient() {
             totalPages={totalPages}
           />
         )}
-        {activeStep === 2 && <ApprovalPlaceholder />}
+        {activeStep === 2 && <ComingSoon label="Approval" />}
       </div>
     </div>
   );
@@ -194,71 +233,83 @@ function DocumentStep({
   return (
     <>
       {/* Toolbar row */}
-      <div className={`px-5 py-2.5 border-b ${BORDER} shrink-0`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-5">
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-xs font-medium ${TEXT3} uppercase tracking-wide`}
-              >
+      <div
+        style={{
+          padding: "10px 20px",
+          borderBottom: `1px solid ${ds.border}`,
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
                 Deal to Process
               </span>
-              <span className="text-sm bg-[#1a2a40] text-blue-400 px-3 py-1 rounded font-mono flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-400" />
-                DEAL_20260222_49346d04
-                <ChevronDownIcon />
-              </span>
+              <DropdownChip label="DEAL_20260222_49346d04" />
             </div>
           </div>
         </div>
 
         {/* Historical / Pro Forma tabs */}
-        <div className="flex items-center gap-0 mt-2">
-          <button
-            onClick={() => onTabChange("historical")}
-            className={`text-sm px-3 py-1.5 border-b-2 transition-colors ${
-              activeTab === "historical"
-                ? "border-blue-400 text-blue-400 font-medium"
-                : `border-transparent ${TEXT3} hover:text-[#8b9bb4]`
-            }`}
-          >
-            Historical
-          </button>
-          <button
-            onClick={() => onTabChange("pro_forma")}
-            className={`text-sm px-3 py-1.5 border-b-2 transition-colors ${
-              activeTab === "pro_forma"
-                ? "border-blue-400 text-blue-400 font-medium"
-                : `border-transparent ${TEXT3} hover:text-[#8b9bb4]`
-            }`}
-          >
-            Pro Forma
-          </button>
+        <div style={{ display: "flex", gap: 0, marginTop: 8 }}>
+          {(["historical", "pro_forma"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => onTabChange(tab)}
+              style={{
+                padding: "6px 14px",
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: activeTab === tab ? 700 : 500,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: activeTab === tab ? ds.gold : ds.textMuted,
+                background: "transparent",
+                borderTop: "none",
+                borderRight: "none",
+                borderLeft: "none",
+                borderBottom: activeTab === tab ? `2px solid ${ds.gold}` : "2px solid transparent",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              {tab === "historical" ? "Historical" : "Pro Forma"}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Statement selector row */}
       <div
-        className={`px-5 py-2.5 border-b ${BORDER} flex items-center justify-between shrink-0`}
+        style={{
+          padding: "10px 20px",
+          borderBottom: `1px solid ${ds.border}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+        }}
       >
-        <div className="flex items-center gap-2">
-          <span
-            className={`text-xs font-medium ${TEXT3} uppercase tracking-wide`}
-          >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
             Statement to Process
           </span>
-          <span className="text-sm bg-[#1a2a40] text-blue-400 px-3 py-1 rounded font-mono flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-blue-400" />
-            Financial_Statements_Meridian_Precision.pdf
-            <ChevronDownIcon />
-          </span>
+          <DropdownChip label="Financial_Statements_Meridian_Precision.pdf" />
         </div>
         <button
-          className="text-sm px-4 py-1.5 rounded font-medium transition-colors border"
           style={{
-            backgroundColor: GOLD,
-            borderColor: GOLD,
-            color: "#0b0f15",
+            padding: "7px 14px",
+            borderRadius: ds.radius,
+            fontFamily: ds.fontBody,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            background: ds.gold,
+            color: "#18140a",
+            border: "none",
+            cursor: "pointer",
           }}
         >
           Validate Financial Statement
@@ -266,12 +317,21 @@ function DocumentStep({
       </div>
 
       {/* Three-panel content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* LEFT: PDF Viewer */}
-        <div className={`w-[45%] shrink-0 flex flex-col border-r ${BORDER}`}>
+        <div style={{ width: "45%", flexShrink: 0, display: "flex", flexDirection: "column", borderRight: `1px solid ${ds.border}` }}>
           {/* PDF toolbar */}
           <div
-            className={`px-3 py-2 border-b ${BORDER} flex items-center gap-2 text-sm ${TEXT2}`}
+            style={{
+              padding: "6px 12px",
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontFamily: ds.fontMono,
+              fontSize: 12,
+              color: ds.textDim,
+            }}
           >
             <input
               type="text"
@@ -280,144 +340,81 @@ function DocumentStep({
                 const v = parseInt(e.target.value);
                 if (v >= 1 && v <= totalPages) onPageChange(v);
               }}
-              className={`w-10 text-center ${SURFACE} border ${BORDER} rounded py-0.5 ${TEXT1} text-sm`}
+              style={{
+                width: 36,
+                textAlign: "center",
+                background: ds.surface,
+                border: `1px solid ${ds.border}`,
+                borderRadius: 4,
+                padding: "3px 0",
+                color: ds.text,
+                fontFamily: ds.fontMono,
+                fontSize: 12,
+                outline: "none",
+              }}
             />
             <span>of {totalPages}</span>
 
-            <div className="flex items-center gap-1 ml-3">
-              <button
-                onClick={() => onZoomChange(Math.max(25, zoom - 12))}
-                className={`px-1.5 py-0.5 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              >
-                &minus;
-              </button>
-              <span className="w-12 text-center text-xs">{zoom}%</span>
-              <button
-                onClick={() => onZoomChange(Math.min(200, zoom + 12))}
-                className={`px-1.5 py-0.5 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              >
-                +
-              </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
+              <ToolbarButton onClick={() => onZoomChange(Math.max(25, zoom - 12))} label="−" />
+              <span style={{ width: 42, textAlign: "center", fontSize: 11, color: ds.textMuted }}>{zoom}%</span>
+              <ToolbarButton onClick={() => onZoomChange(Math.min(200, zoom + 12))} label="+" />
             </div>
 
-            <button
-              className={`ml-2 p-1 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              title="Fit width"
-            >
-              <FitWidthIcon />
-            </button>
-            <button
-              className={`p-1 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              title="Fit page"
-            >
-              <FitPageIcon />
-            </button>
-            <button
-              className={`ml-auto p-1 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              title="Search"
-            >
-              <SearchIcon />
-            </button>
-            <button
-              className={`p-1 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              title="More"
-            >
-              &middot;&middot;&middot;
-            </button>
+            <ToolbarButton label={<FitWidthIcon />} title="Fit width" style={{ marginLeft: 6 }} />
+            <ToolbarButton label={<FitPageIcon />} title="Fit page" />
+            <ToolbarButton label={<SearchIcon />} title="Search" style={{ marginLeft: "auto" }} />
+            <ToolbarButton label="···" title="More" />
           </div>
 
           {/* PDF document area */}
-          <div className="flex-1 overflow-auto p-4 flex justify-center">
+          <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", justifyContent: "center", background: ds.bg }}>
             <div
-              className="bg-white rounded shadow-lg"
               style={{
                 width: `${5.1 * (zoom / 100)}in`,
                 minHeight: `${6.6 * (zoom / 100)}in`,
                 padding: `${0.5 * (zoom / 100)}in`,
+                background: "#ffffff",
+                borderRadius: 4,
+                boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
               }}
             >
-              <div className="mb-8">
-                <h2 className="text-gray-900 text-lg font-bold uppercase tracking-wide text-center">
+              <div style={{ marginBottom: 32 }}>
+                <h2 style={{ color: "#111827", fontSize: 16, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "center", fontFamily: "serif" }}>
                   Financial Statements
                 </h2>
-                <p className="text-gray-600 text-sm mt-4 font-semibold">
+                <p style={{ color: "#4b5563", fontSize: 13, marginTop: 16, fontWeight: 600, fontFamily: "serif" }}>
                   Historical and Projected
                 </p>
-                <p className="text-gray-800 text-sm mt-6 font-bold uppercase tracking-wide">
+                <p style={{ color: "#111827", fontSize: 13, marginTop: 24, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", fontFamily: "serif" }}>
                   Meridian Precision Manufacturing, LLC
                 </p>
-                <p className="text-blue-600 text-sm mt-3 italic">
+                <p style={{ color: "#2563eb", fontSize: 13, marginTop: 12, fontStyle: "italic", fontFamily: "serif" }}>
                   For the Fiscal Years Ended December 31
                 </p>
               </div>
 
               {/* Period/Type/Basis table */}
-              <div className="mt-8 border border-gray-300 text-sm">
-                <div className="grid grid-cols-3">
-                  <div className="bg-[#1a3a5c] text-white px-3 py-2 font-semibold text-center text-xs">
-                    Period
-                  </div>
-                  <div className="bg-[#1a3a5c] text-white px-3 py-2 font-semibold text-center text-xs">
-                    Type
-                  </div>
-                  <div className="bg-[#1a3a5c] text-white px-3 py-2 font-semibold text-center text-xs">
-                    Basis
-                  </div>
+              <div style={{ marginTop: 32, border: "1px solid #d1d5db", fontSize: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
+                  {["Period", "Type", "Basis"].map((h) => (
+                    <div key={h} style={{ background: "#1a3a5c", color: "#fff", padding: "8px 12px", fontWeight: 600, textAlign: "center", fontSize: 11 }}>
+                      {h}
+                    </div>
+                  ))}
                 </div>
                 {[
-                  {
-                    period: "FY 2022",
-                    type: "Historical",
-                    typeColor: "#d4a843",
-                    basis: "Audited - Thompson & Associates, CPAs",
-                  },
-                  {
-                    period: "FY 2023",
-                    type: "Historical",
-                    typeColor: "#d4a843",
-                    basis: "Audited - Thompson & Associates, CPAs",
-                  },
-                  {
-                    period: "FY 2024",
-                    type: "Historical",
-                    typeColor: "#d4a843",
-                    basis: "Audited - Thompson & Associates, CPAs",
-                  },
-                  {
-                    period: "FY 2025",
-                    type: "Projected",
-                    typeColor: "#3b82f6",
-                    basis: "Management Forecast",
-                  },
-                  {
-                    period: "FY 2026",
-                    type: "Projected",
-                    typeColor: "#3b82f6",
-                    basis: "Management Forecast",
-                  },
-                  {
-                    period: "FY 2027",
-                    type: "Projected",
-                    typeColor: "#3b82f6",
-                    basis: "Management Forecast",
-                  },
+                  { period: "FY 2022", type: "Historical", typeColor: ds.gold, basis: "Audited - Thompson & Associates, CPAs" },
+                  { period: "FY 2023", type: "Historical", typeColor: ds.gold, basis: "Audited - Thompson & Associates, CPAs" },
+                  { period: "FY 2024", type: "Historical", typeColor: ds.gold, basis: "Audited - Thompson & Associates, CPAs" },
+                  { period: "FY 2025", type: "Projected", typeColor: ds.blue, basis: "Management Forecast" },
+                  { period: "FY 2026", type: "Projected", typeColor: ds.blue, basis: "Management Forecast" },
+                  { period: "FY 2027", type: "Projected", typeColor: ds.blue, basis: "Management Forecast" },
                 ].map((row, i) => (
-                  <div
-                    key={i}
-                    className="grid grid-cols-3 border-t border-gray-200"
-                  >
-                    <div className="px-3 py-1.5 text-center text-gray-700 text-xs">
-                      {row.period}
-                    </div>
-                    <div
-                      className="px-3 py-1.5 text-center text-xs font-medium"
-                      style={{ color: row.typeColor }}
-                    >
-                      {row.type}
-                    </div>
-                    <div className="px-3 py-1.5 text-center text-gray-500 text-xs">
-                      {row.basis}
-                    </div>
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: "1px solid #e5e7eb" }}>
+                    <div style={{ padding: "6px 12px", textAlign: "center", color: "#374151", fontSize: 11 }}>{row.period}</div>
+                    <div style={{ padding: "6px 12px", textAlign: "center", color: row.typeColor, fontSize: 11, fontWeight: 500 }}>{row.type}</div>
+                    <div style={{ padding: "6px 12px", textAlign: "center", color: "#6b7280", fontSize: 11 }}>{row.basis}</div>
                   </div>
                 ))}
               </div>
@@ -426,46 +423,70 @@ function DocumentStep({
         </div>
 
         {/* MIDDLE: Extracted metrics table */}
-        <div className={`flex-1 flex flex-col border-r ${BORDER} min-w-0`}>
-          {/* Table header with action buttons */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", borderRight: `1px solid ${ds.border}`, minWidth: 0 }}>
+          {/* Table header */}
           <div
-            className={`px-4 py-2.5 border-b ${BORDER} flex items-center justify-between`}
+            style={{
+              padding: "10px 16px",
+              background: ds.surfaceRaised,
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
           >
-            <div className="flex items-center gap-4">
-              <span className={`text-sm font-medium ${TEXT1}`}>
-                Metric Name
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-sm font-medium ${TEXT1}`}>
-                Financial Statement - FY 2023
-              </span>
-            </div>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
+              Metric Name
+            </span>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
+              Financial Statement — FY 2023
+            </span>
           </div>
 
           {/* Metric rows */}
-          <div className="flex-1 overflow-y-auto">
+          <div style={{ flex: 1, overflowY: "auto" }}>
             {MOCK_METRICS.map((metric) => {
               const isSelected = selectedMetric?.id === metric.id;
               return (
                 <button
                   key={metric.id}
                   onClick={() => onSelectMetric(metric)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 text-left border-b border-[#1e2d3d]/50 transition-colors ${
-                    isSelected ? "bg-[#1c2940]" : "hover:bg-[#151d28]"
-                  }`}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "9px 16px",
+                    textAlign: "left",
+                    borderBottom: `1px solid ${ds.border}`,
+                    background: isSelected ? ds.surfaceRaised : "transparent",
+                    cursor: "pointer",
+                    border: "none",
+                    borderBlockEnd: `1px solid ${ds.border}`,
+                    transition: "background 0.1s",
+                  }}
                 >
                   <span
-                    className={`text-sm truncate ${
-                      isSelected ? TEXT1 : TEXT2
-                    }`}
+                    style={{
+                      fontFamily: ds.fontBody,
+                      fontSize: 13,
+                      color: isSelected ? ds.text : ds.textDim,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     {metric.name}
                   </span>
                   <span
-                    className={`text-sm font-mono shrink-0 ml-4 ${
-                      isSelected ? TEXT1 : TEXT2
-                    }`}
+                    style={{
+                      fontFamily: ds.fontMono,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: isSelected ? ds.text : ds.textDim,
+                      flexShrink: 0,
+                      marginLeft: 16,
+                    }}
                   >
                     {metric.value}
                   </span>
@@ -476,86 +497,161 @@ function DocumentStep({
         </div>
 
         {/* RIGHT: Action & edit panel */}
-        <div className="w-[260px] shrink-0 flex flex-col">
+        <div style={{ width: 260, flexShrink: 0, display: "flex", flexDirection: "column" }}>
           <div
-            className={`px-4 py-2.5 border-b ${BORDER} flex items-center justify-end`}
+            style={{
+              padding: "10px 16px",
+              background: ds.surfaceRaised,
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+            }}
           >
-            <button className="text-sm border border-[#3b4f6b] text-blue-400 px-3 py-1 rounded hover:bg-[#1a2a40] transition-colors">
-              Edit Financial Statement
-            </button>
+            <GhostButtonSm label="Edit Financial Statement" />
           </div>
 
           {selectedMetric ? (
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
               {/* Metric name */}
-              <div>
-                <label
-                  className={`block text-xs font-medium ${TEXT3} mb-1 uppercase tracking-wide`}
-                >
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Metric
                 </label>
-                <p className={`text-sm ${TEXT1}`}>{selectedMetric.name}</p>
+                <p style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.text }}>{selectedMetric.name}</p>
               </div>
 
               {/* Editable value */}
-              <div>
-                <label
-                  className={`block text-xs font-medium ${TEXT3} mb-1 uppercase tracking-wide`}
-                >
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Value
                 </label>
                 <input
                   type="text"
                   value={editValue}
                   onChange={(e) => onEditValueChange(e.target.value)}
-                  className={`w-full px-3 py-2 rounded ${SURFACE} border ${BORDER} ${TEXT1} text-sm focus:outline-none focus:border-blue-500`}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: ds.radius,
+                    background: ds.surface,
+                    border: `1px solid ${ds.border}`,
+                    color: ds.text,
+                    fontFamily: ds.fontMono,
+                    fontSize: 13,
+                    outline: "none",
+                  }}
                 />
               </div>
 
               {/* Period */}
-              <div>
-                <label
-                  className={`block text-xs font-medium ${TEXT3} mb-1 uppercase tracking-wide`}
-                >
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Period
                 </label>
-                <p className={`text-sm ${TEXT2}`}>FY 2023</p>
+                <p style={{ fontFamily: ds.fontMono, fontSize: 13, color: ds.textDim }}>FY 2023</p>
               </div>
 
               {/* Source */}
-              <div>
-                <label
-                  className={`block text-xs font-medium ${TEXT3} mb-1 uppercase tracking-wide`}
-                >
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Source
                 </label>
-                <p className={`text-sm ${TEXT2}`}>
+                <p style={{ fontFamily: ds.fontMono, fontSize: 12, color: ds.textDim }}>
                   Financial_Statements_Meridian_Precision.pdf
                 </p>
-                <p className={`text-xs ${TEXT3} mt-0.5`}>
+                <p style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, marginTop: 2 }}>
                   Page {currentPage}, extracted via LLM
                 </p>
               </div>
 
               {/* Action buttons */}
-              <div className="pt-2 space-y-2">
-                <button className="w-full text-sm bg-[#1a2a40] text-blue-400 px-3 py-2 rounded hover:bg-[#1f3350] transition-colors">
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: ds.radius,
+                    fontFamily: ds.fontBody,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: ds.gold,
+                    color: "#18140a",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
                   Confirm Value
                 </button>
                 <button
-                  className={`w-full text-sm border ${BORDER} ${TEXT2} px-3 py-2 rounded hover:bg-[#1a2332] transition-colors`}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: ds.radius,
+                    fontFamily: ds.fontBody,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: "transparent",
+                    color: ds.coral,
+                    border: `1px solid rgba(224,112,96,0.38)`,
+                    cursor: "pointer",
+                  }}
                 >
                   Flag for Review
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <span className={`text-sm ${TEXT3}`}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textMuted }}>
                 Select a metric to edit
               </span>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Footer action bar */}
+      <div
+        style={{
+          background: ds.surfaceDeep,
+          borderTop: `1px solid ${ds.border}`,
+          padding: "12px 28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <FooterMeta label="Statement" value="FIN_20260305_001" />
+          <FooterMeta label="Period" value="FY 2023" />
+          <FooterMeta label="Counterparty" value="Meridian Precision Mfg." />
+          <FooterMeta label="Metrics" value={`${MOCK_METRICS.length} extracted`} valueColor={ds.green} />
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <GhostButtonWarn label="Reject Statement" />
+          <button
+            style={{
+              padding: "8px 16px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: ds.gold,
+              color: "#18140a",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Validate Statement →
+          </button>
         </div>
       </div>
     </>
@@ -563,17 +659,92 @@ function DocumentStep({
 }
 
 /* ================================================================== */
-/*  STEP 2 — Approval (placeholder)                                    */
+/*  Coming Soon placeholder                                            */
 /* ================================================================== */
 
-function ApprovalPlaceholder() {
+function ComingSoon({ label }: { label: string }) {
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="text-center">
-        <span className={`text-lg ${TEXT3}`}>
-          Approval workflow — coming soon
-        </span>
-      </div>
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <span style={{ fontSize: 16, color: ds.textMuted, fontFamily: ds.fontSerif, fontStyle: "italic" }}>
+        {label} — coming soon
+      </span>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  Shared components                                                  */
+/* ================================================================== */
+
+function DropdownChip({ label }: { label: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontFamily: ds.fontMono,
+        fontSize: 12,
+        fontWeight: 500,
+        color: ds.text,
+        background: ds.surfaceRaised,
+        border: `1px solid ${ds.border}`,
+        padding: "4px 10px",
+        borderRadius: 4,
+      }}
+    >
+      <span style={{ width: 7, height: 7, borderRadius: "50%", background: ds.green }} />
+      {label}
+      <ChevronDownIcon />
+    </span>
+  );
+}
+
+function ToolbarButton({ label, onClick, title, style: extraStyle }: { label: React.ReactNode; onClick?: () => void; title?: string; style?: React.CSSProperties }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        padding: "3px 6px",
+        borderRadius: 4,
+        background: "transparent",
+        color: ds.textDim,
+        border: "none",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: ds.fontMono,
+        fontSize: 13,
+        ...extraStyle,
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function GhostButtonSm({ label }: { label: string }) {
+  return (
+    <button style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 4, background: "transparent", border: `1px solid ${ds.border}`, color: ds.textMuted, fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>
+      {label}
+    </button>
+  );
+}
+
+function GhostButtonWarn({ label }: { label: string }) {
+  return (
+    <button style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.coral, border: `1px solid rgba(224,112,96,0.38)`, cursor: "pointer", whiteSpace: "nowrap" }}>
+      {label}
+    </button>
+  );
+}
+
+function FooterMeta({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+  return (
+    <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted }}>
+      {label}: <strong style={{ color: valueColor || ds.textDim }}>{value}</strong>
     </div>
   );
 }
