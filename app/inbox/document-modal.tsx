@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Attachment, Email } from "@/lib/inbox-data";
 
 /* ================================================================== */
@@ -16,11 +16,11 @@ const ds = {
   gold: "#c8a84b",
   goldDim: "rgba(200,168,75,0.15)",
   green: "#4caf82",
-  greenDim: "rgba(76,175,130,0.13)",
   amber: "#e8a040",
   coral: "#e07060",
   coralDim: "rgba(224,112,96,0.14)",
   blue: "#5b9bd5",
+  blueDim: "rgba(91,155,213,0.12)",
   text: "#e4e8f0",
   textDim: "#9aa4b2",
   textMuted: "#5e6a7a",
@@ -37,457 +37,443 @@ interface Props {
   onClose: () => void;
 }
 
-export default function DocumentModal({ attachment, email, onClose }: Props) {
+/** Derive the classification badge */
+function classTag(att: Attachment): { label: string; color: string; bg: string; borderColor: string; cls: string } {
+  const fn = att.file_name.toLowerCase();
+  if (fn.includes("security")) {
+    return { label: "SECURITY", color: ds.amber, bg: "rgba(232,160,64,0.12)", borderColor: "rgba(232,160,64,0.30)", cls: "COLLATERAL" };
+  }
+  if (att.classification.includes("CONTRACT")) {
+    return { label: "TERMS", color: ds.gold, bg: ds.goldDim, borderColor: "rgba(200,168,75,0.30)", cls: "CONTRACT_TERM" };
+  }
+  return { label: "FIN", color: ds.blue, bg: ds.blueDim, borderColor: "rgba(91,155,213,0.28)", cls: "FINANCIAL_DATA" };
+}
+
+export default function DocumentShelf({ attachment, email, onClose }: Props) {
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(116);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const tag = classTag(attachment);
+
+  // Animate in on mount
+  useEffect(() => {
+    requestAnimationFrame(() => setIsOpen(true));
+  }, []);
+
+  // Escape to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setTimeout(onClose, 280);
+  };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 50,
-        background: "rgba(0,0,0,0.70)",
-        display: "flex",
-        flexDirection: "column",
-        fontFamily: ds.fontBody,
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      {/* ── Top bar ── */}
+    <>
+      {/* Overlay */}
       <div
         style={{
-          flexShrink: 0,
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.50)",
+          zIndex: 299,
+          opacity: isOpen ? 1 : 0,
+          transition: "opacity 0.28s",
+          pointerEvents: isOpen ? "all" : "none",
+        }}
+        onClick={handleClose}
+      />
+
+      {/* Shelf panel */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 720,
+          maxWidth: "55vw",
+          background: ds.surfaceDeep,
+          borderLeft: `1px solid ${ds.borderAccent}`,
+          zIndex: 300,
           display: "flex",
-          flexWrap: "wrap",
-          alignItems: "flex-start",
-          gap: 16,
-          padding: "16px 24px",
+          flexDirection: "column",
+          transform: isOpen ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)",
+          boxShadow: "-24px 0 80px rgba(0,0,0,0.6)",
+          fontFamily: ds.fontBody,
         }}
       >
-        {/* Counterparty card */}
+        {/* ── Shelf header ── */}
         <div
           style={{
-            border: `1px solid ${ds.borderAccent}`,
-            borderRadius: ds.radiusLg,
-            padding: "12px 20px",
-            background: `${ds.bg}cc`,
-            backdropFilter: "blur(8px)",
+            flexShrink: 0,
+            borderBottom: `1px solid ${ds.border}`,
+            background: ds.surfaceRaised,
           }}
         >
-          <p
+          {/* Top bar with doc name + close */}
+          <div
             style={{
-              margin: 0,
-              fontFamily: ds.fontBody,
-              fontSize: 14,
-              fontWeight: 600,
-              color: ds.text,
-              lineHeight: 1.3,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "14px 20px",
+              borderBottom: `1px solid ${ds.border}`,
             }}
           >
-            {attachment.counterparty_name}
-          </p>
-          <p
-            style={{
-              margin: "3px 0 0",
-              fontFamily: ds.fontMono,
-              fontSize: 11,
-              color: ds.textMuted,
-            }}
-          >
-            {attachment.counterparty_type}
-          </p>
-        </div>
-
-        {/* Classification card */}
-        <div
-          style={{
-            border: `1px solid ${ds.borderAccent}`,
-            borderRadius: ds.radiusLg,
-            padding: "12px 20px",
-            background: `${ds.bg}cc`,
-            backdropFilter: "blur(8px)",
-          }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontFamily: ds.fontBody,
-              fontSize: 14,
-              fontWeight: 600,
-              color: ds.text,
-              lineHeight: 1.3,
-            }}
-          >
-            {attachment.classification}
-          </p>
-          <p
-            style={{
-              margin: "3px 0 0",
-              fontFamily: ds.fontMono,
-              fontSize: 11,
-              color: ds.textMuted,
-            }}
-          >
-            {attachment.classification_role}
-          </p>
-        </div>
-
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* Actions + meta */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            alignItems: "flex-end",
-          }}
-        >
-          <ActionButton
-            label="Confirm & Advance Workflow"
-            bg={ds.gold}
-            hoverBg="#d9b85a"
-            textColor="#18140a"
-          />
-          <ActionButton
-            label="Edit Workflow"
-            bg={ds.amber}
-            hoverBg="#d4945a"
-            textColor="#18140a"
-          />
-          <ActionButton
-            label="Archive or Reassign"
-            bg={ds.textDim}
-            hoverBg="#8a94a8"
-            textColor="#18140a"
-          />
-          {email && (
             <div
               style={{
                 fontFamily: ds.fontMono,
                 fontSize: 11,
-                color: ds.textMuted,
-                marginTop: 4,
-                textAlign: "right",
-                lineHeight: 1.5,
+                color: ds.textDim,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
               }}
             >
-              <p style={{ margin: 0 }}>{email.from}</p>
-              <p style={{ margin: 0 }}>{email.sent_at}</p>
+              <span style={{ color: ds.text, fontWeight: 500 }}>
+                {attachment.file_name}
+              </span>
+              <span style={{ color: ds.textMuted }}>·</span>
+              <span>{attachment.pages} pages</span>
+              <span
+                style={{
+                  fontFamily: ds.fontMono,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  padding: "2px 6px",
+                  borderRadius: 3,
+                  marginLeft: 4,
+                  background: tag.bg,
+                  color: tag.color,
+                  border: `1px solid ${tag.borderColor}`,
+                }}
+              >
+                {tag.label}
+              </span>
             </div>
-          )}
-        </div>
-      </div>
+            <button
+              onClick={handleClose}
+              style={{
+                background: "transparent",
+                border: `1px solid ${ds.border}`,
+                color: ds.textMuted,
+                padding: "5px 12px",
+                borderRadius: ds.radius,
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: ds.fontBody,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                transition: "all 0.13s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = ds.text;
+                e.currentTarget.style.borderColor = ds.borderAccent;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = ds.textMuted;
+                e.currentTarget.style.borderColor = ds.border;
+              }}
+            >
+              ✕ Close
+            </button>
+          </div>
 
-      {/* ── PDF viewer area ── */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          margin: "0 24px 24px",
-          overflow: "hidden",
-          borderRadius: ds.radiusLg,
-          border: `1px solid ${ds.border}`,
-          background: ds.surface,
-        }}
-      >
-        {/* Toolbar */}
+          {/* Action buttons row */}
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              padding: "14px 20px",
+            }}
+          >
+            <ShelfButton variant="gold">Confirm Term →</ShelfButton>
+            <ShelfButton variant="ghost">Edit Terms</ShelfButton>
+            <ShelfButton variant="coral">Flag for Review</ShelfButton>
+          </div>
+        </div>
+
+        {/* ── Doc metadata strip ── */}
         <div
           style={{
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
+            padding: "16px 20px",
+            borderTop: `1px solid ${ds.border}`,
+            background: ds.surface,
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
             gap: 12,
-            padding: "8px 16px",
-            borderBottom: `1px solid ${ds.border}`,
-            background: ds.surfaceDeep,
           }}
         >
-          {/* Page nav */}
-          <input
-            type="text"
-            value={page}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              if (!isNaN(v) && v >= 1 && v <= attachment.pages) setPage(v);
-            }}
-            style={{
-              width: 32,
-              textAlign: "center",
-              fontFamily: ds.fontMono,
-              fontSize: 13,
-              background: ds.surfaceRaised,
-              border: `1px solid ${ds.borderAccent}`,
-              borderRadius: 4,
-              padding: "2px 4px",
-              color: ds.text,
-              outline: "none",
-            }}
+          <MetaItem label="Source Document" value={attachment.file_name} />
+          <MetaItem
+            label="Maps to Obligation"
+            value={tag.cls}
+            valueColor={ds.blue}
           />
-          <span
-            style={{
-              fontFamily: ds.fontMono,
-              fontSize: 13,
-              color: ds.textDim,
-            }}
-          >
-            of {attachment.pages}
-          </span>
-
-          <div
-            style={{
-              width: 1,
-              height: 20,
-              background: ds.borderAccent,
-              margin: "0 4px",
-            }}
+          <MetaItem label="Party Role" value={attachment.classification_role} />
+          <MetaItem
+            label="Workflow Stage"
+            value="TERMS_EXTRACTED"
+            valueColor={ds.amber}
           />
-
-          {/* Zoom */}
-          <ToolbarButton
-            label="−"
-            onClick={() => setZoom((z) => Math.max(50, z - 10))}
-          />
-          <span
-            style={{
-              fontFamily: ds.fontMono,
-              fontSize: 13,
-              color: ds.textDim,
-              width: 40,
-              textAlign: "center",
-            }}
-          >
-            {zoom}%
-          </span>
-          <ToolbarButton
-            label="+"
-            onClick={() => setZoom((z) => Math.min(200, z + 10))}
-          />
-
-          <ToolbarButton icon={<ExpandIcon />} />
-
-          {/* Spacer */}
-          <div style={{ flex: 1 }} />
-
-          {/* Right toolbar icons */}
-          <ToolbarButton icon={<SplitIcon />} />
-          <ToolbarButton icon={<MoveIcon />} />
-          <ToolbarButton icon={<SearchIcon />} />
-          <ToolbarButton label="···" onClick={onClose} />
         </div>
 
-        {/* Document preview */}
-        <div
-          style={{
-            flex: 1,
-            overflow: "auto",
-            display: "flex",
-            justifyContent: "center",
-            padding: 32,
-            background: ds.surfaceRaised,
-          }}
-        >
+        {/* ── PDF viewer ── */}
+        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           <div
             style={{
-              background: "white",
-              color: "black",
+              margin: 20,
+              background: "#fff",
               borderRadius: ds.radius,
-              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-              width: `${Math.round(595 * (zoom / 100))}px`,
-              minHeight: `${Math.round(842 * (zoom / 100))}px`,
-              padding: `${Math.round(80 * (zoom / 100))}px ${Math.round(60 * (zoom / 100))}px`,
+              boxShadow: "0 8px 40px rgba(0,0,0,0.4)",
+              overflow: "hidden",
+              minHeight: 600,
             }}
           >
+            {/* PDF toolbar */}
             <div
               style={{
+                background: "#f0f0f0",
+                borderBottom: "1px solid #ddd",
+                padding: "8px 14px",
                 display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 40,
+                alignItems: "center",
+                gap: 12,
+                fontFamily: ds.fontMono,
+                fontSize: 11,
+                color: "#444",
               }}
             >
-              {/* Title */}
+              <input
+                type="text"
+                value={page}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 1 && v <= attachment.pages) setPage(v);
+                }}
+                style={{
+                  width: 28,
+                  textAlign: "center",
+                  fontFamily: ds.fontMono,
+                  fontSize: 11,
+                  background: "#fff",
+                  border: "1px solid #ccc",
+                  borderRadius: 3,
+                  padding: "1px 2px",
+                  color: "#333",
+                }}
+              />
+              <span style={{ color: "#888" }}>of {attachment.pages}</span>
+              <span style={{ color: "#888" }}>—</span>
+              <button
+                onClick={() => setZoom((z) => Math.max(50, z - 10))}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#666",
+                  cursor: "pointer",
+                  fontSize: 14,
+                }}
+              >
+                −
+              </button>
+              <span style={{ color: "#888" }}>{zoom}%</span>
+              <button
+                onClick={() => setZoom((z) => Math.min(200, z + 10))}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#666",
+                  cursor: "pointer",
+                  fontSize: 14,
+                }}
+              >
+                +
+              </button>
+              <div style={{ flex: 1 }} />
+              <span style={{ color: "#888", cursor: "pointer" }}>🔍</span>
+            </div>
+
+            {/* PDF content */}
+            <div
+              style={{
+                padding: `${Math.round(48 * (zoom / 100))}px ${Math.round(60 * (zoom / 100))}px`,
+                color: "#111",
+                fontFamily: "'Times New Roman', serif",
+                fontSize: `${Math.round(13 * (zoom / 100))}px`,
+                lineHeight: 1.7,
+              }}
+            >
               <h1
                 style={{
-                  margin: 0,
+                  fontSize: `${Math.round(18 * (zoom / 100))}px`,
                   fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  alignSelf: "center",
-                  fontSize: `${Math.round(22 * (zoom / 100))}px`,
+                  textAlign: "center",
+                  marginBottom: 8,
+                  letterSpacing: "0.02em",
                 }}
               >
                 {attachment.mock_doc.title}
               </h1>
-
-              {/* Date */}
-              <p
+              <div
                 style={{
-                  margin: 0,
-                  fontSize: `${Math.round(14 * (zoom / 100))}px`,
+                  textAlign: "center",
+                  color: "#555",
+                  fontSize: `${Math.round(12 * (zoom / 100))}px`,
+                  marginBottom: 32,
                 }}
               >
                 dated as of {attachment.mock_doc.date}
-              </p>
+              </div>
 
-              {/* Parties */}
               {attachment.mock_doc.parties.map((party, i) => (
-                <div key={i}>
-                  <p
+                <div key={i} style={{ marginBottom: 20 }}>
+                  <div
                     style={{
-                      margin: "0 0 8px",
-                      color: "#2563eb",
-                      fontSize: `${Math.round(14 * (zoom / 100))}px`,
+                      fontSize: `${Math.round(11 * (zoom / 100))}px`,
+                      color: "#0055aa",
+                      marginBottom: 3,
                     }}
                   >
                     {i === 0 ? "by" : "in favor of"}
-                  </p>
-                  <p
+                  </div>
+                  <div
                     style={{
-                      margin: 0,
-                      fontWeight: 700,
                       fontSize: `${Math.round(14 * (zoom / 100))}px`,
+                      fontWeight: 700,
                     }}
                   >
                     {party.name}
-                  </p>
-                  <p
+                  </div>
+                  <div
                     style={{
-                      margin: 0,
-                      fontSize: `${Math.round(13 * (zoom / 100))}px`,
+                      fontSize: `${Math.round(12 * (zoom / 100))}px`,
+                      color: "#555",
                     }}
                   >
                     {party.role}
-                  </p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
 /* ================================================================== */
-/*  Shared sub-components                                              */
+/*  Shelf sub-components                                               */
 /* ================================================================== */
 
-function ActionButton({
-  label,
-  bg,
-  hoverBg,
-  textColor,
+function ShelfButton({
+  variant,
+  children,
 }: {
-  label: string;
-  bg: string;
-  hoverBg: string;
-  textColor: string;
+  variant: "gold" | "ghost" | "coral";
+  children: React.ReactNode;
 }) {
+  const styles: Record<string, React.CSSProperties> = {
+    gold: { background: ds.gold, color: "#18140a", flex: 1 },
+    ghost: {
+      background: "transparent",
+      color: ds.textDim,
+      border: `1px solid ${ds.borderAccent}`,
+    },
+    coral: {
+      background: "transparent",
+      color: ds.coral,
+      border: "1px solid rgba(224,112,96,0.35)",
+    },
+  };
+
+  const hoverBgs: Record<string, string> = {
+    gold: "#d9b85a",
+    ghost: "rgba(255,255,255,0.04)",
+    coral: ds.coralDim,
+  };
+
   return (
     <button
       style={{
-        width: 224,
+        padding: "10px 18px",
         borderRadius: ds.radius,
-        padding: "7px 12px",
         fontFamily: ds.fontBody,
         fontSize: 12,
         fontWeight: 700,
-        letterSpacing: "0.04em",
-        background: bg,
-        color: textColor,
-        border: "none",
+        letterSpacing: "0.07em",
+        textTransform: "uppercase",
         cursor: "pointer",
-        textAlign: "left",
-        transition: "background 0.15s",
+        border: "none",
+        transition: "all 0.13s",
+        whiteSpace: "nowrap",
+        ...styles[variant],
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = hoverBg;
+        e.currentTarget.style.background = hoverBgs[variant];
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = bg;
+        e.currentTarget.style.background =
+          (styles[variant].background as string) ?? "transparent";
       }}
     >
-      {label}
+      {children}
     </button>
   );
 }
 
-function ToolbarButton({
+function MetaItem({
   label,
-  icon,
-  onClick,
+  value,
+  valueColor,
 }: {
-  label?: string;
-  icon?: React.ReactNode;
-  onClick?: () => void;
+  label: string;
+  value: string;
+  valueColor?: string;
 }) {
   return (
-    <button
-      onClick={onClick}
+    <div
       style={{
-        width: 28,
-        height: 28,
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 4,
-        background: "transparent",
-        border: "none",
-        color: ds.textDim,
-        fontSize: 16,
-        cursor: "pointer",
-        transition: "background 0.15s",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = ds.surfaceRaised;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = "transparent";
+        flexDirection: "column",
+        gap: 3,
       }}
     >
-      {icon || label}
-    </button>
-  );
-}
-
-/* ── Toolbar SVG icons ── */
-
-function ExpandIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
-      <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
-    </svg>
-  );
-}
-
-function SplitIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="2" width="20" height="20" rx="2" /><line x1="12" y1="2" x2="12" y2="22" />
-    </svg>
-  );
-}
-
-function MoveIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="5 9 2 12 5 15" /><polyline points="9 5 12 2 15 5" />
-      <polyline points="15 19 12 22 9 19" /><polyline points="19 9 22 12 19 15" />
-      <line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
+      <span
+        style={{
+          fontFamily: ds.fontMono,
+          fontSize: 10,
+          textTransform: "uppercase",
+          letterSpacing: "0.10em",
+          color: ds.textMuted,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: ds.fontMono,
+          fontSize: 12,
+          color: valueColor ?? ds.text,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
