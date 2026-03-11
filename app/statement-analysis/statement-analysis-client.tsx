@@ -232,58 +232,77 @@ function DocumentStep({
 }) {
   return (
     <>
-      {/* Toolbar row */}
+      {/* Row 2: Page title LEFT — Deal selector + Historical/Pro Forma tabs RIGHT */}
       <div
         style={{
-          padding: "10px 20px",
-          borderBottom: `1px solid ${ds.border}`,
+          padding: "18px 28px 12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
-                Deal to Process
-              </span>
-              <DropdownChip label="DEAL_20260222_49346d04" />
-            </div>
+        <h1
+          style={{
+            margin: 0,
+            fontFamily: ds.fontSerif,
+            fontStyle: "italic",
+            fontSize: 28,
+            fontWeight: 400,
+            color: ds.text,
+            letterSpacing: "-0.01em",
+            lineHeight: 1.15,
+          }}
+        >
+          Statement Analysis
+        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
+              Deal to Process
+            </span>
+            <DropdownChip label="DEAL_20260222_49346d04" />
           </div>
-        </div>
-
-        {/* Historical / Pro Forma tabs */}
-        <div style={{ display: "flex", gap: 0, marginTop: 8 }}>
-          {(["historical", "pro_forma"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => onTabChange(tab)}
-              style={{
-                padding: "6px 14px",
-                fontFamily: ds.fontBody,
-                fontSize: 12,
-                fontWeight: activeTab === tab ? 700 : 500,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: activeTab === tab ? ds.gold : ds.textMuted,
-                background: "transparent",
-                borderTop: "none",
-                borderRight: "none",
-                borderLeft: "none",
-                borderBottom: activeTab === tab ? `2px solid ${ds.gold}` : "2px solid transparent",
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-            >
-              {tab === "historical" ? "Historical" : "Pro Forma"}
-            </button>
-          ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
+              Statement to Process
+            </span>
+            <DropdownChip label="Financial_Statements_Meridian_Precision.pdf" />
+          </div>
+          {/* Historical / Pro Forma tabs */}
+          <div style={{ display: "flex", gap: 0, marginLeft: 4 }}>
+            {(["historical", "pro_forma"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => onTabChange(tab)}
+                style={{
+                  padding: "6px 14px",
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: activeTab === tab ? 700 : 500,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: activeTab === tab ? ds.gold : ds.textMuted,
+                  background: "transparent",
+                  borderTop: "none",
+                  borderRight: "none",
+                  borderLeft: "none",
+                  borderBottom: activeTab === tab ? `2px solid ${ds.gold}` : "2px solid transparent",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {tab === "historical" ? "Historical" : "Pro Forma"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Statement selector row */}
+      {/* Row 3: Deal metadata strip LEFT — Validate button RIGHT */}
       <div
         style={{
-          padding: "10px 20px",
+          padding: "0 28px 14px",
           borderBottom: `1px solid ${ds.border}`,
           display: "flex",
           alignItems: "center",
@@ -291,12 +310,12 @@ function DocumentStep({
           flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
-            Statement to Process
-          </span>
-          <DropdownChip label="Financial_Statements_Meridian_Precision.pdf" />
-        </div>
+        <DealSubheader items={[
+          { label: "STATEMENT", value: "FIN_20260305_001" },
+          { label: "COUNTERPARTY", value: "Meridian Precision Mfg." },
+          { label: "PERIOD", value: "FY 2023" },
+          { label: "METRICS", value: `${MOCK_METRICS.length} extracted` },
+        ]} />
         <button
           style={{
             padding: "7px 14px",
@@ -310,9 +329,12 @@ function DocumentStep({
             color: "#18140a",
             border: "none",
             cursor: "pointer",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            marginLeft: 20,
           }}
         >
-          Validate Financial Statement
+          Validate Financial Statement →
         </button>
       </div>
 
@@ -633,26 +655,7 @@ function DocumentStep({
           <FooterMeta label="Counterparty" value="Meridian Precision Mfg." />
           <FooterMeta label="Metrics" value={`${MOCK_METRICS.length} extracted`} valueColor={ds.green} />
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <GhostButtonWarn label="Reject Statement" />
-          <button
-            style={{
-              padding: "8px 16px",
-              borderRadius: ds.radius,
-              fontFamily: ds.fontBody,
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              background: ds.gold,
-              color: "#18140a",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            Validate Statement →
-          </button>
-        </div>
+        <GhostButtonWarn label="Reject Statement" />
       </div>
     </>
   );
@@ -745,6 +748,52 @@ function FooterMeta({ label, value, valueColor }: { label: string; value: string
   return (
     <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted }}>
       {label}: <strong style={{ color: valueColor || ds.textDim }}>{value}</strong>
+    </div>
+  );
+}
+
+function DealSubheader({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+      {items.map((item, i) => (
+        <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+          {i > 0 && (
+            <span
+              style={{
+                width: 1,
+                height: 18,
+                background: ds.borderAccent,
+                margin: "0 14px",
+                flexShrink: 0,
+              }}
+            />
+          )}
+          <span
+            style={{
+              fontFamily: ds.fontMono,
+              fontSize: 10,
+              fontWeight: 500,
+              textTransform: "uppercase",
+              letterSpacing: "0.12em",
+              color: ds.textMuted,
+              marginRight: 6,
+            }}
+          >
+            {item.label}
+          </span>
+          <span
+            style={{
+              fontFamily: ds.fontMono,
+              fontSize: 13,
+              fontWeight: 500,
+              color: ds.text,
+              letterSpacing: "0.02em",
+            }}
+          >
+            {item.value}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
