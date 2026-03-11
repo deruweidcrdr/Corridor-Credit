@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Sidebar from "@/app/components/sidebar";
 
 /* ================================================================== */
@@ -1441,8 +1441,12 @@ function YardbookStep() {
   const overrideCount = Object.values(overridden).filter(Boolean).length;
   const allValidated = validatedCount === 5;
 
+  const chatInsertRef = useRef<((dim: string) => void) | null>(null);
+
   const toggleCard = (dim: string) => {
     setExpanded((prev) => (prev === dim ? null : dim));
+    // Also insert @token into chat
+    if (chatInsertRef.current) chatInsertRef.current(dim);
   };
 
   const validateDim = (dim: string) => {
@@ -1455,7 +1459,7 @@ function YardbookStep() {
 
   return (
     <>
-      <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px 80px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px 140px" }}>
         {/* Page header */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
@@ -1568,8 +1572,8 @@ function YardbookStep() {
         <div style={{ height: 60 }} />
       </div>
 
-      {/* Footer */}
-      <div style={{ background: ds.surfaceDeep, borderTop: `1px solid ${ds.border}`, padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+      {/* Footer — Layer 1, fixed at bottom: 0 */}
+      <div style={{ position: "fixed", bottom: 0, left: 168, right: 0, background: ds.surfaceDeep, borderTop: `1px solid ${ds.border}`, padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 50 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted, letterSpacing: "0.04em" }}>
             Status: <strong style={{ color: allValidated ? ds.green : ds.textDim }}>{allValidated ? "READY FOR APPROVAL" : "PENDING VALIDATION"}</strong>
@@ -1592,6 +1596,309 @@ function YardbookStep() {
             Advance for Approval
           </button>
         </div>
+      </div>
+
+      {/* Deal Chat — Layer 2 (input bar) + Layer 3 (drawer) */}
+      <DealChatWrapper chatInsertRef={chatInsertRef} />
+    </>
+  );
+}
+
+/* Wrapper to wire up the insertToken ref */
+function DealChatWrapper({ chatInsertRef }: { chatInsertRef: React.MutableRefObject<((dim: string) => void) | null> }) {
+  const [, setReady] = useState(false);
+  return (
+    <DealChatInner chatInsertRef={chatInsertRef} onReady={() => setReady(true)} />
+  );
+}
+
+function DealChatInner({ chatInsertRef, onReady }: { chatInsertRef: React.MutableRefObject<((dim: string) => void) | null>; onReady: () => void }) {
+  const insertTokenRef = useRef<((dim: string) => void) | null>(null);
+
+  const handleInsertToken = useCallback((fn: (dim: string) => void) => {
+    insertTokenRef.current = fn;
+    chatInsertRef.current = fn;
+    onReady();
+  }, [chatInsertRef, onReady]);
+
+  return <DealChatConnected onRegisterInsert={handleInsertToken} />;
+}
+
+function DealChatConnected({ onRegisterInsert }: { onRegisterInsert: (fn: (dim: string) => void) => void }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>(SEED_MESSAGES);
+  const [pendingTokens, setPendingTokens] = useState<string[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const nextIdRef = useRef(4);
+
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+  }, []);
+
+  useEffect(() => {
+    if (drawerOpen) scrollToBottom();
+  }, [drawerOpen, messages, isTyping, scrollToBottom]);
+
+  const openDrawer = useCallback(() => {
+    setDrawerOpen(true);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+  }, []);
+
+  const insertToken = useCallback((dim: string) => {
+    setPendingTokens((prev) => prev.includes(dim) ? prev : [...prev, dim]);
+    openDrawer();
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [openDrawer]);
+
+  // Register the insertToken function with parent
+  useEffect(() => {
+    onRegisterInsert(insertToken);
+  }, [insertToken, onRegisterInsert]);
+
+  // Escape key handler
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && drawerOpen) closeDrawer();
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [drawerOpen, closeDrawer]);
+
+  const getTime = () => {
+    const now = new Date();
+    return now.getHours().toString().padStart(2, "0") + ":" + now.getMinutes().toString().padStart(2, "0");
+  };
+
+  const removeToken = (dim: string) => {
+    setPendingTokens((prev) => prev.filter((t) => t !== dim));
+  };
+
+  const sendMessage = () => {
+    const text = inputValue.trim();
+    if (!text && pendingTokens.length === 0) return;
+    openDrawer();
+
+    const tokenHtml = pendingTokens.map((t) =>
+      `<span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@${t}</span>`
+    ).join(" ");
+    const msgHtml = [tokenHtml, text].filter(Boolean).join(" ");
+
+    const analystMsg: ChatMessage = {
+      id: nextIdRef.current++,
+      role: "analyst",
+      html: msgHtml,
+      time: getTime(),
+    };
+    setMessages((prev) => [...prev, analystMsg]);
+    setInputValue("");
+    const capturedTokens = [...pendingTokens];
+    setPendingTokens([]);
+
+    setIsTyping(true);
+    const fullQuery = capturedTokens.map((t) => t.toLowerCase()).join(" ") + " " + text;
+    setTimeout(() => {
+      setIsTyping(false);
+      const responseHtml = getDealResponse(fullQuery);
+      const dealMsg: ChatMessage = {
+        id: nextIdRef.current++,
+        role: "deal",
+        html: responseHtml,
+        time: getTime(),
+      };
+      setMessages((prev) => [...prev, dealMsg]);
+    }, 1400 + Math.random() * 600);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    if (e.key === "Escape") closeDrawer();
+    if (e.key === "Backspace" && inputValue === "" && pendingTokens.length > 0) {
+      removeToken(pendingTokens[pendingTokens.length - 1]);
+    }
+  };
+
+  const contextPills = [
+    { label: "5 Dimensions", active: true },
+    { label: "Composite 6.2 PW", active: true },
+    { label: "Special Mention", active: true },
+    ...["PC", "PV", "PB", "PQ", "PM"].map((d) => ({ label: d, active: pendingTokens.includes(d) })),
+  ];
+
+  return (
+    <>
+      <style>{`
+        @keyframes chatPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+        @keyframes chatTypingBounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.4; } 40% { transform: translateY(-5px); opacity: 1; } }
+      `}</style>
+
+      {/* Layer 3 — Chat drawer */}
+      <div style={{
+        position: "fixed", left: 168, right: 0, bottom: 108,
+        height: drawerOpen ? "38vh" : 0, overflow: "hidden",
+        background: ds.surface,
+        borderTop: `1px solid ${drawerOpen ? "rgba(200,168,75,0.22)" : ds.border}`,
+        zIndex: 55,
+        transition: "height 0.28s cubic-bezier(0.4, 0, 0.2, 1)",
+        display: "flex", flexDirection: "column",
+      }}>
+        {/* Drawer header */}
+        <div style={{
+          padding: "10px 32px", background: ds.surfaceRaised,
+          borderBottom: `1px solid ${ds.border}`,
+          display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: ds.textMuted }}>
+              GH-2026-0083 · Deal Context
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {contextPills.map((pill) => (
+                <span key={pill.label} style={{
+                  fontFamily: ds.fontMono, fontSize: 9, fontWeight: 600, textTransform: "uppercase",
+                  letterSpacing: "0.06em", padding: "2px 8px", borderRadius: 3,
+                  background: pill.active ? ds.goldDim : "rgba(255,255,255,0.05)",
+                  color: pill.active ? ds.gold : ds.textMuted,
+                  border: `1px solid ${pill.active ? "rgba(200,168,75,0.3)" : ds.border}`,
+                }}>{pill.label}</span>
+              ))}
+            </div>
+          </div>
+          <div style={{ fontFamily: ds.fontMono, fontSize: 10, color: ds.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
+            Click a dimension card to cite it&ensp;
+            <span style={{ background: ds.surface, border: `1px solid ${ds.borderAccent}`, borderRadius: 3, padding: "1px 5px", fontSize: 9, fontFamily: ds.fontMono, color: ds.textDim }}>@PC</span>
+            &ensp;in your question
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 32px", display: "flex", flexDirection: "column", gap: 14, scrollBehavior: "smooth" }}>
+          {messages.map((msg) => {
+            const isAnalyst = msg.role === "analyst";
+            return (
+              <div key={msg.id} style={{
+                display: "flex", gap: 12, maxWidth: 820,
+                ...(isAnalyst ? { flexDirection: "row-reverse" as const, marginLeft: "auto" } : {}),
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 5,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: ds.fontMono, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                  flexShrink: 0, marginTop: 2,
+                  ...(isAnalyst
+                    ? { background: ds.blueDim, color: ds.blue, border: "1px solid rgba(91,155,213,0.25)" }
+                    : { background: ds.goldDim, color: ds.gold, border: "1px solid rgba(200,168,75,0.28)" }),
+                }}>{isAnalyst ? "EB" : "GH"}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{
+                    fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em",
+                    ...(isAnalyst ? { color: ds.blue, textAlign: "right" as const } : { color: ds.gold }),
+                  }}>{isAnalyst ? "Elliott Brent" : "GH-2026-0083 · GreenHorizon Energy LLC"}</div>
+                  <div style={{
+                    padding: "10px 14px", fontFamily: ds.fontBody, fontSize: 13, fontWeight: 400, lineHeight: 1.65, fontStyle: "normal",
+                    ...(isAnalyst
+                      ? { background: ds.blueDim, border: "1px solid rgba(91,155,213,0.18)", borderRadius: "8px 8px 3px 8px", color: ds.text }
+                      : { background: ds.surfaceRaised, border: `1px solid ${ds.border}`, borderRadius: "8px 8px 8px 3px", color: ds.textDim }),
+                  }} dangerouslySetInnerHTML={{ __html: msg.html }} />
+                  <div style={{
+                    fontFamily: ds.fontMono, fontSize: 10, color: ds.textMuted,
+                    ...(isAnalyst ? { textAlign: "right" as const } : {}),
+                  }}>{msg.time}</div>
+                </div>
+              </div>
+            );
+          })}
+          {isTyping && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px 14px" }}>
+              <div style={{
+                width: 24, height: 24, borderRadius: 5,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: ds.fontMono, fontSize: 8, fontWeight: 700,
+                background: ds.goldDim, color: ds.gold, border: "1px solid rgba(200,168,75,0.28)",
+              }}>GH</div>
+              <div style={{
+                display: "flex", gap: 4, padding: "6px 10px",
+                background: ds.surfaceRaised, border: `1px solid ${ds.border}`, borderRadius: "8px 8px 8px 3px",
+              }}>
+                {[0, 1, 2].map((i) => (
+                  <span key={i} style={{
+                    width: 5, height: 5, borderRadius: "50%", background: ds.textMuted,
+                    display: "inline-block", animation: `chatTypingBounce 1.2s infinite ${i * 0.2}s`,
+                  }} />
+                ))}
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Layer 2 — Chat input bar */}
+      <div style={{
+        position: "fixed", bottom: 56, left: 168, right: 0, height: 52,
+        background: ds.surfaceDeep,
+        borderTop: `1px solid ${drawerOpen ? "rgba(200,168,75,0.35)" : "rgba(200,168,75,0.18)"}`,
+        display: "flex", alignItems: "center", gap: 12, padding: "0 32px", zIndex: 60,
+        transition: "border-top-color 0.2s",
+      }}>
+        <div style={{
+          fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, textTransform: "uppercase",
+          letterSpacing: "0.12em", color: ds.gold, whiteSpace: "nowrap",
+          display: "flex", alignItems: "center", gap: 7, flexShrink: 0, opacity: 0.85,
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: ds.gold, opacity: 0.7, animation: "chatPulse 2.5s infinite" }} />
+          GH-2026-0083
+        </div>
+        <div onClick={openDrawer} style={{
+          flex: 1, display: "flex", alignItems: "center", gap: 10,
+          background: ds.surface, border: `1px solid ${ds.borderAccent}`,
+          borderRadius: 6, padding: "0 12px", height: 34, cursor: "text",
+          transition: "border-color 0.15s, box-shadow 0.15s",
+        }}>
+          {pendingTokens.map((t) => (
+            <span key={t} onClick={(e) => { e.stopPropagation(); removeToken(t); }} style={{
+              fontFamily: ds.fontMono, fontSize: 10, fontWeight: 700, color: ds.gold,
+              background: ds.goldDim, border: "1px solid rgba(200,168,75,0.3)",
+              borderRadius: 3, padding: "1px 6px", margin: "0 2px", letterSpacing: "0.06em",
+              display: "inline-flex", alignItems: "center", cursor: "pointer",
+            }}>@{t} ✕</span>
+          ))}
+          <input
+            ref={inputRef} value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onFocus={openDrawer} onKeyDown={handleKeyDown}
+            placeholder="Ask the deal a question\u2026" autoComplete="off"
+            style={{
+              flex: 1, background: "transparent", border: "none", outline: "none",
+              fontFamily: ds.fontMono, fontSize: 13, color: ds.text, lineHeight: 1,
+            }}
+          />
+          <button onClick={(e) => { e.stopPropagation(); sendMessage(); }} style={{
+            background: "transparent", border: "none", cursor: "pointer",
+            color: ds.gold, fontSize: 16, opacity: 0.7,
+            transition: "opacity 0.13s, transform 0.13s",
+            flexShrink: 0, padding: "2px 4px", fontFamily: ds.fontMono,
+            display: "flex", alignItems: "center",
+          }}>→</button>
+        </div>
+        <button onClick={() => drawerOpen ? closeDrawer() : openDrawer()} style={{
+          background: "transparent", border: `1px solid ${ds.border}`,
+          color: ds.textMuted, cursor: "pointer", fontFamily: ds.fontMono,
+          fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase",
+          padding: "4px 10px", borderRadius: 4, transition: "all 0.13s",
+          flexShrink: 0, display: "flex", alignItems: "center", gap: 6,
+        }}>
+          {drawerOpen ? "Close" : "Chat"}
+          <span style={{ fontSize: 9, transition: "transform 0.2s", transform: drawerOpen ? "rotate(180deg)" : "none" }}>▲</span>
+        </button>
       </div>
     </>
   );
@@ -1952,6 +2259,58 @@ function FooterMeta({ label, value, valueColor }: { label: string; value: string
     </div>
   );
 }
+
+/* ================================================================== */
+/*  Chat Drawer — collapsible deal-context chat                        */
+/* ================================================================== */
+
+const CHAT_RESPONSES: Record<string, string> = {
+  condition: `The FIRREA-compliant appraisal condition is triggered by the <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PV</span> dimension — the existing appraisal is 131 days old, which exceeds the 90-day policy threshold for a facility of this size. The condition requires an updated appraisal within <strong>60 days of closing</strong>. This is a pre-close condition, meaning it must be satisfied before funding, not as a post-close covenant.`,
+  pm: `<span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PM</span> is the only WDW dimension. The operating cost ratio of <strong>67.8%</strong> exceeds the 65.0% policy ceiling, and the trend is Deteriorating — labor, insurance, and O&M costs are growing faster than the PPA escalator. The WDW Y-axis result governs the composite regardless of the X-axis level. This is the primary trajectory risk in the assessment.`,
+  dscr: `The minimum DSCR of <strong>1.28x</strong> occurs at the <strong>Q1 seasonal trough</strong> — reduced irradiance intersecting with semi-annual debt service. This gives only 24 bps of headroom above the 1.25x policy floor, which is why <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PC</span> scores PW. The LLCR of 1.45x confirms cumulative solvency over the loan life, placing <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PV</span> comfortably in SAT.`,
+  llcr: `<span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PV</span> is SAT. The LLCR of <strong>1.45x</strong> reflects strong cumulative coverage once the full generation profile is integrated over the loan tenor. The stable trend reflects the long-term PPA with Southern California Edison providing revenue certainty through 2046. This is the most constructive dimension in the assessment alongside <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PQ</span>.`,
+  pq: `<span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PQ</span> is SAT with an improving trend — current ratio of <strong>1.62x</strong> and rising. This is the primary near-term liquidity buffer that absorbs the Q1 coverage compression without requiring credit facility draws. The improvement is driven by pre-capex cash accumulation and payables reduction.`,
+  composite: `The composite of <strong>6.2 PW</strong> is the worst-of across all five dimension composites: PC=PW, PV=SAT, PB=PW, PQ=SAT, PM=WDW. Per the Yardbook methodology, the composite is governed by the most adverse result — <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PM</span>'s WDW. A WDW composite maps to <strong>Special Mention</strong> regulatory classification, which routes to Senior Credit Committee with an Approve with Conditions recommendation.`,
+  pb: `<span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PB</span> scores PW. Gross profit margin of <strong>48.3%</strong> is in the SAT level range (X=SAT), but the deteriorating trend reflects margin compression from increasing O&M obligations and slightly below-P50 generation in the trailing period. The PW composite on PB is driven by Y=PW (Deteriorating), despite an acceptable absolute level.`,
+  generic: `I have full context on this deal — all five dimensions, the temporal stress profile, conditions of approval, and the composite methodology. What specific aspect would you like to explore? You can click any dimension card above to cite it in your question.`,
+};
+
+function getDealResponse(question: string): string {
+  const q = question.toLowerCase();
+  if (q.includes("condition") || q.includes("appraisal") || q.includes("firrea")) return CHAT_RESPONSES.condition;
+  if (q.includes("pm") || q.includes("cost") || q.includes("operating")) return CHAT_RESPONSES.pm;
+  if (q.includes("dscr") || q.includes("coverage") || q.includes("stress") || q.includes("pc")) return CHAT_RESPONSES.dscr;
+  if (q.includes("llcr") || q.includes("pv") || q.includes("portfolio value")) return CHAT_RESPONSES.llcr;
+  if (q.includes("current ratio") || q.includes("liquidity") || q.includes("pq")) return CHAT_RESPONSES.pq;
+  if (q.includes("composite") || q.includes("6.2") || q.includes("special mention")) return CHAT_RESPONSES.composite;
+  if (q.includes("gross margin") || q.includes("pb") || q.includes("business trend")) return CHAT_RESPONSES.pb;
+  return CHAT_RESPONSES.generic;
+}
+
+interface ChatMessage {
+  id: number;
+  role: "deal" | "analyst";
+  html: string;
+  time: string;
+}
+
+const SEED_MESSAGES: ChatMessage[] = [
+  {
+    id: 1, role: "deal",
+    html: "Deal context loaded. I have full visibility into all five policy dimensions, the composite score, risk factors, and conditions of approval. The stress point is the <strong>Q1 seasonal trough</strong> — ask me anything about the coverage structure, the PM cost trajectory, or why the composite landed at <strong>6.2 PW</strong>.",
+    time: "2026-02-26 · Yardbook run complete",
+  },
+  {
+    id: 2, role: "analyst",
+    html: `Why is <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PM</span> the only WDW dimension when the DSCR buffer is only 24 bps above threshold?`,
+    time: "07:44",
+  },
+  {
+    id: 3, role: "deal",
+    html: `The 24 bps DSCR headroom is tight but it's a <strong>level result, not a trend result</strong>. <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PC</span> scores the current minimum coverage — 1.28x sits in PW band because it's above the 1.25x floor but below the 1.35x SAT threshold. The trend on PC is <strong>Stable</strong>, so X=PW and Y=PW gives a PW composite. No WDW component.<br/><br/><span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${ds.gold};background:${ds.goldDim};border:1px solid rgba(200,168,75,0.3);border-radius:3px;padding:0 5px;margin:0 2px">@PM</span> is WDW because the <strong>operating cost ratio trend is Deteriorating</strong> — costs are growing faster than contracted revenue escalators on a per-MWh basis. The WDW classification comes from the Y-axis (trend), not X-axis (level). That's why PM drives the worst-of composite even though the absolute OCR of 67.8% is only 280 bps above the 65% policy threshold.`,
+    time: "07:44",
+  },
+];
 
 function ComingSoon({ label }: { label: string }) {
   return (
