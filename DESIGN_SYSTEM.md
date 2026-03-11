@@ -1,76 +1,138 @@
-# Corridor Credit Platform — Design System Reference
+# Corridor Credit Platform — Design System Reference v3
 # For Claude Code: apply this system to all CR/DR interface components.
-# Source of truth: yardbook_package_assembly.html, deal_value_page.html, policy_analysis_page.html
+# Source of truth: deal_value_v2.html · policy_analysis_page.html · yardbook_merged.html
+# Updated: March 2026
+
+---
+
+## ⚠ SIDEBAR & LOGO — DO NOT CHANGE
+
+The navigation sidebar and platform logo as currently implemented by Claude Code are
+**correct and final**. Do not alter the following:
+
+- The "CR/DR ≡" logo treatment at the top of the sidebar
+- The "Workbench: [Section Name]" section header in gold
+- The nav item font, sizing, spacing, and left-border active state
+- The sidebar background color and border
+
+If you need to add new nav items or change the active item, do so while keeping
+the existing visual style exactly intact.
 
 ---
 
 ## Fonts
 
-Import from Google Fonts — include all three, all three are load-bearing:
+Import from Google Fonts — all three families are required:
 
 ```html
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 ```
 
-| Role | Font | Usage |
-|---|---|---|
-| `--font-body` | `'Syne', sans-serif` | Default body, nav, labels, buttons, all UI text |
-| `--font-mono` | `'DM Mono', monospace` | All data values, IDs, codes, metadata, badges, table headers |
-| `--font-serif` | `'Instrument Serif', serif` | LLM-generated narrative text, synthesis summaries, italic prose only |
+| Role | Family | CSS Variable | Usage |
+|---|---|---|---|
+| UI / body | `'Syne', sans-serif` | `var(--font-body)` | All interface text, labels, buttons, nav, headers, narrative body text |
+| Data / code | `'DM Mono', monospace` | `var(--font-mono)` | All numeric values, IDs, codes, badges, table headers, metadata |
+| Page titles only | `'Instrument Serif', serif` | `var(--font-serif)` | **Page-level titles exclusively** — always italic — nowhere else |
 
-**Rules:**
-- Numeric data (DSCR, spreads, ratios, dates, IDs) → always `font-family: var(--font-mono)`
-- Section labels and section titles → `var(--font-body)`, `font-weight: 700`, `text-transform: uppercase`, `letter-spacing: 0.12–0.14em`
-- Credit narrative/assessment text → `var(--font-serif)`, `font-style: italic`
-- Page titles → `var(--font-serif)`, `font-style: italic`, `font-size: 22px`
-- Never use system fonts, Inter, Roboto, or Arial anywhere in the platform
+### Italic rule — CRITICAL
+
+**Instrument Serif italic is used in exactly one place: page-level screen titles.**
+
+Examples of correct usage:
+- ✅ "Deal Value Analysis" — `<h1>` at the top of a screen
+- ✅ "Policy Alignment" — screen title
+- ✅ "Yardbook Credit Narrative" — screen title
+
+**Everything else is upright (non-italic) Syne or DM Mono:**
+- ❌ Credit narratives / LLM-generated assessment text → `Syne`, `font-style: normal`
+- ❌ Synthesis summaries → `Syne`, `font-style: normal`
+- ❌ Risk factors body text → `Syne`, `font-style: normal`
+- ❌ Conditions of approval → `Syne`, `font-style: normal`
+- ❌ Exception rationale inputs → `Syne`, `font-style: normal`
+- ❌ Any paragraph, textarea, or multi-line prose → `Syne`, `font-style: normal`
+
+There is no other legitimate use of `font-style: italic` in the platform.
+
+### Font size rules
+
+| Element | Font | Size | Weight |
+|---|---|---|---|
+| Page title (screen header) | Instrument Serif italic | 28–30px | 400 |
+| Deal subheader values | DM Mono | 13px | 500 |
+| Deal subheader labels | DM Mono | 10px | 500 |
+| Section dividers | DM Mono | 11px | 700 |
+| Panel header titles | DM Mono | 11px | 700 |
+| Panel sub-labels | DM Mono | 11px | 400 |
+| Nav items | Syne | 13px | 500 |
+| Market ribbon labels | DM Mono | 11px | 500 |
+| Market ribbon values | DM Mono | 17px | 500 |
+| Market ribbon deltas | DM Mono | 11px | 400 |
+| Metric row labels | Syne | 13px | 400 |
+| Metric row values | DM Mono | 15px | 500 |
+| Metric row sub-labels | DM Mono | 11px | 400 |
+| Collateral names | Syne | 13px | 600 |
+| Collateral sub-text | DM Mono | 11px | 400 |
+| Collateral amounts | DM Mono | 14px | 500 |
+| Band chips (SAT/PW/WDW) | DM Mono | 11px | 700 |
+| Stress callout text | Syne | 13px | 400 |
+| Pricing box values | DM Mono | 22px | 500 |
+| Derivation row labels | Syne | 13px | 400 |
+| Derivation row values | DM Mono | 13px | 500 |
+| Narrative body text | Syne | 14–15px | 400 |
+| Button text | Syne | 12px | 700 |
+| Footer metadata | DM Mono | 12px | 400 |
+| Tooltip text | DM Mono | 11px | 400 |
+
+**Never use** Inter, Roboto, Arial, system-ui, or any default sans-serif.
 
 ---
 
-## CSS Variables — paste this `:root` block into every component
+## CSS Variables — paste this `:root` block into every new component
 
 ```css
 :root {
-  /* Backgrounds */
-  --bg:             #1e2128;   /* page background */
-  --surface:        #252930;   /* cards, panels */
-  --surface-raised: #2c3038;   /* panel headers, table headers, inputs on hover */
-  --surface-deep:   #1a1d24;   /* sidebar, topbar, footer, inputs at rest */
+  /* ── Backgrounds — true near-black ── */
+  --bg:             #0d1017;    /* page floor */
+  --surface:        #131920;    /* cards, panels */
+  --surface-raised: #1a2130;    /* panel headers, table rows, hover states */
+  --surface-deep:   #090c13;    /* topbar, footer, sidebar chrome */
   --border:         rgba(255,255,255,0.07);
   --border-accent:  rgba(255,255,255,0.14);
 
-  /* Brand */
+  /* ── Brand ── */
   --gold:      #c8a84b;
-  --gold-dim:  rgba(200,168,75,0.14);
+  --gold-dim:  rgba(200,168,75,0.15);
 
-  /* Semantic status colors */
-  --green:     #4caf82;  --green-dim:  rgba(76,175,130,0.12);
-  --amber:     #e8a040;  --amber-dim:  rgba(232,160,64,0.12);
-  --coral:     #e07060;  --coral-dim:  rgba(224,112,96,0.13);
+  /* ── Status / semantic ── */
+  --green:     #4caf82;  --green-dim:  rgba(76,175,130,0.13);
+  --amber:     #e8a040;  --amber-dim:  rgba(232,160,64,0.13);
+  --coral:     #e07060;  --coral-dim:  rgba(224,112,96,0.14);
   --blue:      #5b9bd5;  --blue-dim:   rgba(91,155,213,0.12);
   --violet:    #9b8fd4;  --violet-dim: rgba(155,143,212,0.12);
 
-  /* Credit band system — SAT / PW / WDW */
+  /* ── Credit band system: SAT / PW / WDW ── */
   --sat-color: #4caf82;
-  --sat-bg:    rgba(76,175,130,0.10);
-  --sat-border:rgba(76,175,130,0.28);
+  --sat-bg:    rgba(76,175,130,0.12);
+  --sat-border:rgba(76,175,130,0.30);
+
   --pw-color:  #e8a040;
-  --pw-bg:     rgba(232,160,64,0.10);
-  --pw-border: rgba(232,160,64,0.30);
+  --pw-bg:     rgba(232,160,64,0.12);
+  --pw-border: rgba(232,160,64,0.32);
+
   --wdw-color: #e07060;
-  --wdw-bg:    rgba(224,112,96,0.10);
-  --wdw-border:rgba(224,112,96,0.28);
+  --wdw-bg:    rgba(224,112,96,0.12);
+  --wdw-border:rgba(224,112,96,0.30);
 
-  /* Text hierarchy */
-  --text:       #d8dce6;   /* primary text */
-  --text-dim:   #7a8494;   /* secondary / metadata */
-  --text-muted: #4e5568;   /* tertiary / disabled / labels */
+  /* ── Text hierarchy ── */
+  --text:       #e4e8f0;    /* primary — values, titles, anything needing to be read */
+  --text-dim:   #9aa4b2;    /* secondary — supporting labels, descriptions */
+  --text-muted: #5e6a7a;    /* tertiary — section headers, placeholders, metadata */
 
-  /* Shape */
+  /* ── Shape ── */
   --radius:    6px;
   --radius-lg: 10px;
 
-  /* Font shorthand */
+  /* ── Font shorthand ── */
   --font-mono:  'DM Mono', monospace;
   --font-body:  'Syne', sans-serif;
   --font-serif: 'Instrument Serif', serif;
@@ -81,179 +143,253 @@ Import from Google Fonts — include all three, all three are load-bearing:
 
 ## Layout Chrome
 
-### Sidebar
-- Width: `160px`, fixed left, `background: #191c22`, `border-right: 1px solid var(--border)`
-- Logo mark: `font-family: var(--font-mono)`, gold text, gold border, `padding: 4px 7px`, `border-radius: 3px`
-- Section label: `9px`, `font-weight: 700`, `text-transform: uppercase`, `letter-spacing: 0.1em`, `color: var(--gold)`
-- Nav items: `12px`, `font-weight: 500`, `color: var(--text-dim)` at rest, `color: var(--gold)` when active
-
-### Topbar
-- Height: `44px`, fixed top (left: 160px), `background: #191c22`, `border-bottom: 1px solid var(--border)`
-- Stage tabs: `11px`, `font-weight: 600`, `text-transform: uppercase`, `letter-spacing: 0.06em`
-- Active stage: `color: var(--text)`, `background: var(--bg)`, `border-bottom: 2px solid var(--gold)`
-- Done stages: numbered circle `background: var(--green-dim)`, `color: var(--green)`
-- Active stage circle: `background: var(--gold)`, `color: #1a1a14`
-
-### Footer action bar
-- Fixed bottom (left: 160px), `background: #191c22`, `border-top: 1px solid var(--border)`, `padding: 12px 28px`
-- Left: metadata in `var(--font-mono)` at `10px`
-- Right: action buttons
+### Topbar (stage breadcrumb)
+- Height: `48px`, fixed top (left offset = sidebar width), `background: var(--surface-deep)`
+- `border-bottom: 1px solid var(--border)`
+- Stage tabs: `font-family: var(--font-body)`, `font-size: 12px`, `font-weight: 700`, `text-transform: uppercase`, `letter-spacing: 0.07em`
+- **Active stage:** `color: var(--text)`, `background: var(--bg)`, `border-bottom: 2px solid var(--gold)`
+- **Done stage:** numbered circle `background: var(--green-dim)`, `color: var(--green)`, checkmark replaces number
+- **Active stage circle:** `background: var(--gold)`, `color: #1a1a14`, `width/height: 22px`, `border-radius: 50%`
+- **Inactive stage:** `color: var(--text-muted)`
 
 ### Content area
-- `margin-left: 160px`, `padding-top: 44px`
-- Content padding: `24–28px` horizontal, `24px` top, `80px` bottom (footer clearance)
+- `padding-top: 48px` (topbar clearance)
+- Content padding: `28–32px` horizontal, `28px` top, `88px` bottom (footer clearance)
+- Max content width: `1440px`
+
+### Footer action bar
+- Position: fixed bottom, left offset = sidebar width
+- `background: var(--surface-deep)`, `border-top: 1px solid var(--border)`, `padding: 14px 32px`
+- **Left side:** metadata strip — `font-family: var(--font-mono)`, `font-size: 12px`, `color: var(--text-muted)`, values in `var(--text-dim)`
+- **Right side:** Decline (coral), secondary (ghost), primary advance (gold)
 
 ---
 
 ## Component Patterns
+
+### Page title (screen header)
+```css
+.page-title {
+  font-family: var(--font-serif);
+  font-style: italic;           /* ONLY legitimate use of italic in the platform */
+  font-weight: 400;
+  font-size: 28–30px;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+```
+
+### Deal subheader (below page title)
+Labels small and muted; values at full contrast:
+```css
+.sub-label {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted);
+}
+.sub-value {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  color: var(--text);              /* full brightness — NOT text-dim */
+  letter-spacing: 0.02em;
+}
+border-bottom: 1px solid var(--border-accent);   /* underline the row */
+```
 
 ### Panels / Cards
 ```css
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);   /* 10px */
+  border-radius: var(--radius-lg);    /* 10px */
   overflow: hidden;
 }
 .panel-header {
-  padding: 12px 16–18px;
+  padding: 12–16px 18–22px;
   background: var(--surface-raised);
   border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
 }
 .panel-title {
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.12em; color: var(--text-dim);
   font-family: var(--font-mono);
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+.panel-sub {
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--text-muted);
 }
 ```
 
 ### Section dividers
 ```css
 .section-divider {
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.14em; color: var(--text-muted);
   font-family: var(--font-mono);
-  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px;
 }
-.section-divider::before { content:''; flex: 0 0 14px; height: 1px; background: var(--border-accent); }
-.section-divider::after  { content:''; flex: 1; height: 1px; background: var(--border); }
+.section-divider::before { content:''; flex: 0 0 16px; height:1px; background: var(--border-accent); }
+.section-divider::after  { content:''; flex: 1;         height:1px; background: var(--border); }
 ```
 
 ### Credit band chips
 ```css
 .chip {
-  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 2px 7px; border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 3px;
 }
-/* Apply modifiers: */
 .chip-sat { background: var(--sat-bg); color: var(--sat-color); border: 1px solid var(--sat-border); }
-.chip-pw  { background: var(--pw-bg);  color: var(--pw-color);  border: 1px solid var(--pw-border); }
+.chip-pw  { background: var(--pw-bg);  color: var(--pw-color);  border: 1px solid var(--pw-border);  }
 .chip-wdw { background: var(--wdw-bg); color: var(--wdw-color); border: 1px solid var(--wdw-border); }
+```
+
+### Narrative / prose text blocks
+All multi-line prose — credit assessment narratives, risk factors, synthesis summaries,
+conditions of approval, exception rationales — uses the same upright treatment:
+```css
+.narrative-text {
+  font-family: var(--font-body);    /* Syne — NOT Instrument Serif */
+  font-style: normal;               /* upright — NOT italic */
+  font-size: 14–15px;
+  font-weight: 400;
+  line-height: 1.75–1.8;
+  color: var(--text-dim);
+}
 ```
 
 ### Buttons
 ```css
-/* Primary (advance action) */
+.btn {
+  font-family: var(--font-body);
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 8–10px 16–20px; border-radius: var(--radius);
+  border: none; cursor: pointer; transition: all 0.15s;
+}
 .btn-gold  { background: var(--gold); color: #18140a; }
-/* Destructive */
+.btn-gold:hover  { background: #d9b85a; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(200,168,75,0.3); }
 .btn-coral { background: var(--coral); color: #fff; }
-/* Ghost / secondary */
+.btn-coral:hover { background: #e87e6e; transform: translateY(-1px); }
 .btn-ghost {
   background: transparent; color: var(--text-dim);
   border: 1px solid var(--border-accent);
 }
-/* All buttons share: */
-.btn {
-  padding: 8px 16px; border-radius: var(--radius);
-  font-family: var(--font-body); font-size: 11px; font-weight: 700;
-  letter-spacing: 0.06em; text-transform: uppercase;
-}
-/* Small ghost (inline in panel headers): */
+.btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.28); background: var(--surface-raised); }
+.btn-ghost-warn { background: transparent; color: var(--coral); border: 1px solid rgba(224,112,96,0.38); }
 .btn-ghost-sm {
-  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
   letter-spacing: 0.06em; text-transform: uppercase;
   padding: 3px 9px; border-radius: 4px;
-  background: transparent; color: var(--text-muted);
-  border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); border: 1px solid var(--border);
 }
 .btn-ghost-sm:hover { color: var(--gold); border-color: rgba(200,168,75,0.4); }
 ```
 
-### Metric rows (data tables)
+### Metric rows
 ```css
-.metric-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 0; border-bottom: 1px solid var(--border);
-}
-/* Label */  font-size: 11px; color: var(--text-dim);
-/* Value */  font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--text);
-/* Sub */    font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);
+.metric-label { font-family: var(--font-body); font-size: 13px; color: var(--text-dim); }
+.metric-value { font-family: var(--font-mono); font-size: 15px; font-weight: 500; color: var(--text); }
+.metric-sub   { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+/* Row separator */ border-bottom: 1px solid var(--border);
 ```
 
 ### Entrance animations
 ```css
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-/* Stagger panels: animation-delay: 0.05s per child */
 .panel { animation: fadeUp 0.3s ease both; }
+.panel:nth-child(2) { animation-delay: 0.05s; }
+.panel:nth-child(3) { animation-delay: 0.10s; }
 ```
 
 ---
 
-## Data Hierarchy Color Rules
+## Data Color Rules
 
-| Context | Color |
-|---|---|
-| SAT / positive / improving | `var(--green)` `#4caf82` |
-| PW / marginal / watch | `var(--amber)` `#e8a040` |
-| WDW / breach / deteriorating | `var(--coral)` `#e07060` |
-| Primary brand action / gold accent | `var(--gold)` `#c8a84b` |
-| Informational / neutral data | `var(--blue)` `#5b9bd5` |
-| Primary text | `var(--text)` `#d8dce6` |
-| Metadata, secondary labels | `var(--text-dim)` `#7a8494` |
-| Disabled, muted, placeholder | `var(--text-muted)` `#4e5568` |
+| Condition | Color | Variable |
+|---|---|---|
+| SAT · positive · improving | green | `var(--sat-color)` `#4caf82` |
+| PW · marginal · watch | amber | `var(--pw-color)` `#e8a040` |
+| WDW · breach · deteriorating | coral/red | `var(--wdw-color)` `#e07060` |
+| Primary brand action | gold | `var(--gold)` `#c8a84b` |
+| Informational / neutral | blue | `var(--blue)` `#5b9bd5` |
+| Primary text | — | `var(--text)` `#e4e8f0` |
+| Secondary / supporting | — | `var(--text-dim)` `#9aa4b2` |
+| Muted / labels / disabled | — | `var(--text-muted)` `#5e6a7a` |
 
-**Critical rule:** SAT = green, PW = amber, WDW = coral/red. Never swap these. They map to regulatory pass/watch/special mention respectively and must be consistent across every component.
+**Critical rules:**
+- SAT = green · PW = amber · WDW = coral. Never swap these.
+- Gold is for primary user actions only — not for data status.
+- Green is for SAT and validated states only — not for action buttons.
+- Blue is informational/neutral — not a primary status color.
 
 ---
 
-## The Three-Screen Workflow (Credit Analysis)
-
-The screens form a linear gate sequence. Each advances to the next:
+## The Four-Screen Workflow (Credit Analysis)
 
 ```
-Step 1: Deal Value       → Step 2: Policy         → Step 3: Yardbook       → Step 4: Approval
-deal_value_page.html       policy_analysis_page.html  yardbook_package_assembly.html
-Market data ribbon         Policy match banner         Composite rating banner    (TBD)
-Coverage corridor mini     Variance chart              5 dimension cards
-Collateral LTV ring        Threshold confirmation      Narrative panels
-Pricing derivation         Exception workflow          Validation track
-Policy dim preview strip   Gate / Yardbook unlock      Override mechanics
+1 · Deal Value          2 · Policy             3 · Yardbook           4 · Approval
+deal_value_v2.html      policy_analysis_page   yardbook_merged.html   (TBD)
+────────────────────    ──────────────────────  ─────────────────────  ──────────
+Market data ribbon      Policy match banner     Composite score banner
+Coverage corridor       Variance chart (5 dim)  Five dimension cards
+Collateral LTV ring     Threshold lock table    Narrative expansion
+Pricing derivation      Exception workflow      Validation track
+Policy preview strip    Yardbook gate           Override + conditions
 ```
 
-Each step's footer has: left metadata strip | Recommend Decline (coral) | Advance (gold).
+Each screen: same topbar (stages 1–4) · sidebar (Claude Code — preserve as-is) ·
+fixed footer (left metadata | Decline coral | Advance gold).
 
 ---
 
 ## Anti-patterns — Never Do These
 
-- Do not use Inter, Roboto, Arial, or system-ui anywhere
-- Do not use purple gradient backgrounds
-- Do not use rounded pill buttons (use `border-radius: 6px` max)
-- Do not use bright white backgrounds — use `var(--bg)` `#1e2128` as the page floor
-- Do not use generic blue for status (blue is informational only — `var(--blue)`)
-- Do not use green for primary actions — green is SAT/positive data only
-- Do not use `font-weight: 400` for labels — minimum `500`, headers `700`
-- Do not use > 2px border-radius on chips/badges — keep them crisp (`3–4px`)
-- Narrative text (Instrument Serif italic) is only for LLM-generated content — not for UI labels
+| ❌ Don't | ✅ Do instead |
+|---|---|
+| Use Inter, Roboto, Arial, system fonts | Syne (UI/prose) · DM Mono (data) · Instrument Serif italic (page titles only) |
+| Use italic for narrative or prose text | Upright Syne — `font-style: normal` |
+| Use Instrument Serif for anything other than the screen-level page title | Syne for all prose and narrative |
+| Use bright backgrounds | Page floor is `#0d1017`, deepest surface is `#090c13` |
+| Use rounded pill buttons | `border-radius: 6px` max |
+| Use bright white (`#fff`) for backgrounds | Darkest background is `var(--surface-deep)` `#090c13` |
+| Use green for action buttons | Green = SAT/validated data only |
+| Use generic blue as a status color | Blue = informational/neutral |
+| Set any label to `font-size` below `11px` | `11px` is the floor across the system |
+| Use `font-weight: 400` for labels | Minimum `500`; section headers and panel titles `700` |
+| Use > 4px border-radius on chips | Keep chips crisp at `3–4px` |
+| Dim the values in deal subheader | Sub-values at full `var(--text)` `#e4e8f0` brightness |
+| Use `box-shadow` for layout depth | Border + surface-layer stacking instead |
 
 ---
 
-## Referencing in Claude Code Sessions
+## Quick-Reference Prompt Block for Claude Code Sessions
 
-Add to CLAUDE.md or prepend to any relevant prompt:
+Prepend this to any Claude Code prompt where design alignment is needed:
 
-> "Apply the design system defined in DESIGN_SYSTEM.md. Use Syne for body/UI text, DM Mono for all data values and codes, and Instrument Serif italic for narrative/LLM-generated text only. Background #1e2128, surfaces #252930 / #2c3038. SAT = #4caf82, PW = #e8a040, WDW = #e07060. Gold #c8a84b for primary actions. Match panel, chip, button, and section divider patterns exactly as specified."
+> Apply the Corridor Credit Platform design system (DESIGN_SYSTEM_v3.md).
+> **Preserve the existing sidebar and CR/DR logo exactly — do not modify navigation.**
+>
+> Fonts: Syne for all UI text and all prose/narrative body text · DM Mono for all data values,
+> codes, and metadata · Instrument Serif italic for page-level screen titles ONLY.
+> No other use of italic anywhere in the platform.
+>
+> Backgrounds: page `#0d1017` · surface `#131920` · raised `#1a2130` · deep `#090c13`.
+> Text: primary `#e4e8f0` · secondary `#9aa4b2` · muted `#5e6a7a`.
+>
+> Credit bands: SAT `#4caf82` · PW `#e8a040` · WDW `#e07060` · Gold `#c8a84b` for primary actions.
+>
+> Font floor: 11px minimum. Market values 17px. Metric values 15px. Narrative prose 14–15px.
+> Page titles 28–30px Instrument Serif italic. All other text upright.
+>
+> Deal subheader values at full `#e4e8f0` contrast — labels muted, values bright.
+> Section dividers: DM Mono 11px uppercase, flanked by 1px border lines.
+> Band chips: 3–4px radius, DM Mono 11px, band-colored bg/border/text.
+> Advance buttons: gold fill. Decline: coral fill. Secondary: ghost with border-accent.

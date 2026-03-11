@@ -7,25 +7,27 @@ import Sidebar from "@/app/components/sidebar";
 /*  Design-system tokens (from DESIGN_SYSTEM.md)                       */
 /* ================================================================== */
 const ds = {
-  bg: "#1e2128",
-  surface: "#252930",
-  surfaceRaised: "#2c3038",
-  surfaceDeep: "#191c22",
+  bg: "#0d1017",
+  surface: "#131920",
+  surfaceRaised: "#1a2130",
+  surfaceDeep: "#090c13",
   border: "rgba(255,255,255,0.07)",
   borderAccent: "rgba(255,255,255,0.14)",
   gold: "#c8a84b",
-  goldDim: "rgba(200,168,75,0.14)",
+  goldDim: "rgba(200,168,75,0.15)",
   green: "#4caf82",
-  greenDim: "rgba(76,175,130,0.12)",
+  greenDim: "rgba(76,175,130,0.13)",
   amber: "#e8a040",
-  amberDim: "rgba(232,160,64,0.12)",
+  amberDim: "rgba(232,160,64,0.13)",
   coral: "#e07060",
-  coralDim: "rgba(224,112,96,0.13)",
+  coralDim: "rgba(224,112,96,0.14)",
   blue: "#5b9bd5",
   blueDim: "rgba(91,155,213,0.12)",
-  text: "#d8dce6",
-  textDim: "#7a8494",
-  textMuted: "#4e5568",
+  violet: "#9b8fd4",
+  violetDim: "rgba(155,143,212,0.12)",
+  text: "#e4e8f0",
+  textDim: "#9aa4b2",
+  textMuted: "#5e6a7a",
   fontBody: "'Syne', sans-serif",
   fontMono: "'DM Mono', monospace",
   fontSerif: "'Instrument Serif', serif",
@@ -33,14 +35,14 @@ const ds = {
   radiusLg: 10,
   /* SAT / PW / WDW */
   satColor: "#4caf82",
-  satBg: "rgba(76,175,130,0.10)",
-  satBorder: "rgba(76,175,130,0.28)",
+  satBg: "rgba(76,175,130,0.12)",
+  satBorder: "rgba(76,175,130,0.30)",
   pwColor: "#e8a040",
-  pwBg: "rgba(232,160,64,0.10)",
-  pwBorder: "rgba(232,160,64,0.30)",
+  pwBg: "rgba(232,160,64,0.12)",
+  pwBorder: "rgba(232,160,64,0.32)",
   wdwColor: "#e07060",
-  wdwBg: "rgba(224,112,96,0.10)",
-  wdwBorder: "rgba(224,112,96,0.28)",
+  wdwBg: "rgba(224,112,96,0.12)",
+  wdwBorder: "rgba(224,112,96,0.30)",
 };
 
 /* ================================================================== */
@@ -106,7 +108,7 @@ export default function CreditAnalysisClient() {
           style={{
             display: "flex",
             alignItems: "stretch",
-            height: 44,
+            height: 48,
             background: ds.surfaceDeep,
             borderBottom: `1px solid ${ds.border}`,
             flexShrink: 0,
@@ -124,12 +126,12 @@ export default function CreditAnalysisClient() {
                   alignItems: "center",
                   gap: 8,
                   padding: "0 24px",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.06em",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.07em",
                   textTransform: "uppercase",
                   fontFamily: ds.fontBody,
-                  color: isActive ? ds.text : ds.textMuted,
+                  color: isActive ? ds.text : isDone ? ds.textDim : ds.textMuted,
                   background: isActive ? ds.bg : "transparent",
                   borderBottom: isActive ? `2px solid ${ds.gold}` : "2px solid transparent",
                   borderRight: `1px solid ${ds.border}`,
@@ -141,20 +143,20 @@ export default function CreditAnalysisClient() {
               >
                 <span
                   style={{
-                    width: 18,
-                    height: 18,
+                    width: 22,
+                    height: 22,
                     borderRadius: "50%",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 10,
+                    fontSize: isDone ? 12 : 11,
                     fontWeight: 700,
                     fontFamily: ds.fontMono,
                     background: isActive ? ds.gold : isDone ? ds.greenDim : ds.surfaceRaised,
                     color: isActive ? "#1a1a14" : isDone ? ds.green : ds.textDim,
                   }}
                 >
-                  {step.number}
+                  {isDone ? "✓" : step.number}
                 </span>
                 {step.label}
               </button>
@@ -181,29 +183,23 @@ function DealValueStep() {
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px 80px" }}>
         {/* Page header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            marginBottom: 20,
-            paddingBottom: 18,
-            borderBottom: `1px solid ${ds.border}`,
-          }}
-        >
-          <div>
-            <div style={{ fontFamily: ds.fontSerif, fontSize: 22, fontStyle: "italic", color: ds.text }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontFamily: ds.fontSerif, fontSize: 28, fontStyle: "italic", color: ds.text, letterSpacing: "-0.01em", lineHeight: 1.15 }}>
               Deal Value Analysis
             </div>
-            <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 4, letterSpacing: "0.04em" }}>
-              DEAL · GH-2026-0083 &nbsp;|&nbsp; GreenHorizon Energy LLC &nbsp;|&nbsp; 180 MW Solar · $250MM Construction + Term &nbsp;|&nbsp; RUN · 2026-02-26
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <GhostButton label="⤓ Export" />
+              <GhostButton label="Request Collateral Reassessment" />
+              <GhostButton label="Request Risk Reassessment" />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <GhostButton label="⤓ Export" />
-            <GhostButton label="Request Collateral Reassessment" />
-            <GhostButton label="Request Risk Reassessment" />
-          </div>
+          <DealSubheader items={[
+            { label: "DEAL", value: "GH-2026-0083" },
+            { label: "COUNTERPARTY", value: "GreenHorizon Energy LLC" },
+            { label: "FACILITY", value: "180 MW Solar · $250MM Construction + Term" },
+            { label: "RUN DATE", value: "2026-02-26" },
+          ]} />
         </div>
 
         {/* Market Data Ribbon */}
@@ -253,7 +249,7 @@ function DealValueStep() {
               padding: "8px 14px",
               borderRadius: ds.radius,
               fontFamily: ds.fontBody,
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 700,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
@@ -270,7 +266,7 @@ function DealValueStep() {
               padding: "8px 16px",
               borderRadius: ds.radius,
               fontFamily: ds.fontBody,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 700,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
@@ -312,13 +308,13 @@ function MarketDataRibbon() {
           borderBottom: `1px solid ${ds.border}`,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: ds.textMuted, fontFamily: ds.fontMono }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: ds.green, boxShadow: `0 0 0 3px rgba(76,175,130,0.2)` }} />
           Market Data · MKT_20260226_001
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <SessionChip />
-          <span style={{ fontSize: 9, fontFamily: ds.fontMono, color: ds.textMuted }}>Updated 07:30 EST</span>
+          <span style={{ fontSize: 11, fontFamily: ds.fontMono, color: ds.textMuted }}>Updated 07:30 EST</span>
         </div>
       </div>
       <div style={{ display: "flex", gap: 0, overflowX: "auto", padding: "14px 18px" }}>
@@ -336,13 +332,13 @@ function MarketDataRibbon() {
               flexShrink: 0,
             }}
           >
-            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>
               {item.label}
             </div>
-            <div style={{ fontFamily: ds.fontMono, fontSize: 14, fontWeight: 500, color: ds.text }}>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 17, fontWeight: 500, color: ds.text }}>
               {item.value}
             </div>
-            <div style={{ fontFamily: ds.fontMono, fontSize: 9, color: item.dir === "up" ? ds.green : item.dir === "down" ? ds.coral : ds.textMuted }}>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: item.dir === "up" ? ds.green : item.dir === "down" ? ds.coral : ds.textMuted }}>
               {item.delta}
             </div>
           </div>
@@ -370,7 +366,7 @@ function CoveragePanel() {
       {/* Mini corridor chart */}
       <div style={{ padding: "14px 16px", borderBottom: `1px solid ${ds.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <span style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>
+          <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>
             Coverage Corridor · 36 Periods
           </span>
           <Chip label="Min DSCR 1.28x" band="pw" />
@@ -399,7 +395,7 @@ function CoveragePanel() {
         {/* Stress callout */}
         <div style={{ background: "rgba(232,160,64,0.07)", border: "1px solid rgba(232,160,64,0.2)", borderRadius: ds.radius, padding: "10px 12px", marginTop: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
           <span style={{ color: ds.amber, fontSize: 13, flexShrink: 0, marginTop: 1 }}>⚠</span>
-          <div style={{ fontSize: 11, color: ds.textDim, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 13, color: ds.textDim, lineHeight: 1.5, fontFamily: ds.fontBody }}>
             <strong style={{ color: ds.amber, fontWeight: 600 }}>Stress Point: Q1 annual trough.</strong> Seasonal irradiance minimum + semi-annual debt service. Min DSCR 1.28x — 24 bps headroom above 1.25x policy threshold.
           </div>
         </div>
@@ -437,10 +433,10 @@ function CollateralPanel() {
           </svg>
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
             <div style={{ fontFamily: ds.fontMono, fontSize: 22, fontWeight: 500, color: ds.text, lineHeight: 1 }}>62%</div>
-            <div style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 2 }}>LTV</div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 2 }}>LTV</div>
           </div>
         </div>
-        <div style={{ fontSize: 10, color: ds.textDim, marginTop: 8, fontFamily: ds.fontMono }}>Policy limit: 65% &nbsp;|&nbsp; 3% headroom</div>
+        <div style={{ fontSize: 11, color: ds.textDim, marginTop: 8, fontFamily: ds.fontMono }}>Policy limit: 65% &nbsp;|&nbsp; 3% headroom</div>
       </div>
 
       {/* Collateral items */}
@@ -451,12 +447,12 @@ function CollateralPanel() {
               {c.icon}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: ds.text }}>{c.name}</div>
-              <div style={{ fontSize: 9, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 1 }}>{c.sub}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: ds.text, fontFamily: ds.fontBody }}>{c.name}</div>
+              <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 1 }}>{c.sub}</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: ds.fontMono, fontSize: 12, fontWeight: 500, color: ds.text }}>{c.amount}</div>
-              <div style={{ fontFamily: ds.fontMono, fontSize: 9, color: ds.textMuted, marginTop: 1 }}>{c.ltv}</div>
+              <div style={{ fontFamily: ds.fontMono, fontSize: 14, fontWeight: 500, color: ds.text }}>{c.amount}</div>
+              <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, marginTop: 1 }}>{c.ltv}</div>
             </div>
           </div>
         ))}
@@ -467,19 +463,19 @@ function CollateralPanel() {
             Σ
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: ds.gold }}>Total Collateral Value</div>
-            <div style={{ fontSize: 9, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 1 }}>1st lien security interest · All assets</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: ds.gold, fontFamily: ds.fontBody }}>Total Collateral Value</div>
+            <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 1 }}>1st lien security interest · All assets</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: ds.fontMono, fontSize: 12, fontWeight: 500, color: ds.gold }}>$251.5MM</div>
-            <div style={{ fontFamily: ds.fontMono, fontSize: 9, color: ds.gold, marginTop: 1 }}>LTV 62.0% ✓</div>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 14, fontWeight: 500, color: ds.gold }}>$251.5MM</div>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.gold, marginTop: 1 }}>LTV 62.0% ✓</div>
           </div>
         </div>
       </div>
 
       {/* Comparable bar */}
       <div style={{ padding: "12px 16px", borderTop: `1px solid ${ds.border}` }}>
-        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 10 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 10 }}>
           Sector LTV Comparable Range
         </div>
         <CompBar rangeLeft={20} rangeWidth={40} markerPos={55} labels={["40%", "Sector: 55–70%", "80%"]} rangeColor={ds.blueDim} labelColor={ds.blue} />
@@ -489,7 +485,7 @@ function CollateralPanel() {
       <div style={{ padding: "12px 16px", borderTop: `1px solid ${ds.border}` }}>
         <div style={{ background: "rgba(224,112,96,0.07)", border: "1px solid rgba(224,112,96,0.2)", borderRadius: ds.radius, padding: "10px 12px", display: "flex", gap: 10, alignItems: "flex-start" }}>
           <span style={{ color: ds.coral, fontSize: 13, flexShrink: 0, marginTop: 1 }}>⚠</span>
-          <div style={{ fontSize: 11, color: ds.textDim, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 13, color: ds.textDim, lineHeight: 1.5, fontFamily: ds.fontBody }}>
             <strong style={{ color: ds.coral, fontWeight: 600 }}>Appraisal age: 131 days.</strong> Policy maximum is 180 days. 49 days remaining — updated appraisal recommended as an approval condition.
           </div>
         </div>
@@ -522,7 +518,7 @@ function DealValuePanel() {
     <Panel title="Deal Value Analysis" sub="Pricing · Returns · Market Positioning" chipRight={{ label: "PW Composite", band: "pw" as const }}>
       {/* Pricing section */}
       <div style={{ padding: "14px 16px", borderBottom: `1px solid ${ds.border}` }}>
-        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 12 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 12 }}>
           Proposed vs. Corridor-Required Spread
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", marginBottom: 12 }}>
@@ -533,25 +529,25 @@ function DealValuePanel() {
 
         {/* Spread derivation */}
         <div style={{ background: ds.surfaceRaised, border: `1px solid ${ds.border}`, borderRadius: ds.radius, padding: "12px 14px" }}>
-          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 10 }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 10 }}>
             Corridor Pricing Derivation
           </div>
           {derivation.map((d) => (
-            <div key={d.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px dashed ${ds.border}`, fontSize: 11 }}>
-              <span style={{ color: ds.textDim }}>{d.label}</span>
-              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.text }}>{d.value}</span>
+            <div key={d.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px dashed ${ds.border}`, fontSize: 13 }}>
+              <span style={{ color: ds.textDim, fontFamily: ds.fontBody }}>{d.label}</span>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: ds.text }}>{d.value}</span>
             </div>
           ))}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 8, marginTop: 2, borderTop: `1px solid ${ds.borderAccent}`, fontWeight: 700 }}>
-            <span style={{ color: ds.textDim, fontSize: 11 }}>Corridor minimum spread</span>
-            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.amber }}>220 bps</span>
+            <span style={{ color: ds.textDim, fontSize: 13, fontFamily: ds.fontBody }}>Corridor minimum spread</span>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: ds.amber }}>220 bps</span>
           </div>
         </div>
       </div>
 
       {/* Return waterfall */}
       <div style={{ padding: "14px 16px", borderBottom: `1px solid ${ds.border}` }}>
-        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 12 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 12 }}>
           Deal Return Composition
         </div>
         <WaterfallRow label="SOFR (1M)" width={52} value="4.33%" color={ds.blue} bgColor={ds.blueDim} />
@@ -572,7 +568,7 @@ function DealValuePanel() {
 
       {/* Market positioning bar */}
       <div style={{ padding: "12px 16px", borderTop: `1px solid ${ds.border}` }}>
-        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 10 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500, marginBottom: 10 }}>
           Proposed Spread vs. Market Comparables
         </div>
         <CompBar rangeLeft={48} rangeWidth={18} markerPos={62} labels={["IG 148", "Renew PF 200–230", "LL 338"]} rangeColor="rgba(76,175,130,0.15)" rangeBorderColor="rgba(76,175,130,0.25)" labelColor={ds.green} />
@@ -588,11 +584,11 @@ function PolicyBridge() {
   return (
     <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}` }}>
-        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: ds.textMuted, fontFamily: ds.fontMono }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono }}>
           Policy · CRD-POL-007 · Renewable Energy Project Finance
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontSize: 9, fontFamily: ds.fontMono, color: ds.textMuted }}>
+          <span style={{ fontSize: 11, fontFamily: ds.fontMono, color: ds.textMuted }}>
             Variance computed against deal metrics above. Full policy alignment in Step 2.
           </span>
           <Chip label="PW Composite" band="pw" />
@@ -609,7 +605,7 @@ function PolicyBridge() {
               transition: "background 0.15s",
             }}
           >
-            <div style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, color: ds.gold, letterSpacing: "0.06em", marginBottom: 3 }}>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ds.gold, letterSpacing: "0.06em", marginBottom: 3 }}>
               {dim.code}
             </div>
             <div style={{ fontSize: 11, fontWeight: 600, color: ds.text, marginBottom: 6 }}>
@@ -618,8 +614,8 @@ function PolicyBridge() {
             <PolicyDimRow label="Metric" value={dim.metric} />
             <PolicyDimRow label="Threshold" value={dim.threshold} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-              <span style={{ fontSize: 9, color: ds.textMuted, fontFamily: ds.fontMono }}>Variance</span>
-              <span style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, color: dim.varDir === "pos" ? ds.green : dim.varDir === "neg" ? ds.coral : ds.amber }}>
+              <span style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono }}>Variance</span>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: dim.varDir === "pos" ? ds.green : dim.varDir === "neg" ? ds.coral : ds.amber }}>
                 {dim.variance}
               </span>
             </div>
@@ -719,29 +715,21 @@ function PolicyStep() {
     <>
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px 80px" }}>
         {/* Page header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            marginBottom: 20,
-            paddingBottom: 18,
-            borderBottom: `1px solid ${ds.border}`,
-          }}
-        >
-          <div>
-            <div style={{ fontFamily: ds.fontSerif, fontSize: 22, fontStyle: "italic", color: ds.text }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontFamily: ds.fontSerif, fontSize: 28, fontStyle: "italic", color: ds.text, letterSpacing: "-0.01em", lineHeight: 1.15 }}>
               Policy Alignment
             </div>
-            <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 4, letterSpacing: "0.04em" }}>
-              DEAL · GH-2026-0083 &nbsp;|&nbsp; GreenHorizon Energy LLC &nbsp;|&nbsp;
-              Confirm policy assignment · Validate thresholds · Acknowledge exceptions before Yardbook
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <ProgressStrip confirmedCount={confirmedCount} allThresh={allThreshConfirmed} exceptionDone={exceptionAcknowledged} />
+              <GhostButton label="Confirm All" onClick={confirmAll} />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <ProgressStrip confirmedCount={confirmedCount} allThresh={allThreshConfirmed} exceptionDone={exceptionAcknowledged} />
-            <GhostButton label="Confirm All" onClick={confirmAll} />
-          </div>
+          <DealSubheader items={[
+            { label: "DEAL", value: "GH-2026-0083" },
+            { label: "COUNTERPARTY", value: "GreenHorizon Energy LLC" },
+            { label: "WORKFLOW", value: "Confirm policy · Validate thresholds · Acknowledge exceptions" },
+          ]} />
         </div>
 
         {/* ── Section 1: Policy Assignment ── */}
@@ -814,7 +802,7 @@ function PolicyStep() {
               padding: "8px 14px",
               borderRadius: ds.radius,
               fontFamily: ds.fontBody,
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 700,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
@@ -833,7 +821,7 @@ function PolicyStep() {
               padding: "8px 16px",
               borderRadius: ds.radius,
               fontFamily: ds.fontBody,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 700,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
@@ -860,7 +848,7 @@ function ProgressStrip({ confirmedCount, allThresh, exceptionDone }: { confirmed
     return isConfirmed ? "done" : "pending";
   });
   return (
-    <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: ds.fontMono, fontSize: 9, color: ds.textMuted }}>
+    <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
       {dots.map((d, i) => (
         <span
           key={i}
@@ -886,21 +874,21 @@ function PolicyMatchBanner() {
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "stretch" }}>
         {/* Policy ID */}
         <div style={{ padding: "20px 24px", borderRight: `1px solid ${ds.border}`, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, background: ds.surfaceRaised, minWidth: 240 }}>
-          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Applied Policy</div>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Applied Policy</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: ds.text, letterSpacing: "-0.01em" }}>Corridor Standard<br />Credit Policy</div>
-          <div style={{ fontFamily: ds.fontMono, fontSize: 10, color: ds.gold, marginTop: 2 }}>CRD-POL-007 · v2.1 · Active</div>
-          <div style={{ fontSize: 10, color: ds.textMuted, marginTop: 4 }}>Effective Feb 10, 2026 · No sunset date</div>
+          <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.gold, marginTop: 2 }}>CRD-POL-007 · v2.1 · Active</div>
+          <div style={{ fontSize: 11, color: ds.textMuted, marginTop: 4 }}>Effective Feb 10, 2026 · No sunset date</div>
         </div>
 
         {/* Match logic */}
         <div style={{ padding: "16px 24px", display: "flex", alignItems: "center", flexWrap: "wrap" }}>
           {MATCH_RULES.map((rule, i) => (
             <div key={rule.label} style={{ display: "flex", flexDirection: "column", gap: 3, padding: "0 20px", borderRight: i < MATCH_RULES.length - 1 ? `1px solid ${ds.border}` : "none", ...(i === 0 ? { paddingLeft: 0 } : {}) }}>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>{rule.label}</div>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>{rule.label}</div>
               <div style={{ fontSize: 11, fontWeight: 600, color: rule.valueColor || ds.text, display: "flex", alignItems: "center", gap: 5 }}>
                 {rule.value}
                 {rule.match && (
-                  <span style={{ fontFamily: ds.fontMono, fontSize: 9, color: rule.matchColor || ds.green }}>{rule.match}</span>
+                  <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: rule.matchColor || ds.green }}>{rule.match}</span>
                 )}
               </div>
             </div>
@@ -909,7 +897,7 @@ function PolicyMatchBanner() {
 
         {/* Actions */}
         <div style={{ padding: "16px 20px", borderLeft: `1px solid ${ds.border}`, display: "flex", flexDirection: "column", gap: 8, justifyContent: "center", background: ds.surfaceRaised, minWidth: 180 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, color: ds.green, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ds.green, letterSpacing: "0.06em", textTransform: "uppercase" }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: ds.green, boxShadow: "0 0 0 3px rgba(76,175,130,0.2)" }} />
             Policy Confirmed
           </div>
@@ -944,12 +932,12 @@ function VarianceChart() {
     <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 20 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}` }}>
-        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: ds.textDim, fontFamily: ds.fontMono }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>
           Normalized Distance to Threshold · 0 = policy minimum · Right = headroom · Left = breach
         </div>
         <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
           {legendItems.map((item) => (
-            <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, fontFamily: ds.fontMono, color: ds.textMuted }}>
+            <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontFamily: ds.fontMono, color: ds.textMuted }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: item.color, opacity: item.border ? 1 : 0.7, border: item.border ? `1px solid ${item.border}` : "none" }} />
               {item.label}
             </div>
@@ -964,7 +952,7 @@ function VarianceChart() {
           <div />
           <div style={{ display: "flex", justifyContent: "space-between", padding: "0 4px 10px", borderBottom: `1px solid ${ds.borderAccent}`, marginBottom: 18 }}>
             {axisTicks.map((t) => (
-              <span key={t.label} style={{ fontFamily: ds.fontMono, fontSize: 9, color: t.color, fontWeight: t.bold ? 600 : 400 }}>
+              <span key={t.label} style={{ fontFamily: ds.fontMono, fontSize: 11, color: t.color, fontWeight: t.bold ? 600 : 400 }}>
                 {t.label}
               </span>
             ))}
@@ -995,8 +983,8 @@ function VarianceDimRow({ dim, isLast }: { dim: (typeof VARIANCE_DIMS)[number]; 
     <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", alignItems: "center", marginBottom: isLast ? 0 : 14 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingRight: 16 }}>
         <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ds.gold, letterSpacing: "0.04em" }}>{dim.code}</div>
-        <div style={{ fontSize: 10, color: ds.textDim }}>{dim.name}</div>
-        <div style={{ fontFamily: ds.fontMono, fontSize: 9, color: ds.textMuted }}>{dim.metric}</div>
+        <div style={{ fontSize: 11, color: ds.textDim }}>{dim.name}</div>
+        <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>{dim.metric}</div>
       </div>
       <div style={{ position: "relative", height: 32 }}>
         {/* Zero line */}
@@ -1012,19 +1000,19 @@ function VarianceDimRow({ dim, isLast }: { dim: (typeof VARIANCE_DIMS)[number]; 
             {dim.code === "PB" && (
               <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "30%", background: "repeating-linear-gradient(135deg, transparent, transparent 2px, rgba(224,112,96,0.25) 2px, rgba(224,112,96,0.25) 4px)", borderRadius: "0 3px 3px 0" }} />
             )}
-            <span style={{ position: "absolute", left: "calc(100% + 6px)", fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: c.labelColor }}>
+            <span style={{ position: "absolute", left: "calc(100% + 6px)", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap", color: c.labelColor }}>
               +{dim.pctVar}%{dim.trend && <> <span style={{ color: dim.trend.includes("↓") ? ds.coral : ds.green }}>{dim.trend}</span></>}
             </span>
           </div>
         ) : (
           <div style={{ position: "absolute", top: 6, bottom: 6, right: "50%", width: `${barWidthPct}%`, background: c.bg, border: `1px solid ${c.border}`, borderRadius: "3px 0 0 3px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-            <span style={{ position: "absolute", right: "calc(100% + 6px)", fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: ds.wdwColor }}>
+            <span style={{ position: "absolute", right: "calc(100% + 6px)", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap", color: ds.wdwColor }}>
               −{dim.pctVar}% breach{dim.trend && <> <span>{dim.trend}</span></>}
             </span>
           </div>
         )}
         {/* Threshold label */}
-        <span style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", fontFamily: ds.fontMono, fontSize: 8, color: ds.textMuted, whiteSpace: "nowrap", background: ds.surface, padding: "0 4px" }}>
+        <span style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, whiteSpace: "nowrap", background: ds.surface, padding: "0 4px" }}>
           {dim.threshold}
         </span>
         {/* Band chip */}
@@ -1050,7 +1038,7 @@ function ThresholdTable({ confirmed, onConfirm, onConfirmAll, confirmedCount }: 
           <thead>
             <tr style={{ borderBottom: `1px solid ${ds.border}` }}>
               {["Dim", "Dimension", "Axis", "Threshold", "Deal Value", "Status"].map((h, i) => (
-                <th key={h} style={{ fontFamily: ds.fontMono, fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, padding: "0 8px 10px", textAlign: i === 5 ? "center" : "left", ...(i === 0 ? { paddingLeft: 18 } : {}), ...(i === 5 ? { paddingRight: 18 } : {}) }}>
+                <th key={h} style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, padding: "0 8px 10px", textAlign: i === 5 ? "center" : "left", ...(i === 0 ? { paddingLeft: 18 } : {}), ...(i === 5 ? { paddingRight: 18 } : {}) }}>
                   {h}
                 </th>
               ))}
@@ -1068,7 +1056,7 @@ function ThresholdTable({ confirmed, onConfirm, onConfirmAll, confirmedCount }: 
                     <span style={{ fontSize: 11, fontWeight: 500, color: ds.text }}>{row.name}</span>
                   </td>
                   <td style={{ padding: "10px 8px" }}>
-                    <span style={{ fontFamily: ds.fontMono, fontSize: 10, color: ds.textDim }}>{row.axis}</span>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textDim }}>{row.axis}</span>
                   </td>
                   <td style={{ padding: "10px 8px" }}>
                     <span style={{
@@ -1093,14 +1081,14 @@ function ThresholdTable({ confirmed, onConfirm, onConfirmAll, confirmedCount }: 
                   <td style={{ padding: "10px 8px", paddingRight: 18, textAlign: "center" }}>
                     {isConfirmed ? (
                       row.isException ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, width: 80, height: 26, borderRadius: 4, fontFamily: ds.fontMono, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.wdwBg, color: ds.wdwColor, border: `1px solid ${ds.wdwBorder}` }}>Exception</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, width: 80, height: 26, borderRadius: 4, fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.wdwBg, color: ds.wdwColor, border: `1px solid ${ds.wdwBorder}` }}>Exception</span>
                       ) : (
-                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, width: 80, height: 26, borderRadius: 4, fontFamily: ds.fontMono, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.greenDim, color: ds.green, border: `1px solid ${ds.satBorder}` }}>✓ Locked</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, width: 80, height: 26, borderRadius: 4, fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.greenDim, color: ds.green, border: `1px solid ${ds.satBorder}` }}>✓ Locked</span>
                       )
                     ) : (
                       <button
                         onClick={() => onConfirm(row.dim)}
-                        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 80, height: 26, borderRadius: 4, cursor: "pointer", fontFamily: ds.fontMono, fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.surfaceRaised, color: ds.textMuted, border: `1px solid ${ds.border}` }}
+                        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 80, height: 26, borderRadius: 4, cursor: "pointer", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.surfaceRaised, color: ds.textMuted, border: `1px solid ${ds.border}` }}
                       >
                         Confirm
                       </button>
@@ -1113,7 +1101,7 @@ function ThresholdTable({ confirmed, onConfirm, onConfirmAll, confirmedCount }: 
         </table>
       </div>
       <div style={{ padding: "12px 18px", borderTop: `1px solid ${ds.border}`, background: ds.surfaceRaised, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 10, color: ds.textMuted, fontFamily: ds.fontMono }}>
+        <span style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono }}>
           Locked thresholds are read-only for this assessment run. Editing requires a rationale note.
         </span>
         <ReassessButton label="Unlock All for Edit" />
@@ -1129,9 +1117,9 @@ function PolicyRefPanel() {
       <div style={{ padding: "16px 18px" }}>
         {POLICY_REFS.map((ref, i) => (
           <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 0", borderBottom: i < POLICY_REFS.length - 1 ? `1px solid ${ds.border}` : "none" }}>
-            <div style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, color: ref.dim === "—" ? ds.textMuted : ds.gold, width: 24, flexShrink: 0, paddingTop: 1 }}>{ref.dim}</div>
-            <div style={{ fontSize: 9, fontFamily: ds.fontMono, color: ds.textMuted, width: 80, flexShrink: 0, paddingTop: 2 }}>{ref.section}</div>
-            <div style={{ fontSize: 11, color: ref.italic ? ds.textMuted : ds.textDim, lineHeight: 1.5, flex: 1, fontStyle: ref.italic ? "italic" : "normal" }}>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ref.dim === "—" ? ds.textMuted : ds.gold, width: 24, flexShrink: 0, paddingTop: 1 }}>{ref.dim}</div>
+            <div style={{ fontSize: 11, fontFamily: ds.fontMono, color: ds.textMuted, width: 80, flexShrink: 0, paddingTop: 2 }}>{ref.section}</div>
+            <div style={{ fontSize: 11, color: ref.italic ? ds.textMuted : ds.textDim, lineHeight: 1.5, flex: 1 }}>
               {ref.strongText ? (
                 <>
                   <strong style={{ color: ds.text, fontWeight: 600 }}>{ref.strongText}</strong>{" "}
@@ -1156,7 +1144,7 @@ function PolicyRefFlag({ label, band }: { label: string; band: "sat" | "pw" | "w
   };
   const s = styles[band];
   return (
-    <span style={{ fontFamily: ds.fontMono, fontSize: 9, fontWeight: 600, textTransform: "uppercase", padding: "2px 6px", borderRadius: 3, flexShrink: 0, whiteSpace: "nowrap", marginTop: 1, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
+    <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, textTransform: "uppercase", padding: "2px 6px", borderRadius: 3, flexShrink: 0, whiteSpace: "nowrap", marginTop: 1, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
       {label}
     </span>
   );
@@ -1188,11 +1176,11 @@ function ExceptionPanel({
     <div style={{ background: ds.surface, border: `1px solid ${ds.wdwBorder}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 20 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: "rgba(224,112,96,0.06)", borderBottom: `1px solid ${ds.wdwBorder}` }}>
-        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.wdwColor, fontFamily: ds.fontMono, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.wdwColor, fontFamily: ds.fontMono, display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 13 }}>⚠</span>
           WDW Exception · 1 dimension requires formal acknowledgment
         </div>
-        <div style={{ fontFamily: ds.fontMono, fontSize: 10, color: acknowledged ? ds.amber : ds.wdwColor }}>
+        <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: acknowledged ? ds.amber : ds.wdwColor }}>
           {acknowledged ? "1 / 1 acknowledged" : "0 / 1 acknowledged"}
         </div>
       </div>
@@ -1203,7 +1191,7 @@ function ExceptionPanel({
         <div style={{ padding: "14px 18px", borderRight: `1px solid ${ds.border}`, display: "flex", flexDirection: "column", justifyContent: "center", gap: 4 }}>
           <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ds.wdwColor }}>PM</div>
           <div style={{ fontSize: 11, fontWeight: 600, color: ds.text }}>Cost Structure — OCR</div>
-          <div style={{ fontSize: 10, color: ds.textDim, fontFamily: ds.fontMono, marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: ds.textDim, fontFamily: ds.fontMono, marginTop: 2 }}>
             Actual: <span style={{ color: ds.wdwColor, fontWeight: 600 }}>67.8%</span> / Policy max: <span style={{ color: ds.wdwColor, fontWeight: 600 }}>65.0%</span>
             <br />
             Breach: <span style={{ color: ds.wdwColor, fontWeight: 600 }}>+2.8 ppt</span> · Trend: <span style={{ color: ds.wdwColor, fontWeight: 600 }}>↓ deteriorating</span>
@@ -1212,7 +1200,7 @@ function ExceptionPanel({
 
         {/* Rationale */}
         <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>
             Mitigant Rationale <span style={{ color: ds.wdwColor }}>*required</span>
           </div>
           <textarea
@@ -1224,9 +1212,9 @@ function ExceptionPanel({
               border: `1px solid ${rationaleError ? ds.wdwColor : rationale.length > 10 ? "rgba(232,160,64,0.35)" : ds.border}`,
               borderRadius: ds.radius,
               color: ds.text,
-              fontFamily: ds.fontSerif,
-              fontStyle: "italic",
-              fontSize: 12,
+              fontFamily: ds.fontBody,
+              fontStyle: "normal",
+              fontSize: 14,
               lineHeight: 1.6,
               padding: "8px 10px",
               outline: "none",
@@ -1241,11 +1229,11 @@ function ExceptionPanel({
         {/* Actions */}
         <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8, justifyContent: "center", borderLeft: `1px solid ${ds.border}`, minWidth: 160 }}>
           <div>
-            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 6 }}>Escalation</div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 6 }}>Escalation</div>
             <ExcCheckbox label="Flag for SCC pre-discussion" checked={escSCC} onChange={() => setEscSCC(!escSCC)} />
           </div>
           <div>
-            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 6 }}>Yardbook context</div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 6 }}>Yardbook context</div>
             <ExcCheckbox label="Pass rationale to Yardbook" checked={escYardbook} onChange={() => setEscYardbook(!escYardbook)} />
           </div>
           <button
@@ -1257,7 +1245,7 @@ function ExceptionPanel({
               borderRadius: ds.radius,
               cursor: acknowledged ? "default" : "pointer",
               fontFamily: ds.fontMono,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 700,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
@@ -1291,13 +1279,13 @@ function ExcCheckbox({ label, checked, onChange }: { label: string; checked: boo
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: 9,
+        fontSize: 11,
         fontWeight: 700,
         color: ds.amber,
       }}>
         {checked && "✓"}
       </div>
-      <div style={{ fontSize: 10, color: ds.textDim, fontFamily: ds.fontMono }}>{label}</div>
+      <div style={{ fontSize: 11, color: ds.textDim, fontFamily: ds.fontMono }}>{label}</div>
     </div>
   );
 }
@@ -1335,10 +1323,10 @@ function ConfirmationGate({
   return (
     <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 20 }}>
       <div style={{ padding: "12px 18px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>
           Yardbook Unlock Gate — All conditions must be met before advancing
         </div>
-        <div style={{ fontFamily: ds.fontMono, fontSize: 10, color: gateOpen ? ds.green : ds.wdwColor }}>
+        <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: gateOpen ? ds.green : ds.wdwColor }}>
           {gateOpen ? "READY — Yardbook unlocked" : `BLOCKED · ${pendingCount} item${pendingCount !== 1 ? "s" : ""} pending`}
         </div>
       </div>
@@ -1354,7 +1342,7 @@ function ConfirmationGate({
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
-                fontSize: 9,
+                fontSize: 11,
                 fontWeight: 700,
                 ...(item.status === "ok"
                   ? { background: ds.greenDim, color: ds.green, border: `1px solid ${ds.satBorder}` }
@@ -1371,7 +1359,7 @@ function ConfirmationGate({
           ))}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 200 }}>
-          <div style={{ fontSize: 10, color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 8, textAlign: "center", lineHeight: 1.5 }}>
+          <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 8, textAlign: "center", lineHeight: 1.5 }}>
             Confirming will lock thresholds<br />and pass exception context<br />to CRDR_PROMPT_16
           </div>
           <button
@@ -1470,20 +1458,23 @@ function YardbookStep() {
     <>
       <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px 80px" }}>
         {/* Page header */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${ds.border}` }}>
-          <div>
-            <div style={{ fontFamily: ds.fontSerif, fontSize: 22, fontStyle: "italic", color: ds.text, letterSpacing: "-0.01em" }}>
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontFamily: ds.fontSerif, fontSize: 28, fontStyle: "italic", color: ds.text, letterSpacing: "-0.01em", lineHeight: 1.15 }}>
               Yardbook Credit Narrative
             </div>
-            <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 4, letterSpacing: "0.04em" }}>
-              DEAL · GH-2026-0083 &nbsp;|&nbsp; COUNTERPARTY · GreenHorizon Energy LLC &nbsp;|&nbsp;
-              POLICY · CRD-POL-007 &nbsp;|&nbsp; RUN DATE · 2026-02-26
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <GhostButton label="↺  Re-run Yardbook" />
+              <GhostButton label="⤓  Export PDF" />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <GhostButton label="↺  Re-run Yardbook" />
-            <GhostButton label="⤓  Export PDF" />
-          </div>
+          <DealSubheader items={[
+            { label: "DEAL", value: "GH-2026-0083" },
+            { label: "COUNTERPARTY", value: "GreenHorizon Energy LLC" },
+            { label: "POLICY", value: "CRD-POL-007" },
+            { label: "APPROVAL PATH", value: "Senior Credit Committee" },
+            { label: "RUN DATE", value: "2026-02-26" },
+          ]} />
         </div>
 
         {/* Composite rating banner */}
@@ -1492,14 +1483,14 @@ function YardbookStep() {
           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: ds.pwColor }} />
           {/* Composite badge */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono }}>Composite</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono }}>Composite</div>
             <div style={{ fontFamily: ds.fontMono, fontSize: 36, fontWeight: 500, lineHeight: 1, color: ds.pwColor }}>6.2</div>
             <Chip label="PW" band="pw" />
           </div>
           {/* Meta */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", gap: 32 }}>
-              <YBMetaItem label="Reg Classification" value={<span style={{ display: "inline-flex", alignItems: "center", fontFamily: ds.fontMono, fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 10px", borderRadius: 20, background: ds.amberDim, color: ds.amber, border: "1px solid rgba(232,160,64,0.35)" }}>Special Mention</span>} />
+              <YBMetaItem label="Reg Classification" value={<span style={{ display: "inline-flex", alignItems: "center", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 10px", borderRadius: 20, background: ds.amberDim, color: ds.amber, border: "1px solid rgba(232,160,64,0.35)" }}>Special Mention</span>} />
               <YBMetaItem label="Routing" value={<span style={{ color: ds.pwColor }}>APPROVE WITH CONDITIONS</span>} />
               <YBMetaItem label="Approval Path" value="SENIOR CREDIT COMMITTEE" />
               <YBMetaItem label="Stress Point" value="Q1 SEASONAL TROUGH" />
@@ -1507,7 +1498,7 @@ function YardbookStep() {
             {/* Score bar */}
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-                <span style={{ fontSize: 9, fontFamily: ds.fontMono, color: ds.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>Continuous Score Range</span>
+                <span style={{ fontSize: 11, fontFamily: ds.fontMono, color: ds.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>Continuous Score Range</span>
                 <span style={{ fontSize: 11, fontFamily: ds.fontMono, fontWeight: 500, color: ds.text }}>6.2 / 10</span>
               </div>
               <div style={{ height: 3, background: ds.surfaceRaised, borderRadius: 2, overflow: "hidden" }}>
@@ -1516,7 +1507,7 @@ function YardbookStep() {
             </div>
           </div>
           {/* Synthesis */}
-          <div style={{ fontFamily: ds.fontSerif, fontStyle: "italic", fontSize: 14, lineHeight: 1.65, color: ds.textDim, maxWidth: 580, paddingLeft: 20, borderLeft: `2px solid ${ds.borderAccent}` }}>
+          <div style={{ fontFamily: ds.fontBody, fontStyle: "normal", fontSize: 14, lineHeight: 1.75, color: ds.textDim, maxWidth: 580, paddingLeft: 20, borderLeft: `2px solid ${ds.borderAccent}` }}>
             {SYNTHESIS_TEXT}
           </div>
         </div>
@@ -1532,8 +1523,8 @@ function YardbookStep() {
                 boxShadow: validated[dim] ? `0 0 0 3px ${overridden[dim] ? "rgba(232,160,64,0.2)" : "rgba(76,175,130,0.2)"}` : "none",
               }} />
               <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: ds.textDim, fontFamily: ds.fontMono, letterSpacing: "0.04em" }}>{dim}</div>
-                <div style={{ fontSize: 9, color: ds.textMuted, fontFamily: ds.fontMono }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: ds.textDim, fontFamily: ds.fontMono, letterSpacing: "0.04em" }}>{dim}</div>
+                <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono }}>
                   {validated[dim] ? (overridden[dim] ? "Overridden" : "Validated") : "Pending"}
                 </div>
               </div>
@@ -1581,24 +1572,24 @@ function YardbookStep() {
       {/* Footer */}
       <div style={{ background: ds.surfaceDeep, borderTop: `1px solid ${ds.border}`, padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textMuted, letterSpacing: "0.04em" }}>
+          <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted, letterSpacing: "0.04em" }}>
             Status: <strong style={{ color: allValidated ? ds.green : ds.textDim }}>{allValidated ? "READY FOR APPROVAL" : "PENDING VALIDATION"}</strong>
           </div>
-          <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textMuted }}>
+          <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted }}>
             Validated: <strong style={{ color: ds.textDim }}>{validatedCount} / 5</strong> dimensions
           </div>
           {overrideCount > 0 && (
-            <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textMuted }}>
+            <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted }}>
               Overrides: <strong style={{ color: ds.amber }}>{overrideCount}</strong>
             </div>
           )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <GhostButton label="Validate All" onClick={validateAll} />
-          <button style={{ padding: "8px 14px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.coral, border: `1px solid rgba(224,112,96,0.35)`, cursor: "pointer" }}>
+          <button style={{ padding: "8px 14px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.coral, border: `1px solid rgba(224,112,96,0.35)`, cursor: "pointer" }}>
             Recommend Decline
           </button>
-          <button style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.gold, color: "#18140a", border: "none", cursor: "pointer" }}>
+          <button style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: ds.gold, color: "#18140a", border: "none", cursor: "pointer" }}>
             Advance for Approval
           </button>
         </div>
@@ -1610,7 +1601,7 @@ function YardbookStep() {
 function YBMetaItem({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <span style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>{label}</span>
       <span style={{ fontSize: 12, fontWeight: 600, color: ds.text, fontFamily: ds.fontMono }}>{typeof value === "string" ? value : value}</span>
     </div>
   );
@@ -1619,7 +1610,7 @@ function YBMetaItem({ label, value }: { label: string; value: React.ReactNode })
 function YBSectionHeader({ title }: { title: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-      <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: ds.textMuted, fontFamily: ds.fontMono, display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono, display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ display: "inline-block", width: 16, height: 1, background: ds.borderAccent }} />
         {title}
       </div>
@@ -1650,15 +1641,15 @@ function DimCard({ card, isExpanded, isOverridden, onClick }: {
       <div style={{ padding: "14px 16px 12px", borderBottom: `1px solid ${ds.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 500, letterSpacing: "0.1em", color: ds.textMuted, marginBottom: 2 }}>{card.code}</div>
+            <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, letterSpacing: "0.1em", color: ds.textMuted, marginBottom: 2 }}>{card.code}</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: ds.text, letterSpacing: "-0.01em" }}>{card.name}</div>
-            <div style={{ fontSize: 10, color: ds.textMuted, marginTop: 2 }}>{card.metric}</div>
+            <div style={{ fontSize: 11, color: ds.textMuted, marginTop: 2 }}>{card.metric}</div>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             {isOverridden && (
-              <span style={{ fontFamily: ds.fontMono, fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: ds.amberDim, color: ds.amber, border: "1px solid rgba(232,160,64,0.3)", padding: "1px 6px", borderRadius: 3 }}>OVR</span>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: ds.amberDim, color: ds.amber, border: "1px solid rgba(232,160,64,0.3)", padding: "1px 6px", borderRadius: 3 }}>OVR</span>
             )}
-            <span style={{ fontSize: 9, color: ds.textMuted, transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "none" }}>▶</span>
+            <span style={{ fontSize: 11, color: ds.textMuted, transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "none" }}>▶</span>
           </div>
         </div>
       </div>
@@ -1666,14 +1657,14 @@ function DimCard({ card, isExpanded, isOverridden, onClick }: {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
           {card.axes.map((axis) => (
             <div key={axis.label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <div style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>{axis.label}</div>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>{axis.label}</div>
               <div style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: ds.text }}>{axis.value}</div>
               <Chip label={axis.band.toUpperCase()} band={axis.band} />
             </div>
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}`, marginTop: 2 }}>
-          <span style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Composite</span>
+          <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Composite</span>
           <Chip label={card.composite.toUpperCase()} band={card.composite} />
         </div>
       </div>
@@ -1698,40 +1689,40 @@ function NarrativePanel({ dim, validated: isValidated, overridden: isOverridden,
           <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, color: ds.gold, letterSpacing: "0.06em" }}>{dim}</span>
           <span style={{ fontSize: 12, fontWeight: 600, color: ds.text }}>{n.fullName}</span>
           {isOverridden && (
-            <span style={{ fontFamily: ds.fontMono, fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: ds.amberDim, color: ds.amber, border: "1px solid rgba(232,160,64,0.3)", padding: "1px 6px", borderRadius: 3 }}>Override Active</span>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: ds.amberDim, color: ds.amber, border: "1px solid rgba(232,160,64,0.3)", padding: "1px 6px", borderRadius: 3 }}>Override Active</span>
           )}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={(e) => { e.stopPropagation(); onOverride(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer" }}>
+          <button onClick={(e) => { e.stopPropagation(); onOverride(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer" }}>
             {isOverridden ? "↩ Clear Override" : "✎ Override Narrative"}
           </button>
-          <button onClick={(e) => { e.stopPropagation(); onValidate(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", border: "none", cursor: "pointer", ...(isValidated ? { background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}` } : { background: ds.green, color: "#0e1f18" }) }}>
+          <button onClick={(e) => { e.stopPropagation(); onValidate(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", border: "none", cursor: "pointer", ...(isValidated ? { background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}` } : { background: ds.green, color: "#0e1f18" }) }}>
             {isValidated ? "✓ Validated" : "Validate"}
           </button>
-          <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 10, fontWeight: 700, background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer" }}>✕</button>
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ padding: "5px 10px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer" }}>✕</button>
         </div>
       </div>
       <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr auto", gap: 24 }}>
-        <div style={{ fontFamily: ds.fontSerif, fontStyle: "italic", fontSize: 14, lineHeight: 1.75, color: ds.textDim }}>
+        <div style={{ fontFamily: ds.fontBody, fontStyle: "normal", fontSize: 14, lineHeight: 1.75, color: ds.textDim }}>
           {n.text}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 180 }}>
           <div style={{ padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}` }}>
-            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Validation</div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Validation</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: isValidated ? ds.green : ds.textMuted, boxShadow: isValidated ? "0 0 0 3px rgba(76,175,130,0.2)" : "none" }} />
-              <span style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textDim }}>{isValidated ? "Validated" : "Pending"}</span>
+              <span style={{ fontSize: 11, fontFamily: ds.fontMono, color: ds.textDim }}>{isValidated ? "Validated" : "Pending"}</span>
             </div>
           </div>
           <div style={{ padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}` }}>
-            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Source</div>
-            <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: isOverridden ? ds.amber : ds.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Source</div>
+            <div style={{ fontSize: 11, fontFamily: ds.fontMono, color: isOverridden ? ds.amber : ds.textMuted, marginTop: 4, lineHeight: 1.5 }}>
               {isOverridden ? "Manual Override" : <>YARDBOOK_v1<br />CRDR_PROMPT_16</>}
             </div>
           </div>
           <div style={{ padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}` }}>
-            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Run Date</div>
-            <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textDim, marginTop: 4 }}>2026-02-26</div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: ds.textMuted, fontFamily: ds.fontMono, fontWeight: 500 }}>Run Date</div>
+            <div style={{ fontSize: 11, fontFamily: ds.fontMono, color: ds.textDim, marginTop: 4 }}>2026-02-26</div>
           </div>
         </div>
       </div>
@@ -1743,11 +1734,11 @@ function RiskFactorsSection() {
   return (
     <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}` }}>
-        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>Risk Factors & Mitigants</div>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>Risk Factors & Mitigants</div>
         <ReassessButton label="Edit" />
       </div>
       <div style={{ padding: "16px 20px" }}>
-        <div style={{ fontFamily: ds.fontSerif, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.75, color: ds.textDim }}>
+        <div style={{ fontFamily: ds.fontBody, fontStyle: "normal", fontSize: 14, lineHeight: 1.75, color: ds.textDim }}>
           {RISK_TEXT}
         </div>
       </div>
@@ -1759,20 +1750,20 @@ function ConditionsSection() {
   return (
     <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", marginBottom: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}` }}>
-        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>Conditions of Approval</div>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>Conditions of Approval</div>
         <ReassessButton label="+ Add Condition" />
       </div>
       <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
         {CONDITIONS_DATA.map((c) => (
           <div key={c.num} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: ds.surfaceRaised, borderRadius: ds.radius, border: `1px solid ${ds.border}` }}>
             <div style={{ marginTop: 2, width: 16, height: 16, borderRadius: 3, background: ds.pwBg, border: `1px solid ${ds.pwBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <span style={{ color: ds.pwColor, fontSize: 9, fontWeight: 700 }}>{c.num}</span>
+              <span style={{ color: ds.pwColor, fontSize: 11, fontWeight: 700 }}>{c.num}</span>
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: ds.text }}>{c.title}</div>
-              <div style={{ fontSize: 10, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 2 }}>{c.trigger}</div>
+              <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 2 }}>{c.trigger}</div>
             </div>
-            <span style={{ fontFamily: ds.fontMono, fontSize: 9, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "2px 8px", borderRadius: 3, background: ds.pwBg, color: ds.pwColor, border: `1px solid ${ds.pwBorder}` }}>{c.tag}</span>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "2px 8px", borderRadius: 3, background: ds.pwBg, color: ds.pwColor, border: `1px solid ${ds.pwBorder}` }}>{c.tag}</span>
           </div>
         ))}
       </div>
@@ -1801,10 +1792,10 @@ function Panel({
     <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: ds.surfaceRaised, borderBottom: `1px solid ${ds.border}`, flexShrink: 0 }}>
         <div>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, fontFamily: ds.fontMono }}>
             {title}
           </div>
-          <div style={{ fontSize: 9, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono, marginTop: 2 }}>
             {sub}
           </div>
         </div>
@@ -1827,7 +1818,7 @@ function Chip({ label, band }: { label: string; band: "sat" | "pw" | "wdw" | "bl
   };
   const c = colors[band];
   return (
-    <span style={{ fontFamily: ds.fontMono, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "2px 7px", borderRadius: 3, background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
+    <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 3, background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
       {label}
     </span>
   );
@@ -1848,10 +1839,10 @@ function MetricRow({
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${ds.border}` }}>
-      <div style={{ fontSize: 11, color: ds.textDim }}>{label}</div>
+      <div style={{ fontSize: 13, color: ds.textDim, fontFamily: ds.fontBody }}>{label}</div>
       <div style={{ textAlign: "right" }}>
-        <div style={{ fontFamily: ds.fontMono, fontSize: 12, fontWeight: 500, color: valueColor || ds.text }}>{value}</div>
-        {sub && <div style={{ fontFamily: ds.fontMono, fontSize: 9, color: ds.textMuted, textAlign: "right", marginTop: 1 }}>{sub}</div>}
+        <div style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: valueColor || ds.text }}>{value}</div>
+        {sub && <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, textAlign: "right", marginTop: 1 }}>{sub}</div>}
         {chip && <div style={{ marginTop: 2 }}><Chip label={chip.label} band={chip.band} /></div>}
       </div>
     </div>
@@ -1860,8 +1851,8 @@ function MetricRow({
 
 function SectionDivider({ label }: { label: string }) {
   return (
-    <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: ds.textMuted, fontFamily: ds.fontMono, display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-      <span style={{ flex: "0 0 14px", height: 1, background: ds.borderAccent }} />
+    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, fontFamily: ds.fontMono, display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+      <span style={{ flex: "0 0 16px", height: 1, background: ds.borderAccent }} />
       {label}
       <span style={{ flex: 1, height: 1, background: ds.border }} />
     </div>
@@ -1870,7 +1861,7 @@ function SectionDivider({ label }: { label: string }) {
 
 function SessionChip() {
   return (
-    <span style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 20, background: ds.amberDim, border: "1px solid rgba(232,160,64,0.3)", fontFamily: ds.fontMono, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: ds.amber }}>
+    <span style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 20, background: ds.amberDim, border: "1px solid rgba(232,160,64,0.3)", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: ds.amber }}>
       ⬡ Moderate Volatility Session
     </span>
   );
@@ -1878,7 +1869,7 @@ function SessionChip() {
 
 function GhostButton({ label, onClick }: { label: string; onClick?: () => void }) {
   return (
-    <button onClick={onClick} style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer", whiteSpace: "nowrap" }}>
+    <button onClick={onClick} style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer", whiteSpace: "nowrap" }}>
       {label}
     </button>
   );
@@ -1886,7 +1877,7 @@ function GhostButton({ label, onClick }: { label: string; onClick?: () => void }
 
 function ReassessButton({ label }: { label: string }) {
   return (
-    <button style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 4, background: "transparent", border: `1px solid ${ds.border}`, color: ds.textMuted, fontFamily: ds.fontMono, fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>
+    <button style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 4, background: "transparent", border: `1px solid ${ds.border}`, color: ds.textMuted, fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>
       {label}
     </button>
   );
@@ -1895,9 +1886,9 @@ function ReassessButton({ label }: { label: string }) {
 function PricingBox({ label, value, sub, valueColor, highlight }: { label: string; value: string; sub: string; valueColor: string; highlight?: boolean }) {
   return (
     <div style={{ background: highlight ? ds.goldDim : ds.surfaceRaised, border: `1px solid ${highlight ? "rgba(200,168,75,0.3)" : ds.border}`, borderRadius: ds.radius, padding: "10px 12px", textAlign: "center" }}>
-      <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontFamily: ds.fontMono, fontSize: 18, fontWeight: 500, color: valueColor }}>{value}</div>
-      <div style={{ fontSize: 9, color: ds.textDim, fontFamily: ds.fontMono, marginTop: 2 }}>{sub}</div>
+      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: ds.textMuted, fontFamily: ds.fontMono, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: ds.fontMono, fontSize: 22, fontWeight: 500, color: valueColor }}>{value}</div>
+      <div style={{ fontSize: 11, color: ds.textDim, fontFamily: ds.fontMono, marginTop: 2 }}>{sub}</div>
     </div>
   );
 }
@@ -1910,7 +1901,7 @@ function WaterfallRow({ label, width, value, color, bgColor, small, total }: { l
         <div style={{ height: "100%", width: `${width}%`, borderRadius: 3, display: "flex", alignItems: "center", paddingLeft: 8, background: total ? `linear-gradient(90deg, ${bgColor}, rgba(200,168,75,0.08))` : bgColor, border: `1px solid ${color}22` }}>
           <span style={{ fontFamily: ds.fontMono, fontSize: total ? 13 : small ? 9 : 10, fontWeight: 600, whiteSpace: "nowrap", color }}>{value}</span>
         </div>
-        {total && <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontFamily: ds.fontMono, fontSize: 9, color: ds.textMuted }}>annualized</span>}
+        {total && <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>annualized</span>}
       </div>
     </div>
   );
@@ -1923,7 +1914,7 @@ function CompBar({ rangeLeft, rangeWidth, markerPos, labels, rangeColor, rangeBo
         <div style={{ position: "absolute", height: "100%", borderRadius: 3, left: `${rangeLeft}%`, width: `${rangeWidth}%`, background: rangeColor, border: rangeBorderColor ? `1px solid ${rangeBorderColor}` : `1px solid rgba(91,155,213,0.3)` }} />
         <div style={{ position: "absolute", top: -3, width: 12, height: 12, borderRadius: "50%", background: ds.gold, border: `2px solid ${ds.bg}`, left: `${markerPos}%`, transform: "translateX(-50%)" }} />
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: ds.fontMono, fontSize: 9, color: ds.textMuted }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
         <span>{labels[0]}</span>
         <span style={{ color: labelColor || ds.blue }}>{labels[1]}</span>
         <span>{labels[2]}</span>
@@ -1935,15 +1926,29 @@ function CompBar({ rangeLeft, rangeWidth, markerPos, labels, rangeColor, rangeBo
 function PolicyDimRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-      <span style={{ fontSize: 9, color: ds.textMuted, fontFamily: ds.fontMono }}>{label}</span>
-      <span style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 500, color: ds.text }}>{value}</span>
+      <span style={{ fontSize: 11, color: ds.textMuted, fontFamily: ds.fontMono }}>{label}</span>
+      <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.text }}>{value}</span>
+    </div>
+  );
+}
+
+function DealSubheader({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 0, paddingBottom: 12, borderBottom: `1px solid ${ds.borderAccent}` }}>
+      {items.map((item, i) => (
+        <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+          {i > 0 && <span style={{ width: 1, height: 18, background: ds.borderAccent, margin: "0 14px", flexShrink: 0 }} />}
+          <span style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginRight: 6 }}>{item.label}</span>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: ds.text, letterSpacing: "0.02em" }}>{item.value}</span>
+        </div>
+      ))}
     </div>
   );
 }
 
 function FooterMeta({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
   return (
-    <div style={{ fontSize: 10, fontFamily: ds.fontMono, color: ds.textMuted }}>
+    <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted }}>
       {label}: <strong style={{ color: valueColor || ds.textDim }}>{value}</strong>
     </div>
   );
