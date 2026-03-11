@@ -3,29 +3,57 @@
 import { useState } from "react";
 import Sidebar from "@/app/components/sidebar";
 
-/* ------------------------------------------------------------------ */
-/*  Colour / style tokens                                              */
-/* ------------------------------------------------------------------ */
-const BG = "bg-[#0b0f15]";
-const SURFACE = "bg-[#111820]";
-const BORDER = "border-[#1e2d3d]";
-const TEXT1 = "text-[#e2e8f0]";
-const TEXT2 = "text-[#8b9bb4]";
-const TEXT3 = "text-[#5a6a7e]";
-const GOLD = "#d4a843";
+/* ================================================================== */
+/*  Design-system tokens (from DESIGN_SYSTEM.md v3)                    */
+/* ================================================================== */
+const ds = {
+  bg: "#0d1017",
+  surface: "#131920",
+  surfaceRaised: "#1a2130",
+  surfaceDeep: "#090c13",
+  border: "rgba(255,255,255,0.07)",
+  borderAccent: "rgba(255,255,255,0.14)",
+  gold: "#c8a84b",
+  goldDim: "rgba(200,168,75,0.15)",
+  green: "#4caf82",
+  greenDim: "rgba(76,175,130,0.13)",
+  amber: "#e8a040",
+  amberDim: "rgba(232,160,64,0.13)",
+  coral: "#e07060",
+  coralDim: "rgba(224,112,96,0.14)",
+  blue: "#5b9bd5",
+  blueDim: "rgba(91,155,213,0.12)",
+  text: "#e4e8f0",
+  textDim: "#9aa4b2",
+  textMuted: "#5e6a7a",
+  fontBody: "'Syne', sans-serif",
+  fontMono: "'DM Mono', monospace",
+  fontSerif: "'Instrument Serif', serif",
+  radius: 6,
+  radiusLg: 10,
+  satColor: "#4caf82",
+  satBg: "rgba(76,175,130,0.12)",
+  satBorder: "rgba(76,175,130,0.30)",
+  pwColor: "#e8a040",
+  pwBg: "rgba(232,160,64,0.12)",
+  pwBorder: "rgba(232,160,64,0.32)",
+  wdwColor: "#e07060",
+  wdwBg: "rgba(224,112,96,0.12)",
+  wdwBorder: "rgba(224,112,96,0.30)",
+};
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Workflow steps                                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 const STEPS = [
   { number: 1, label: "Document" },
   { number: 2, label: "Counterparty" },
   { number: 3, label: "Approval" },
 ];
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Mock extracted contract terms                                      */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 interface ContractTerm {
   id: string;
   title: string;
@@ -58,9 +86,32 @@ const MOCK_TERMS: ContractTerm[] = [
   { id: "23", title: "Payment Frequency", value: "SEMI_ANNUAL" },
 ];
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/*  Counterparty properties                                            */
+/* ================================================================== */
+const COUNTERPARTY_PROPERTIES_LEFT: { label: string; value: string }[] = [
+  { label: "Credit Score", value: "" },
+  { label: "Requires KYC Review", value: "false" },
+  { label: "Registration Number", value: "" },
+  { label: "Counterparty Type", value: "BORROWER" },
+  { label: "Prospective Counterparty ID", value: "PCTR_CTR_20260305_843506c11a" },
+  { label: "Country Of Domicile", value: "" },
+  { label: "Business Type", value: "" },
+];
+
+const COUNTERPARTY_PROPERTIES_RIGHT: { label: string; value: string }[] = [
+  { label: "Notes", value: "Auto-created from workflow" },
+  { label: "Validated Timestamp", value: "2026-03-07T05:59:36.909Z" },
+  { label: "Industry Code", value: "" },
+  { label: "Linked To Existing Counterparty ID", value: "" },
+  { label: "Relationship Status", value: "PROSPECT" },
+  { label: "Risk Rating", value: "" },
+  { label: "Incorporation Date", value: "" },
+];
+
+/* ================================================================== */
 /*  Root component                                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 export default function ContractAnalysisClient() {
   const [selectedTerm, setSelectedTerm] = useState<ContractTerm | null>(
     MOCK_TERMS[0]
@@ -77,71 +128,82 @@ export default function ContractAnalysisClient() {
   }
 
   return (
-    <div className={`flex h-screen overflow-hidden ${BG} ${TEXT1}`}>
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        overflow: "hidden",
+        background: ds.bg,
+        color: ds.text,
+        fontFamily: ds.fontBody,
+        fontSize: 13,
+      }}
+    >
       <Sidebar />
 
-      {/* Main workbench area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Step indicator bar */}
-        <div className="flex shrink-0">
-          {STEPS.map((step, i) => {
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* ── Topbar / stage tabs ── */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "stretch",
+            height: 48,
+            background: ds.surfaceDeep,
+            borderBottom: `1px solid ${ds.border}`,
+            flexShrink: 0,
+          }}
+        >
+          {STEPS.map((step) => {
             const isActive = step.number === activeStep;
-            const isPast = step.number < activeStep;
-            const isLast = i === STEPS.length - 1;
+            const isDone = step.number < activeStep;
             return (
               <button
                 key={step.number}
                 onClick={() => setActiveStep(step.number)}
-                className={`flex-1 flex items-center gap-2.5 px-5 py-2.5 text-sm font-medium transition-colors relative ${
-                  isActive
-                    ? "bg-blue-600 text-white"
-                    : isPast
-                      ? "bg-[#1a2a40] text-blue-300"
-                      : "bg-[#151d28] text-[#5a6a7e]"
-                }`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "0 24px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  fontFamily: ds.fontBody,
+                  color: isActive ? ds.text : isDone ? ds.textDim : ds.textMuted,
+                  background: isActive ? ds.bg : "transparent",
+                  borderBottom: isActive ? `2px solid ${ds.gold}` : "2px solid transparent",
+                  borderRight: `1px solid ${ds.border}`,
+                  borderTop: "none",
+                  borderLeft: "none",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
               >
                 <span
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    isActive
-                      ? "bg-white text-blue-600"
-                      : isPast
-                        ? "bg-blue-400/30 text-blue-300"
-                        : "bg-[#1e2d3d] text-[#5a6a7e]"
-                  }`}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: isDone ? 12 : 11,
+                    fontWeight: 700,
+                    fontFamily: ds.fontMono,
+                    background: isActive ? ds.gold : isDone ? ds.greenDim : ds.surfaceRaised,
+                    color: isActive ? "#1a1a14" : isDone ? ds.green : ds.textDim,
+                  }}
                 >
-                  {step.number}
+                  {isDone ? "✓" : step.number}
                 </span>
                 {step.label}
-                {/* Chevron separator */}
-                {!isLast && (
-                  <div className="absolute right-0 top-0 bottom-0 flex items-center">
-                    <svg
-                      width="20"
-                      height="40"
-                      viewBox="0 0 20 40"
-                      className="translate-x-[10px] z-10"
-                    >
-                      <path
-                        d="M0 0 L15 20 L0 40"
-                        fill={
-                          isActive
-                            ? "#2563eb"
-                            : isPast
-                              ? "#1a2a40"
-                              : "#151d28"
-                        }
-                        stroke={isActive ? "#2563eb" : "#1e2d3d"}
-                        strokeWidth="1"
-                      />
-                    </svg>
-                  </div>
-                )}
               </button>
             );
           })}
         </div>
 
-        {/* Step content */}
+        {/* ── Step content ── */}
         {activeStep === 1 && (
           <DocumentStep
             selectedTerm={selectedTerm}
@@ -156,6 +218,7 @@ export default function ContractAnalysisClient() {
           />
         )}
         {activeStep === 2 && <CounterpartyStep />}
+        {activeStep === 3 && <ComingSoon label="Approval" />}
       </div>
     </div>
   );
@@ -190,36 +253,42 @@ function DocumentStep({
     <>
       {/* Toolbar row */}
       <div
-        className={`px-5 py-2.5 border-b ${BORDER} flex items-center justify-between shrink-0`}
+        style={{
+          padding: "10px 20px",
+          borderBottom: `1px solid ${ds.border}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+        }}
       >
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-medium ${TEXT3} uppercase tracking-wide`}>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
               Deal to Process
             </span>
-            <span className="text-sm bg-[#1a2a40] text-blue-400 px-3 py-1 rounded font-mono flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
-              DEAL_20260126_48f8e7cf
-              <ChevronDownIcon />
-            </span>
+            <DropdownChip label="DEAL_20260126_48f8e7cf" dotColor={ds.green} />
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-medium ${TEXT3} uppercase tracking-wide`}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
               Contract to Process
             </span>
-            <span className="text-sm bg-[#1a2a40] text-blue-400 px-3 py-1 rounded font-mono flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-green-400" />
-              WF_1772683175197_hpghfbgk6
-              <ChevronDownIcon />
-            </span>
+            <DropdownChip label="WF_1772683175197_hpghfbgk6" dotColor={ds.green} />
           </div>
         </div>
         <button
-          className="text-sm px-4 py-1.5 rounded font-medium transition-colors border"
           style={{
-            backgroundColor: GOLD,
-            borderColor: GOLD,
-            color: "#0b0f15",
+            padding: "7px 14px",
+            borderRadius: ds.radius,
+            fontFamily: ds.fontBody,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            background: ds.gold,
+            color: "#18140a",
+            border: "none",
+            cursor: "pointer",
           }}
         >
           Validate Contract &amp; Terms
@@ -227,12 +296,21 @@ function DocumentStep({
       </div>
 
       {/* Three-panel content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* LEFT: PDF Viewer */}
-        <div className={`w-[45%] shrink-0 flex flex-col border-r ${BORDER}`}>
+        <div style={{ width: "45%", flexShrink: 0, display: "flex", flexDirection: "column", borderRight: `1px solid ${ds.border}` }}>
           {/* PDF toolbar */}
           <div
-            className={`px-3 py-2 border-b ${BORDER} flex items-center gap-2 text-sm ${TEXT2}`}
+            style={{
+              padding: "6px 12px",
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontFamily: ds.fontMono,
+              fontSize: 12,
+              color: ds.textDim,
+            }}
           >
             <input
               type="text"
@@ -241,166 +319,161 @@ function DocumentStep({
                 const v = parseInt(e.target.value);
                 if (v >= 1 && v <= totalPages) onPageChange(v);
               }}
-              className={`w-10 text-center ${SURFACE} border ${BORDER} rounded py-0.5 ${TEXT1} text-sm`}
+              style={{
+                width: 36,
+                textAlign: "center",
+                background: ds.surface,
+                border: `1px solid ${ds.border}`,
+                borderRadius: 4,
+                padding: "3px 0",
+                color: ds.text,
+                fontFamily: ds.fontMono,
+                fontSize: 12,
+                outline: "none",
+              }}
             />
             <span>of {totalPages}</span>
 
-            <div className="flex items-center gap-1 ml-3">
-              <button
-                onClick={() => onZoomChange(Math.max(25, zoom - 12))}
-                className={`px-1.5 py-0.5 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              >
-                &minus;
-              </button>
-              <span className="w-12 text-center text-xs">{zoom}%</span>
-              <button
-                onClick={() => onZoomChange(Math.min(200, zoom + 12))}
-                className={`px-1.5 py-0.5 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              >
-                +
-              </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
+              <ToolbarButton onClick={() => onZoomChange(Math.max(25, zoom - 12))} label="−" />
+              <span style={{ width: 42, textAlign: "center", fontSize: 11, color: ds.textMuted }}>{zoom}%</span>
+              <ToolbarButton onClick={() => onZoomChange(Math.min(200, zoom + 12))} label="+" />
             </div>
 
-            <button
-              className={`ml-2 p-1 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              title="Fit width"
-            >
-              <FitWidthIcon />
-            </button>
-            <button
-              className={`p-1 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              title="Fit page"
-            >
-              <FitPageIcon />
-            </button>
-            <button
-              className={`ml-auto p-1 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              title="Search"
-            >
-              <SearchIcon />
-            </button>
-            <button
-              className={`p-1 rounded hover:bg-[#1a2332] ${TEXT2}`}
-              title="More"
-            >
-              &middot;&middot;&middot;
-            </button>
+            <ToolbarButton label={<FitWidthIcon />} title="Fit width" style={{ marginLeft: 6 }} />
+            <ToolbarButton label={<FitPageIcon />} title="Fit page" />
+            <ToolbarButton label={<SearchIcon />} title="Search" style={{ marginLeft: "auto" }} />
+            <ToolbarButton label="···" title="More" />
           </div>
 
           {/* PDF document area */}
-          <div className="flex-1 overflow-auto p-4 flex justify-center">
+          <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", justifyContent: "center", background: ds.bg }}>
             <div
-              className="bg-white rounded shadow-lg"
               style={{
                 width: `${5.1 * (zoom / 100)}in`,
                 minHeight: `${6.6 * (zoom / 100)}in`,
                 padding: `${0.5 * (zoom / 100)}in`,
+                background: "#ffffff",
+                borderRadius: 4,
+                boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
               }}
             >
-              <div className="text-center mb-6">
-                <p
-                  className="text-xs uppercase tracking-widest mb-4 font-semibold"
-                  style={{ color: "#c0392b" }}
-                >
+              <div style={{ textAlign: "center", marginBottom: 24 }}>
+                <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.16em", marginBottom: 16, fontWeight: 600, color: "#c0392b", fontFamily: "serif" }}>
                   Confidential Information Memorandum
                 </p>
-                <h2 className="text-gray-900 text-xl font-bold mt-6">
+                <h2 style={{ color: "#111827", fontSize: 18, fontWeight: 700, marginTop: 24, fontFamily: "serif" }}>
                   Solar Valley Renewable Energy Project
                 </h2>
-                <p className="text-gray-600 text-sm mt-3">
+                <p style={{ color: "#4b5563", fontSize: 13, marginTop: 12, fontFamily: "serif" }}>
                   180 MW Solar Photovoltaic Facility
                 </p>
-                <p className="text-gray-600 text-sm">
+                <p style={{ color: "#4b5563", fontSize: 13, fontFamily: "serif" }}>
                   Kern County, California
                 </p>
               </div>
 
               {/* Key terms table */}
-              <div className="mt-8 border border-gray-300 text-sm">
-                <div className="grid grid-cols-3">
-                  <div className="bg-[#1a3a5c] text-white px-3 py-2 font-semibold text-center text-xs">
-                    Senior Secured Term Loan
-                  </div>
-                  <div className="bg-[#1a3a5c] text-white px-3 py-2 font-semibold text-center text-xs">
-                    Power Purchase Agreement
-                  </div>
-                  <div className="bg-[#1a3a5c] text-white px-3 py-2 font-semibold text-center text-xs">
-                    Debt Service Coverage
-                  </div>
+              <div style={{ marginTop: 32, border: "1px solid #d1d5db", fontSize: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
+                  {["Senior Secured Term Loan", "Power Purchase Agreement", "Debt Service Coverage"].map((h) => (
+                    <div key={h} style={{ background: "#1a3a5c", color: "#fff", padding: "8px 12px", fontWeight: 600, textAlign: "center", fontSize: 11 }}>
+                      {h}
+                    </div>
+                  ))}
                 </div>
-                <div className="grid grid-cols-3 border-t border-gray-300">
-                  <div className="px-3 py-2 text-center text-gray-900 font-bold text-sm">
-                    $250,000,000
-                  </div>
-                  <div className="px-3 py-2 text-center text-gray-900 font-bold text-sm border-x border-gray-300">
-                    20-Year Fixed Price
-                  </div>
-                  <div className="px-3 py-2 text-center text-gray-900 font-bold text-sm">
-                    1.45x Average (P50)
-                  </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: "1px solid #d1d5db" }}>
+                  <div style={{ padding: "8px 12px", textAlign: "center", color: "#111827", fontWeight: 700, fontSize: 13 }}>$250,000,000</div>
+                  <div style={{ padding: "8px 12px", textAlign: "center", color: "#111827", fontWeight: 700, fontSize: 13, borderLeft: "1px solid #d1d5db", borderRight: "1px solid #d1d5db" }}>20-Year Fixed Price</div>
+                  <div style={{ padding: "8px 12px", textAlign: "center", color: "#111827", fontWeight: 700, fontSize: 13 }}>1.45x Average (P50)</div>
                 </div>
-                <div className="grid grid-cols-3 border-t border-gray-200">
-                  <div className="px-3 py-1.5 text-center text-gray-500 text-xs">
-                    SOFR + 275 bps
-                  </div>
-                  <div className="px-3 py-1.5 text-center text-gray-500 text-xs border-x border-gray-200">
-                    Southern California Edison
-                  </div>
-                  <div className="px-3 py-1.5 text-center text-gray-500 text-xs">
-                    1.28x Minimum
-                  </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: "1px solid #e5e7eb" }}>
+                  <div style={{ padding: "6px 12px", textAlign: "center", color: "#6b7280", fontSize: 11 }}>SOFR + 275 bps</div>
+                  <div style={{ padding: "6px 12px", textAlign: "center", color: "#6b7280", fontSize: 11, borderLeft: "1px solid #e5e7eb", borderRight: "1px solid #e5e7eb" }}>Southern California Edison</div>
+                  <div style={{ padding: "6px 12px", textAlign: "center", color: "#6b7280", fontSize: 11 }}>1.28x Minimum</div>
                 </div>
               </div>
 
-              <div className="mt-10 text-gray-700 text-sm">
-                <p className="font-semibold">Sponsored by</p>
-                <p className="text-gray-600">GreenHorizon Energy Partners</p>
-                <p className="text-gray-600">Denver, Colorado</p>
+              <div style={{ marginTop: 40, color: "#374151", fontSize: 13 }}>
+                <p style={{ fontWeight: 600, fontFamily: "serif" }}>Sponsored by</p>
+                <p style={{ color: "#4b5563", fontFamily: "serif" }}>GreenHorizon Energy Partners</p>
+                <p style={{ color: "#4b5563", fontFamily: "serif" }}>Denver, Colorado</p>
               </div>
 
-              <div className="mt-8 text-gray-400 text-sm">January 2026</div>
+              <div style={{ marginTop: 32, color: "#9ca3af", fontSize: 13, fontFamily: "serif" }}>January 2026</div>
             </div>
           </div>
         </div>
 
         {/* MIDDLE: Extracted terms table */}
-        <div className={`flex-1 flex flex-col border-r ${BORDER} min-w-0`}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", borderRight: `1px solid ${ds.border}`, minWidth: 0 }}>
           {/* Table header */}
           <div
-            className={`px-4 py-2.5 border-b ${BORDER} flex items-center justify-between`}
+            style={{
+              padding: "10px 16px",
+              background: ds.surfaceRaised,
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
           >
-            <span className={`text-sm font-medium ${TEXT1}`}>Title</span>
-            <span className={`text-sm font-medium ${TEXT1}`}>Term Value</span>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
+              Title
+            </span>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
+              Term Value
+            </span>
           </div>
 
           {/* Term rows */}
-          <div className="flex-1 overflow-y-auto">
+          <div style={{ flex: 1, overflowY: "auto" }}>
             {MOCK_TERMS.map((term) => {
               const isSelected = selectedTerm?.id === term.id;
               return (
                 <button
                   key={term.id}
                   onClick={() => onSelectTerm(term)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 text-left border-b border-[#1e2d3d]/50 transition-colors ${
-                    isSelected
-                      ? "bg-[#1c2940]"
-                      : "hover:bg-[#151d28]"
-                  }`}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "9px 16px",
+                    textAlign: "left",
+                    borderBottom: `1px solid ${ds.border}`,
+                    background: isSelected ? ds.surfaceRaised : "transparent",
+                    cursor: "pointer",
+                    borderTop: "none",
+                    borderRight: "none",
+                    borderLeft: "none",
+                    transition: "background 0.1s",
+                  }}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-blue-500" />
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: ds.blue }} />
                     <span
-                      className={`text-sm truncate ${
-                        isSelected ? TEXT1 : TEXT2
-                      }`}
+                      style={{
+                        fontFamily: ds.fontBody,
+                        fontSize: 13,
+                        color: isSelected ? ds.text : ds.textDim,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
                     >
                       {term.title}
                     </span>
                   </div>
                   <span
-                    className={`text-sm font-mono shrink-0 ml-4 ${
-                      isSelected ? TEXT1 : TEXT2
-                    }`}
+                    style={{
+                      fontFamily: ds.fontMono,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: isSelected ? ds.text : ds.textDim,
+                      flexShrink: 0,
+                      marginLeft: 16,
+                    }}
                   >
                     {term.value}
                   </span>
@@ -411,65 +484,72 @@ function DocumentStep({
         </div>
 
         {/* RIGHT: Edit panel */}
-        <div className="w-[260px] shrink-0 flex flex-col">
+        <div style={{ width: 260, flexShrink: 0, display: "flex", flexDirection: "column" }}>
           <div
-            className={`px-4 py-2.5 border-b ${BORDER} flex items-center justify-end`}
+            style={{
+              padding: "10px 16px",
+              background: ds.surfaceRaised,
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+            }}
           >
-            <button className="text-sm border border-[#3b4f6b] text-blue-400 px-3 py-1 rounded hover:bg-[#1a2a40] transition-colors">
-              Edit Terms
-            </button>
+            <GhostButtonSm label="Edit Terms" />
           </div>
 
           {selectedTerm ? (
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
               {/* Term title */}
-              <div>
-                <label
-                  className={`block text-xs font-medium ${TEXT3} mb-1 uppercase tracking-wide`}
-                >
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Term
                 </label>
-                <p className={`text-sm ${TEXT1}`}>{selectedTerm.title}</p>
+                <p style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.text }}>{selectedTerm.title}</p>
               </div>
 
               {/* Editable value */}
-              <div>
-                <label
-                  className={`block text-xs font-medium ${TEXT3} mb-1 uppercase tracking-wide`}
-                >
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Value
                 </label>
                 <input
                   type="text"
                   value={editValue}
                   onChange={(e) => onEditValueChange(e.target.value)}
-                  className={`w-full px-3 py-2 rounded ${SURFACE} border ${BORDER} ${TEXT1} text-sm focus:outline-none focus:border-blue-500`}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: ds.radius,
+                    background: ds.surface,
+                    border: `1px solid ${ds.border}`,
+                    color: ds.text,
+                    fontFamily: ds.fontMono,
+                    fontSize: 13,
+                    outline: "none",
+                  }}
                 />
               </div>
 
               {/* Source document */}
-              <div>
-                <label
-                  className={`block text-xs font-medium ${TEXT3} mb-1 uppercase tracking-wide`}
-                >
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Source Document
                 </label>
-                <p className={`text-sm ${TEXT2}`}>
+                <p style={{ fontFamily: ds.fontMono, fontSize: 12, color: ds.textDim }}>
                   Credit_Agreement_Solar_Valley.pdf
                 </p>
-                <p className={`text-xs ${TEXT3} mt-0.5`}>
+                <p style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, marginTop: 2 }}>
                   Page {currentPage}, Section 2.1
                 </p>
               </div>
 
               {/* Obligation mapping */}
-              <div>
-                <label
-                  className={`block text-xs font-medium ${TEXT3} mb-1 uppercase tracking-wide`}
-                >
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Maps to Obligation
                 </label>
-                <p className={`text-sm ${TEXT2}`}>
+                <p style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: ds.text }}>
                   {selectedTerm.title.includes("Covenant")
                     ? "FINANCIAL_COVENANT"
                     : selectedTerm.title.includes("Fee") ||
@@ -480,24 +560,92 @@ function DocumentStep({
               </div>
 
               {/* Action buttons */}
-              <div className="pt-2 space-y-2">
-                <button className="w-full text-sm bg-[#1a2a40] text-blue-400 px-3 py-2 rounded hover:bg-[#1f3350] transition-colors">
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: ds.radius,
+                    fontFamily: ds.fontBody,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: ds.gold,
+                    color: "#18140a",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
                   Confirm Term
                 </button>
                 <button
-                  className={`w-full text-sm border ${BORDER} ${TEXT2} px-3 py-2 rounded hover:bg-[#1a2332] transition-colors`}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: ds.radius,
+                    fontFamily: ds.fontBody,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: "transparent",
+                    color: ds.coral,
+                    border: `1px solid rgba(224,112,96,0.38)`,
+                    cursor: "pointer",
+                  }}
                 >
                   Flag for Review
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <span className={`text-sm ${TEXT3}`}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textMuted }}>
                 Select a term to edit
               </span>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Footer action bar */}
+      <div
+        style={{
+          background: ds.surfaceDeep,
+          borderTop: `1px solid ${ds.border}`,
+          padding: "12px 28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <FooterMeta label="Deal" value="DEAL_20260126_48f8e7cf" />
+          <FooterMeta label="Facility" value="$250MM Sr. Secured Term" />
+          <FooterMeta label="Terms" value={`${MOCK_TERMS.length} extracted`} valueColor={ds.green} />
+          <FooterMeta label="Counterparty" value="Solar Valley Holdings" />
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <GhostButtonWarn label="Reject Terms" />
+          <button
+            style={{
+              padding: "8px 16px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: ds.gold,
+              color: "#18140a",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Validate Contract →
+          </button>
         </div>
       </div>
     </>
@@ -508,200 +656,151 @@ function DocumentStep({
 /*  STEP 2 — Counterparty                                              */
 /* ================================================================== */
 
-const COUNTERPARTY_PROPERTIES_LEFT: { label: string; value: string }[] = [
-  { label: "Credit Score", value: "" },
-  { label: "Requires KYC Review", value: "false" },
-  { label: "Registration Number", value: "" },
-  { label: "Counterparty Type", value: "BORROWER" },
-  { label: "Prospective Counterparty ID", value: "PCTR_CTR_20260305_843506c11a" },
-  { label: "Country Of Domicile", value: "" },
-  { label: "Business Type", value: "" },
-];
-
-const COUNTERPARTY_PROPERTIES_RIGHT: { label: string; value: string }[] = [
-  { label: "Notes", value: "Auto-created from workflow" },
-  { label: "Validated Timestamp", value: "2026-03-07T05:59:36.909Z" },
-  { label: "Industry Code", value: "" },
-  { label: "Linked To Existing Counterparty ID", value: "" },
-  { label: "Relationship Status", value: "PROSPECT" },
-  { label: "Risk Rating", value: "" },
-  { label: "Incorporation Date", value: "" },
-];
-
 function CounterpartyStep() {
   return (
     <>
-      {/* Toolbar row */}
-      <div
-        className={`px-5 py-2 border-b ${BORDER} shrink-0`}
-      >
-        <div className={`text-[10px] ${TEXT3} uppercase tracking-wide mb-1`}>
-          Unnamed Object Dropdown
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`text-sm font-medium ${TEXT2}`}>Counterparty</span>
-            <span className="text-sm bg-[#1a2a40] text-blue-400 px-3 py-1 rounded font-mono flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
-              Meridian Precision Manufacturing, LLC
-              <ChevronDownIcon />
-            </span>
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px 80px" }}>
+        {/* Page header */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontFamily: ds.fontSerif, fontSize: 28, fontStyle: "italic", color: ds.text, letterSpacing: "-0.01em", lineHeight: 1.15 }}>
+              Prospective Counterparty
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <GhostButton label="Edit Prospective Counterparty" />
+              <GhostButtonWarn label="Flag Prospective Counterparty" />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              className="text-sm px-3 py-1.5 rounded font-medium transition-colors border"
+          <DealSubheader items={[
+            { label: "COUNTERPARTY", value: "Meridian Precision Manufacturing, LLC" },
+            { label: "TYPE", value: "BORROWER" },
+            { label: "STATUS", value: "PROSPECT" },
+            { label: "ID", value: "PCTR_CTR_20260305_843506c11a" },
+          ]} />
+        </div>
+
+        {/* ── Properties ── */}
+        <SectionDivider label="Properties" />
+        <div
+          style={{
+            background: ds.surface,
+            border: `1px solid ${ds.border}`,
+            borderRadius: ds.radiusLg,
+            overflow: "hidden",
+            marginBottom: 24,
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 20px",
+              background: ds.surfaceRaised,
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
+              Counterparty Properties
+            </span>
+            <span
               style={{
-                backgroundColor: GOLD,
-                borderColor: GOLD,
-                color: "#0b0f15",
+                fontFamily: ds.fontMono,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                padding: "3px 8px",
+                borderRadius: 3,
+                background: ds.pwBg,
+                color: ds.pwColor,
+                border: `1px solid ${ds.pwBorder}`,
               }}
             >
-              Validate Prospective Counterparty
-            </button>
-            <button className="text-sm border border-blue-400/50 text-blue-400 px-3 py-1.5 rounded font-medium hover:bg-[#1a2a40] transition-colors">
-              Edit Prospective Counterparty
-            </button>
-            <button className="text-sm border border-red-400/50 text-red-400 px-3 py-1.5 rounded font-medium hover:bg-[#2a1a1a] transition-colors">
-              Flag Prospective Counterparty
-            </button>
+              Prospect
+            </span>
           </div>
-        </div>
-      </div>
-
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Counterparty header card */}
-        <div className={`px-5 py-4 border-b ${BORDER}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-              <BuildingIcon />
+          <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+            <div>
+              {COUNTERPARTY_PROPERTIES_LEFT.map((prop) => (
+                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
+              ))}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className={`text-base font-medium ${TEXT1}`}>
-                  Meridian Precision Manufacturing, LLC
-                </span>
-                <StarIcon />
-              </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={`text-sm ${TEXT3}`}>
-                  Prospective Counterparty For Validation
-                </span>
-                <LockIcon />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Properties section */}
-        <div className={`px-5 py-4 border-b ${BORDER}`}>
-          <div className="flex items-center gap-2 mb-4">
-            <PropertiesIcon />
-            <span className={`text-sm font-semibold ${TEXT1}`}>Properties</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-12 gap-y-1">
-            {/* Left column */}
-            <div className="space-y-1">
-              {COUNTERPARTY_PROPERTIES_LEFT.map((prop) => (
-                <PropertyRow
-                  key={prop.label}
-                  label={prop.label}
-                  value={prop.value}
-                />
-              ))}
-            </div>
-            {/* Right column */}
-            <div className="space-y-1">
               {COUNTERPARTY_PROPERTIES_RIGHT.map((prop) => (
-                <PropertyRow
-                  key={prop.label}
-                  label={prop.label}
-                  value={prop.value}
-                />
+                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
               ))}
             </div>
           </div>
         </div>
 
-        {/* Bottom two-column section */}
-        <div className="grid grid-cols-2">
-          {/* Left: Know Your Customer */}
-          <div className={`px-5 py-4 border-r ${BORDER}`}>
-            <div className="flex items-center justify-between mb-4">
-              <span className={`text-sm font-semibold ${TEXT1}`}>
-                Know Your Customer
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  className="text-xs px-3 py-1.5 rounded font-medium transition-colors border"
-                  style={{
-                    backgroundColor: GOLD,
-                    borderColor: GOLD,
-                    color: "#0b0f15",
-                  }}
-                >
-                  Submit KYC Data
-                </button>
-                <button className="text-xs border border-blue-400/50 text-blue-400 px-3 py-1.5 rounded font-medium hover:bg-[#1a2a40] transition-colors">
-                  Edit KYC Data
-                </button>
-              </div>
-            </div>
-
-            {/* KYC Due Diligence table */}
-            <div className={`border ${BORDER} rounded`}>
-              <div className={`px-4 py-2.5 border-b ${BORDER}`}>
-                <span className={`text-sm font-semibold ${TEXT1}`}>
+        {/* ── KYC & Projections two-column ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* KYC */}
+          <div>
+            <SectionDivider label="Know Your Customer" />
+            <div
+              style={{
+                background: ds.surface,
+                border: `1px solid ${ds.border}`,
+                borderRadius: ds.radiusLg,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 20px",
+                  background: ds.surfaceRaised,
+                  borderBottom: `1px solid ${ds.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
                   KYC Due Diligence
                 </span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <GhostButtonSm label="Edit KYC Data" />
+                </div>
               </div>
-              <div className={`px-4 py-2 border-b ${BORDER}`}>
-                <span className={`text-xs font-medium ${TEXT2}`}>
-                  Object Table
-                </span>
-              </div>
-              <div className="px-4 py-2">
-                <span className={`text-xs ${TEXT3}`}>Status</span>
-              </div>
-              {/* Empty state */}
-              <div className="px-4 py-8 flex items-center justify-center">
-                <span className={`text-sm ${TEXT3}`}>
+              <div style={{ padding: "32px 20px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textMuted }}>
                   No KYC records
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Right: Projections Workflow */}
-          <div className="px-5 py-4">
-            <div className="flex items-center justify-between mb-4">
-              <span className={`text-sm font-semibold ${TEXT1}`}>
-                Projections Workflow
-              </span>
-              <button className="text-xs border border-red-400/50 text-red-400 px-3 py-1.5 rounded font-medium hover:bg-[#2a1a1a] transition-colors">
-                Request Risk Reassessment
-              </button>
-            </div>
-
-            {/* Counterparty Risk table */}
-            <div className={`border ${BORDER} rounded`}>
-              <div className={`px-4 py-2.5 border-b ${BORDER}`}>
-                <span className={`text-sm font-semibold ${TEXT1}`}>
+          {/* Projections Workflow */}
+          <div>
+            <SectionDivider label="Projections Workflow" />
+            <div
+              style={{
+                background: ds.surface,
+                border: `1px solid ${ds.border}`,
+                borderRadius: ds.radiusLg,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 20px",
+                  background: ds.surfaceRaised,
+                  borderBottom: `1px solid ${ds.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
                   Counterparty Risk
                 </span>
+                <GhostButtonSm label="Request Risk Reassessment" />
               </div>
-              <div className={`px-4 py-2 border-b ${BORDER}`}>
-                <span className={`text-xs font-medium ${TEXT2}`}>
-                  Object Table
-                </span>
-              </div>
-              <div className="px-4 py-2">
-                <span className={`text-xs ${TEXT3}`}>Status</span>
-              </div>
-              {/* Empty state */}
-              <div className="px-4 py-8 flex items-center justify-center">
-                <span className={`text-sm ${TEXT3}`}>
+              <div style={{ padding: "32px 20px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textMuted }}>
                   No risk assessments
                 </span>
               </div>
@@ -709,7 +808,91 @@ function CounterpartyStep() {
           </div>
         </div>
       </div>
+
+      {/* Footer action bar */}
+      <div
+        style={{
+          background: ds.surfaceDeep,
+          borderTop: `1px solid ${ds.border}`,
+          padding: "12px 28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <FooterMeta label="Counterparty" value="Meridian Precision Mfg." />
+          <FooterMeta label="Type" value="BORROWER" />
+          <FooterMeta label="Status" value="PROSPECT" valueColor={ds.amber} />
+          <FooterMeta label="KYC" value="Pending" valueColor={ds.textMuted} />
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <GhostButtonWarn label="Flag Counterparty" />
+          <button
+            style={{
+              padding: "8px 16px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: ds.gold,
+              color: "#18140a",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Validate Counterparty →
+          </button>
+        </div>
+      </div>
     </>
+  );
+}
+
+/* ================================================================== */
+/*  Coming Soon placeholder                                            */
+/* ================================================================== */
+
+function ComingSoon({ label }: { label: string }) {
+  return (
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <span style={{ fontSize: 16, color: ds.textMuted, fontFamily: ds.fontSerif, fontStyle: "italic" }}>
+        {label} — coming soon
+      </span>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  Shared components                                                  */
+/* ================================================================== */
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+      <span style={{ flex: "0 0 16px", height: 1, background: ds.borderAccent }} />
+      <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, whiteSpace: "nowrap" }}>
+        {label}
+      </span>
+      <span style={{ flex: 1, height: 1, background: ds.border }} />
+    </div>
+  );
+}
+
+function DealSubheader({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 0, paddingBottom: 12, borderBottom: `1px solid ${ds.borderAccent}` }}>
+      {items.map((item, i) => (
+        <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+          {i > 0 && <span style={{ width: 1, height: 18, background: ds.borderAccent, margin: "0 14px", flexShrink: 0 }} />}
+          <span style={{ fontFamily: ds.fontMono, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginRight: 6 }}>{item.label}</span>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: ds.text, letterSpacing: "0.02em" }}>{item.value}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -719,18 +902,98 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
     value === "BORROWER" ||
     value === "PROSPECT" ||
     value.startsWith("PCTR_");
+
   return (
-    <div className="flex items-baseline gap-4 py-1.5">
-      <span className="text-sm text-blue-400 w-[220px] shrink-0 truncate">
-        {label}
-      </span>
+    <div style={{ display: "flex", alignItems: "baseline", gap: 12, padding: "5px 0", borderBottom: `1px solid ${ds.border}` }}>
+      <span style={{ fontFamily: ds.fontBody, fontSize: 13, fontWeight: 400, color: ds.textDim, width: 220, flexShrink: 0 }}>{label}</span>
       {isEmpty ? (
-        <span className={`text-sm italic ${TEXT3}`}>No value</span>
-      ) : isHighlighted ? (
-        <span className="text-sm font-semibold text-[#e2e8f0]">{value}</span>
+        <span style={{ fontFamily: ds.fontBody, fontSize: 13, fontStyle: "italic", color: ds.textMuted }}>No value</span>
       ) : (
-        <span className={`text-sm ${TEXT2}`}>{value}</span>
+        <span style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: isHighlighted ? 500 : 400, color: isHighlighted ? ds.text : ds.textDim }}>
+          {value}
+        </span>
       )}
+    </div>
+  );
+}
+
+function DropdownChip({ label, dotColor }: { label: string; dotColor: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontFamily: ds.fontMono,
+        fontSize: 12,
+        fontWeight: 500,
+        color: ds.text,
+        background: ds.surfaceRaised,
+        border: `1px solid ${ds.border}`,
+        padding: "4px 10px",
+        borderRadius: 4,
+      }}
+    >
+      <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor }} />
+      {label}
+      <ChevronDownIcon />
+    </span>
+  );
+}
+
+function ToolbarButton({ label, onClick, title, style: extraStyle }: { label: React.ReactNode; onClick?: () => void; title?: string; style?: React.CSSProperties }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        padding: "3px 6px",
+        borderRadius: 4,
+        background: "transparent",
+        color: ds.textDim,
+        border: "none",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: ds.fontMono,
+        fontSize: 13,
+        ...extraStyle,
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function GhostButton({ label }: { label: string }) {
+  return (
+    <button style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.textDim, border: `1px solid ${ds.borderAccent}`, cursor: "pointer", whiteSpace: "nowrap" }}>
+      {label}
+    </button>
+  );
+}
+
+function GhostButtonSm({ label }: { label: string }) {
+  return (
+    <button style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 4, background: "transparent", border: `1px solid ${ds.border}`, color: ds.textMuted, fontFamily: ds.fontMono, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>
+      {label}
+    </button>
+  );
+}
+
+function GhostButtonWarn({ label }: { label: string }) {
+  return (
+    <button style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.coral, border: `1px solid rgba(224,112,96,0.38)`, cursor: "pointer", whiteSpace: "nowrap" }}>
+      {label}
+    </button>
+  );
+}
+
+function FooterMeta({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+  return (
+    <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted }}>
+      {label}: <strong style={{ color: valueColor || ds.textDim }}>{value}</strong>
     </div>
   );
 }
@@ -754,48 +1017,9 @@ function BuildingIcon() {
   );
 }
 
-function StarIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a6a7e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0110 0v4" />
-    </svg>
-  );
-}
-
-function PropertiesIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b9bb4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="8" y1="6" x2="21" y2="6" />
-      <line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" />
-      <line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
-  );
-}
-
 function ChevronDownIcon() {
   return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
