@@ -42,6 +42,12 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  if (!assignedToId) {
+    return NextResponse.json(
+      { error: "assignedToId (banker) is required" },
+      { status: 400 }
+    );
+  }
 
   // ── Fetch the WorkflowForValidation record ──────────────────────────
   const { data: wfv, error: wfvErr } = await supabase
@@ -128,7 +134,7 @@ export async function POST(req: NextRequest) {
         event_type: "COUNTERPARTY_CREATED",
         old_value: "NEW_COUNTERPARTY",
         new_value: wfv.counterparty_id,
-        changed_by_banker_id: "SYSTEM_VALIDATION",
+        changed_by_banker_id: assignedToId,
         event_notes: `New counterparty created: ${counterpartyName} (${wfv.counterparty_id}). Status: PROSPECT. KYC Status: PENDING_REVIEW. Assigned to: ${assignedToId}`,
       });
     }
@@ -143,7 +149,7 @@ export async function POST(req: NextRequest) {
       event_type: "COUNTERPARTY_CHECK_ERROR",
       old_value: wfv.counterparty_id,
       new_value: "ERROR",
-      changed_by_banker_id: "SYSTEM_VALIDATION",
+      changed_by_banker_id: assignedToId,
       event_notes: `Error checking/creating counterparty: ${msg}`,
     });
   }
@@ -194,7 +200,7 @@ export async function POST(req: NextRequest) {
     event_type: "WORKFLOW_CREATED_FROM_VALIDATION",
     old_value: "CLASSIFIED",
     new_value: "VALIDATED",
-    changed_by_banker_id: "SYSTEM_VALIDATION",
+    changed_by_banker_id: assignedToId,
     event_notes: `Workflow created from WorkflowForValidation ${workflowForValidationId}. Counterparty: ${counterpartyName} (${counterpartyCreated ? "NEW" : "EXISTING"}). Assigned to: ${assignedToId}. Stage: VALIDATED / Status: SUCCESS`,
   });
 
@@ -220,7 +226,7 @@ export async function POST(req: NextRequest) {
     alert_priority_score:
       wfv.priority === "High" ? 3 : wfv.priority === "Medium" ? 2 : 1,
     generated_timestamp: new Date().toISOString(),
-    generated_by: "SYSTEM_VALIDATION",
+    generated_by: assignedToId,
     requires_action: true,
     auto_dismiss_on_action: false,
     directed_to_banker_id: assignedToId || null,
@@ -260,7 +266,7 @@ export async function POST(req: NextRequest) {
           event_type: "DOCUMENTS_RELINKED",
           old_value: `WFV_${workflowForValidationId}`,
           new_value: workflowId,
-          changed_by_banker_id: "SYSTEM_VALIDATION",
+          changed_by_banker_id: assignedToId,
           event_notes: `Document ${wfv.document_id} relinked from WorkflowForValidation to Workflow ${workflowId}`,
         });
       } else {
@@ -284,7 +290,7 @@ export async function POST(req: NextRequest) {
             event_type: "DOCUMENTS_RELINKED",
             old_value: `WFV_${workflowForValidationId}`,
             new_value: workflowId,
-            changed_by_banker_id: "SYSTEM_VALIDATION",
+            changed_by_banker_id: assignedToId,
             event_notes: `Pipeline document ${wfv.document_id} relinked to Workflow ${workflowId}`,
           });
         } else {
@@ -295,7 +301,7 @@ export async function POST(req: NextRequest) {
             event_type: "DOCUMENT_NOT_FOUND",
             old_value: wfv.document_id,
             new_value: "NOT_FOUND",
-            changed_by_banker_id: "SYSTEM_VALIDATION",
+            changed_by_banker_id: assignedToId,
             event_notes: `Document ${wfv.document_id} not found in document or documents table`,
           });
         }
@@ -309,7 +315,7 @@ export async function POST(req: NextRequest) {
         event_type: "DOCUMENT_LINKING_ERROR",
         old_value: wfv.document_id,
         new_value: "ERROR",
-        changed_by_banker_id: "SYSTEM_VALIDATION",
+        changed_by_banker_id: assignedToId,
         event_notes: `Failed to relink document: ${msg}`,
       });
     }
@@ -321,7 +327,7 @@ export async function POST(req: NextRequest) {
       event_type: "NO_DOCUMENT_ID",
       old_value: workflowForValidationId,
       new_value: "NO_DOCUMENT_ID",
-      changed_by_banker_id: "SYSTEM_VALIDATION",
+      changed_by_banker_id: assignedToId,
       event_notes: `No documentId found for WorkflowForValidation ${workflowForValidationId}`,
     });
   }

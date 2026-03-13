@@ -28,6 +28,11 @@ export interface Attachment {
   workflow_for_validation_id?: string;
   /** Current workflow stage from the WFV record */
   workflow_stage?: string;
+  /** WFV properties for the metadata strip */
+  wfv_counterparty_type?: string;
+  wfv_relationship_status?: string;
+  wfv_document_type?: string;
+  wfv_initial_extraction_stage?: string;
 }
 
 export interface MockDocument {

@@ -51,6 +51,13 @@ function classTag(att: Attachment): { label: string; color: string; bg: string; 
   return { label: "FIN", color: ds.blue, bg: ds.blueDim, borderColor: "rgba(91,155,213,0.28)", cls: "FINANCIAL_DATA" };
 }
 
+/** Banker option for the assignment dropdown */
+interface BankerOption {
+  banker_id: string;
+  full_name: string;
+  title: string;
+}
+
 export default function DocumentShelf({ attachment, email, onClose, onValidated }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
@@ -60,6 +67,21 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated 
   );
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Banker dropdown state
+  const [bankers, setBankers] = useState<BankerOption[]>([]);
+  const [selectedBankerId, setSelectedBankerId] = useState<string>("");
+
+  // Fetch bankers on mount
+  useEffect(() => {
+    fetch("/api/bankers")
+      .then((r) => r.json())
+      .then((data: BankerOption[]) => {
+        setBankers(data);
+        if (data.length > 0) setSelectedBankerId(data[0].banker_id);
+      })
+      .catch(() => {});
+  }, []);
 
   const tag = classTag(attachment);
 
@@ -119,7 +141,7 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workflowForValidationId: attachment.workflow_for_validation_id,
-          assignedToId: "SYSTEM",
+          assignedToId: selectedBankerId || undefined,
         }),
       });
 
@@ -136,7 +158,7 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated 
     } finally {
       setValidating(false);
     }
-  }, [attachment.workflow_for_validation_id, onValidated]);
+  }, [attachment.workflow_for_validation_id, onValidated, selectedBankerId]);
 
   const displayStage = validated
     ? "VALIDATED"
@@ -276,7 +298,7 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated 
               <ShelfButton
                 variant="gold"
                 onClick={handleValidate}
-                disabled={validating}
+                disabled={validating || !selectedBankerId}
               >
                 {validating
                   ? "Validating…"
@@ -314,18 +336,75 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated 
             gap: 12,
           }}
         >
-          <MetaItem label="Source Document" value={attachment.file_name} />
           <MetaItem
-            label="Maps to Obligation"
-            value={tag.cls}
-            valueColor={ds.blue}
+            label="Counterparty Type"
+            value={attachment.wfv_counterparty_type ?? "—"}
           />
-          <MetaItem label="Party Role" value={attachment.classification_role} />
+          <MetaItem
+            label="Relationship Status"
+            value={attachment.wfv_relationship_status ?? "—"}
+            valueColor={
+              attachment.wfv_relationship_status === "PROSPECT"
+                ? ds.amber
+                : attachment.wfv_relationship_status === "ACTIVE RELATIONSHIP"
+                  ? ds.green
+                  : undefined
+            }
+          />
+          <MetaItem
+            label="Document Type"
+            value={attachment.wfv_document_type ?? "—"}
+          />
+          <MetaItem
+            label="Extraction Stage"
+            value={attachment.wfv_initial_extraction_stage ?? "—"}
+          />
           <MetaItem
             label="Workflow Stage"
             value={displayStage}
             valueColor={stageColor}
           />
+
+          {/* Banker assignment dropdown */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span
+              style={{
+                fontFamily: ds.fontMono,
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: "0.10em",
+                color: ds.textMuted,
+              }}
+            >
+              Assign Banker
+            </span>
+            <select
+              value={selectedBankerId}
+              onChange={(e) => setSelectedBankerId(e.target.value)}
+              disabled={validated}
+              style={{
+                fontFamily: ds.fontMono,
+                fontSize: 12,
+                color: ds.text,
+                background: ds.surfaceRaised,
+                border: `1px solid ${ds.borderAccent}`,
+                borderRadius: ds.radius,
+                padding: "4px 8px",
+                cursor: validated ? "default" : "pointer",
+                outline: "none",
+                opacity: validated ? 0.5 : 1,
+              }}
+            >
+              {bankers.length === 0 && (
+                <option value="">Loading…</option>
+              )}
+              {bankers.map((b) => (
+                <option key={b.banker_id} value={b.banker_id}>
+                  {b.full_name} — {b.title}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* ── PDF viewer ── */}

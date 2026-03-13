@@ -219,6 +219,9 @@ export async function fetchInboxData(): Promise<{
         wf?.document_content_flags ?? null
       );
 
+      // Find the WFV record linked to this specific document
+      const docWf = wfRows.find((w) => w.document_id === doc.document_id) ?? wf;
+
       return {
         id: doc.document_id,
         file_name: doc.document_name ?? "Untitled",
@@ -228,8 +231,12 @@ export async function fetchInboxData(): Promise<{
         classification_role: "BORROWER",
         pages: 0,
         storage_url: signedUrlMap[doc.document_id],
-        workflow_for_validation_id: wf?.workflow_for_validation_id ?? undefined,
-        workflow_stage: wf?.workflow_stage ?? undefined,
+        workflow_for_validation_id: docWf?.workflow_for_validation_id ?? wf?.workflow_for_validation_id ?? undefined,
+        workflow_stage: docWf?.workflow_stage ?? wf?.workflow_stage ?? undefined,
+        wfv_counterparty_type: docWf?.counterparty_type ?? wf?.counterparty_type ?? undefined,
+        wfv_relationship_status: docWf?.relationship_status ?? wf?.relationship_status ?? undefined,
+        wfv_document_type: docWf?.document_type ?? wf?.document_type ?? undefined,
+        wfv_initial_extraction_stage: docWf?.initial_extraction_stage ?? wf?.initial_extraction_stage ?? undefined,
         mock_doc: {
           title: (doc.document_name ?? "Document").replace(/[_-]/g, " ").replace(/\.\w+$/, ""),
           date: formatTimestamp(doc.timestamp ?? row.sent_timestamp),
