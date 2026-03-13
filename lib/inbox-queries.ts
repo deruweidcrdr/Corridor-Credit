@@ -1,11 +1,68 @@
 import { supabase } from "./supabase";
 import type { Email, Attachment, InboxNotification } from "./inbox-data";
-import type {
-  EmailRow,
-  DocumentRow,
-  WorkflowRow,
-  AlertRow,
-} from "./database.types";
+import type { AlertRow } from "./database.types";
+
+// Row type matching the workflow_for_validation pipeline table
+interface WfvRow {
+  workflow_for_validation_id: string;
+  apparent_counterparty: string | null;
+  source_email_id: string | null;
+  document_id: string | null;
+  created_date: string | null;
+  counterparty_id: string | null;
+  counterparty_name: string | null;
+  counterparty_type: string | null;
+  relationship_status: string | null;
+  workflow_type: string | null;
+  matched_obligation_id: string | null;
+  document_content_flags: string | null;
+  document_type: string | null;
+  initial_extraction_stage: string | null;
+  requires_financial_extraction: boolean | null;
+  reporting_period: string | null;
+  extracted_document_types: string | null;
+  match_confidence: string | null;
+  match_reason: string | null;
+  assigned_to_id: string | null;
+  workflow_stage: string | null;
+  workflow_status: string | null;
+  workflow_subtype: string | null;
+  priority: string | null;
+  notes: string | null;
+  initiated_by_id: string | null;
+  workflow_name: string | null;
+  successor_workflow_id: string | null;
+  workflow_id: string | null;
+}
+
+// Row types matching the pipeline tables (emails, documents, counterparties)
+interface PipelineEmailRow {
+  email_id: string;
+  subject: string | null;
+  from_address: string | null;
+  to_addresses: string[] | null;
+  cc_addresses: string[] | null;
+  bcc_addresses: string[] | null;
+  body_plain: string | null;
+  body_html: string | null;
+  sent_timestamp: string | null;
+  file_name: string | null;
+}
+
+interface PipelineDocumentRow {
+  document_id: string;
+  document_name: string | null;
+  email_id: string | null;
+  file_type: string | null;
+  complete_document_text: string | null;
+  timestamp: string | null;
+  storage_path: string | null;
+  pdf_storage_path: string | null;
+  workflow_for_validation_id: string | null;
+  workflow_id: string | null;
+  document_type: string | null;
+  status: string | null;
+}
 
 // ---------------------------------------------------------------------------
 // Format a Supabase timestamp into the display format used by the inbox UI
@@ -49,7 +106,7 @@ export async function fetchInboxData(): Promise<{
 }> {
   // 1. Fetch emails ordered by most recent first
   const { data: rawEmails, error: emailErr } = await supabase
-    .from("email")
+    .from("emails")
     .select("*")
     .order("sent_timestamp", { ascending: false });
 
@@ -58,7 +115,7 @@ export async function fetchInboxData(): Promise<{
     return { emails: [], notifications: [] };
   }
 
-  const emailRows = (rawEmails ?? []) as EmailRow[];
+  const emailRows = (rawEmails ?? []) as PipelineEmailRow[];
   if (emailRows.length === 0) {
     return { emails: [], notifications: [] };
   }
@@ -67,25 +124,25 @@ export async function fetchInboxData(): Promise<{
 
   // 2. Fetch documents (attachments) for these emails
   const { data: rawDocs, error: docErr } = await supabase
-    .from("document")
+    .from("documents")
     .select("*")
     .in("email_id", emailIds);
 
   if (docErr) {
     console.error("Failed to fetch documents:", docErr);
   }
-  const docRows = (rawDocs ?? []) as DocumentRow[];
+  const docRows = (rawDocs ?? []) as PipelineDocumentRow[];
 
-  // 3. Fetch workflows linked to these emails for counterparty + classification info
+  // 3. Fetch workflow_for_validation records linked to these emails
   const { data: rawWfs, error: wfErr } = await supabase
-    .from("workflow")
+    .from("workflow_for_validation")
     .select("*")
     .in("source_email_id", emailIds);
 
   if (wfErr) {
     console.error("Failed to fetch workflows:", wfErr);
   }
-  const wfRows = (rawWfs ?? []) as WorkflowRow[];
+  const wfRows = (rawWfs ?? []) as WfvRow[];
 
   // 4. Collect counterparty IDs from workflows and fetch counterparties
   const counterpartyIds = [
@@ -100,7 +157,7 @@ export async function fetchInboxData(): Promise<{
 
   if (counterpartyIds.length > 0) {
     const { data: cpRows, error: cpErr } = await supabase
-      .from("counterparty")
+      .from("counterparties")
       .select("counterparty_id, counterparty_name, counterparty_type")
       .in("counterparty_id", counterpartyIds);
 
@@ -116,8 +173,8 @@ export async function fetchInboxData(): Promise<{
     }
   }
 
-  // 5. Build a lookup: email_id → workflow (take the first / most recent)
-  const wfByEmail: Record<string, WorkflowRow> = {};
+  // 5. Build a lookup: email_id → workflow_for_validation (take the first)
+  const wfByEmail: Record<string, WfvRow> = {};
   for (const wf of wfRows) {
     if (wf.source_email_id && !wfByEmail[wf.source_email_id]) {
       wfByEmail[wf.source_email_id] = wf;
@@ -125,7 +182,7 @@ export async function fetchInboxData(): Promise<{
   }
 
   // 6. Build a lookup: email_id → documents
-  const docsByEmail: Record<string, DocumentRow[]> = {};
+  const docsByEmail: Record<string, PipelineDocumentRow[]> = {};
   for (const doc of docRows) {
     if (doc.email_id) {
       if (!docsByEmail[doc.email_id]) docsByEmail[doc.email_id] = [];
@@ -150,7 +207,7 @@ export async function fetchInboxData(): Promise<{
 
       return {
         id: doc.document_id,
-        file_name: doc.document_name ?? doc.path ?? "Untitled",
+        file_name: doc.document_name ?? "Untitled",
         counterparty_name: cpInfo?.name ?? "Unknown Counterparty",
         counterparty_type: cpInfo?.type ?? "UNKNOWN",
         classification,
@@ -169,8 +226,8 @@ export async function fetchInboxData(): Promise<{
     return {
       id: row.email_id,
       subject: row.subject ?? "(No Subject)",
-      from: row.from ?? "",
-      to: Array.isArray(row.to) ? row.to[0] ?? "" : "",
+      from: row.from_address ?? "",
+      to: Array.isArray(row.to_addresses) ? row.to_addresses[0] ?? "" : "",
       sent_at: formatTimestamp(row.sent_timestamp),
       body: row.body_plain ?? row.body_html ?? "",
       is_read: false,
@@ -188,19 +245,19 @@ export async function fetchInboxData(): Promise<{
       : undefined;
 
     notifications.push({
-      id: wf.workflow_id,
+      id: wf.workflow_for_validation_id,
       type: "workflow",
       label: `New Workflow Created: ${wf.document_type ?? wf.workflow_type ?? "DOCUMENT"}`,
-      timestamp: formatTimestamp(wf.created_at),
+      timestamp: formatTimestamp(wf.created_date),
     });
 
     // If there's a counterparty, add a KYC alert
     if (cpInfo) {
       notifications.push({
-        id: `kyc-${wf.workflow_id}`,
+        id: `kyc-${wf.workflow_for_validation_id}`,
         type: "alert",
         label: `New Counterparty Requires KYC Review: ${cpInfo.name}`,
-        timestamp: formatTimestamp(wf.created_at),
+        timestamp: formatTimestamp(wf.created_date),
       });
     }
   }
