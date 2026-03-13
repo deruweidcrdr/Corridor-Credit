@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Attachment, Email } from "@/lib/inbox-data";
 
 /* ================================================================== */
@@ -50,11 +50,33 @@ function classTag(att: Attachment): { label: string; color: string; bg: string; 
 }
 
 export default function DocumentShelf({ attachment, email, onClose }: Props) {
-  const [page, setPage] = useState(1);
-  const [zoom, setZoom] = useState(116);
   const [isOpen, setIsOpen] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const tag = classTag(attachment);
+
+  // Fetch the PDF as a blob so we can set the correct MIME type
+  // (Supabase serves files as application/octet-stream)
+  useEffect(() => {
+    if (!attachment.storage_url) return;
+    let revoked = false;
+    fetch(attachment.storage_url)
+      .then((r) => r.blob())
+      .then((blob) => {
+        if (revoked) return;
+        const pdfBlob = new Blob([blob], { type: "application/pdf" });
+        setPdfBlobUrl(URL.createObjectURL(pdfBlob));
+      })
+      .catch(() => {});
+    return () => {
+      revoked = true;
+      setPdfBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, [attachment.storage_url]);
 
   // Animate in on mount
   useEffect(() => {
@@ -229,144 +251,80 @@ export default function DocumentShelf({ attachment, email, onClose }: Props) {
         </div>
 
         {/* ── PDF viewer ── */}
-        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+          {/* Toolbar */}
           <div
             style={{
-              margin: 20,
-              background: "#fff",
-              borderRadius: ds.radius,
-              boxShadow: "0 8px 40px rgba(0,0,0,0.4)",
-              overflow: "hidden",
-              minHeight: 600,
+              flexShrink: 0,
+              background: ds.surface,
+              borderBottom: `1px solid ${ds.border}`,
+              padding: "8px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              fontFamily: ds.fontMono,
+              fontSize: 11,
+              color: ds.textDim,
             }}
           >
-            {/* PDF toolbar */}
+            <span style={{ color: ds.text }}>{attachment.file_name}</span>
+            <div style={{ flex: 1 }} />
+            <button
+              onClick={() => iframeRef.current?.requestFullscreen?.()}
+              style={{
+                background: "transparent",
+                border: `1px solid ${ds.border}`,
+                color: ds.textDim,
+                padding: "4px 10px",
+                borderRadius: ds.radius,
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily: ds.fontBody,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                transition: "all 0.13s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = ds.text;
+                e.currentTarget.style.borderColor = ds.borderAccent;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = ds.textDim;
+                e.currentTarget.style.borderColor = ds.border;
+              }}
+            >
+              Fullscreen
+            </button>
+          </div>
+
+          {/* PDF iframe or fallback */}
+          {pdfBlobUrl ? (
+            <iframe
+              ref={iframeRef}
+              src={pdfBlobUrl}
+              style={{
+                flex: 1,
+                width: "100%",
+                border: "none",
+                background: "#fff",
+              }}
+              title={attachment.file_name}
+            />
+          ) : (
             <div
               style={{
-                background: "#f0f0f0",
-                borderBottom: "1px solid #ddd",
-                padding: "8px 14px",
+                flex: 1,
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
-                fontFamily: ds.fontMono,
-                fontSize: 11,
-                color: "#444",
+                justifyContent: "center",
+                color: ds.textMuted,
+                fontFamily: ds.fontBody,
+                fontSize: 14,
               }}
             >
-              <input
-                type="text"
-                value={page}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value, 10);
-                  if (!isNaN(v) && v >= 1 && v <= attachment.pages) setPage(v);
-                }}
-                style={{
-                  width: 28,
-                  textAlign: "center",
-                  fontFamily: ds.fontMono,
-                  fontSize: 11,
-                  background: "#fff",
-                  border: "1px solid #ccc",
-                  borderRadius: 3,
-                  padding: "1px 2px",
-                  color: "#333",
-                }}
-              />
-              <span style={{ color: "#888" }}>of {attachment.pages}</span>
-              <span style={{ color: "#888" }}>—</span>
-              <button
-                onClick={() => setZoom((z) => Math.max(50, z - 10))}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#666",
-                  cursor: "pointer",
-                  fontSize: 14,
-                }}
-              >
-                −
-              </button>
-              <span style={{ color: "#888" }}>{zoom}%</span>
-              <button
-                onClick={() => setZoom((z) => Math.min(200, z + 10))}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#666",
-                  cursor: "pointer",
-                  fontSize: 14,
-                }}
-              >
-                +
-              </button>
-              <div style={{ flex: 1 }} />
-              <span style={{ color: "#888", cursor: "pointer" }}>🔍</span>
+              {attachment.storage_url ? "Loading PDF…" : "No PDF available in storage"}
             </div>
-
-            {/* PDF content */}
-            <div
-              style={{
-                padding: `${Math.round(48 * (zoom / 100))}px ${Math.round(60 * (zoom / 100))}px`,
-                color: "#111",
-                fontFamily: "'Times New Roman', serif",
-                fontSize: `${Math.round(13 * (zoom / 100))}px`,
-                lineHeight: 1.7,
-              }}
-            >
-              <h1
-                style={{
-                  fontSize: `${Math.round(18 * (zoom / 100))}px`,
-                  fontWeight: 700,
-                  textAlign: "center",
-                  marginBottom: 8,
-                  letterSpacing: "0.02em",
-                }}
-              >
-                {attachment.mock_doc.title}
-              </h1>
-              <div
-                style={{
-                  textAlign: "center",
-                  color: "#555",
-                  fontSize: `${Math.round(12 * (zoom / 100))}px`,
-                  marginBottom: 32,
-                }}
-              >
-                dated as of {attachment.mock_doc.date}
-              </div>
-
-              {attachment.mock_doc.parties.map((party, i) => (
-                <div key={i} style={{ marginBottom: 20 }}>
-                  <div
-                    style={{
-                      fontSize: `${Math.round(11 * (zoom / 100))}px`,
-                      color: "#0055aa",
-                      marginBottom: 3,
-                    }}
-                  >
-                    {i === 0 ? "by" : "in favor of"}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: `${Math.round(14 * (zoom / 100))}px`,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {party.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: `${Math.round(12 * (zoom / 100))}px`,
-                      color: "#555",
-                    }}
-                  >
-                    {party.role}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </>

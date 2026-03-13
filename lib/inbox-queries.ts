@@ -190,7 +190,21 @@ export async function fetchInboxData(): Promise<{
     }
   }
 
-  // 7. Assemble Email[] with nested Attachment[]
+  // 7. Generate signed storage URLs for all documents
+  const signedUrlMap: Record<string, string> = {};
+  const urlRequests = docRows.map(async (doc) => {
+    if (!doc.email_id || !doc.document_name) return;
+    const storagePath = `${doc.email_id}/${doc.document_name}`;
+    const { data } = await supabase.storage
+      .from("attachments")
+      .createSignedUrl(storagePath, 3600);
+    if (data?.signedUrl) {
+      signedUrlMap[doc.document_id] = data.signedUrl;
+    }
+  });
+  await Promise.all(urlRequests);
+
+  // 8. Assemble Email[] with nested Attachment[]
   const emails: Email[] = emailRows.map((row) => {
     const wf = wfByEmail[row.email_id];
     const cpInfo = wf?.counterparty_id
@@ -213,6 +227,7 @@ export async function fetchInboxData(): Promise<{
         classification,
         classification_role: "BORROWER",
         pages: 0,
+        storage_url: signedUrlMap[doc.document_id],
         mock_doc: {
           title: (doc.document_name ?? "Document").replace(/[_-]/g, " ").replace(/\.\w+$/, ""),
           date: formatTimestamp(doc.timestamp ?? row.sent_timestamp),
@@ -235,7 +250,7 @@ export async function fetchInboxData(): Promise<{
     };
   });
 
-  // 8. Build notifications from workflows + alerts
+  // 9. Build notifications from workflows + alerts
   const notifications: InboxNotification[] = [];
 
   // Workflow-based notifications

@@ -22,6 +22,7 @@ export interface Attachment {
   classification: string;
   classification_role: string;
   pages: number;
+  storage_url?: string;
   mock_doc: MockDocument;
 }
 
