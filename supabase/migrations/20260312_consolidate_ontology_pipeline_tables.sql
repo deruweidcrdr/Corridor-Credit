@@ -54,10 +54,8 @@ ALTER TABLE term DROP CONSTRAINT IF EXISTS fk_term_source_document_id;
 ALTER TABLE contract DROP CONSTRAINT IF EXISTS fk_contract_source_document_id;
 ALTER TABLE collateral DROP CONSTRAINT IF EXISTS fk_collateral_source_document_id;
 ALTER TABLE covenant_test_result DROP CONSTRAINT IF EXISTS fk_covenant_test_result_source_document_id;
-ALTER TABLE financial_statement DROP CONSTRAINT IF EXISTS fk_financial_statement_source_document_id;
 ALTER TABLE financial_statement DROP CONSTRAINT IF EXISTS fk_financial_statement_document_id;
 ALTER TABLE alert DROP CONSTRAINT IF EXISTS fk_alert_related_document_id;
-ALTER TABLE pro_forma_financial_statement DROP CONSTRAINT IF EXISTS fk_pro_forma_financial_statement_source_document_id;
 ALTER TABLE pro_forma_financial_statement DROP CONSTRAINT IF EXISTS fk_pro_forma_financial_statement_document_id;
 ALTER TABLE reporting_submission DROP CONSTRAINT IF EXISTS fk_reporting_submission_submitted_document_ids;
 
@@ -247,20 +245,12 @@ ALTER TABLE covenant_test_result
   FOREIGN KEY (source_document_id) REFERENCES documents(document_id);
 
 ALTER TABLE financial_statement
-  ADD CONSTRAINT fk_financial_statement_source_document_id
-  FOREIGN KEY (source_document_id) REFERENCES documents(document_id);
-
-ALTER TABLE financial_statement
   ADD CONSTRAINT fk_financial_statement_document_id
   FOREIGN KEY (document_id) REFERENCES documents(document_id);
 
 ALTER TABLE alert
   ADD CONSTRAINT fk_alert_related_document_id
   FOREIGN KEY (related_document_id) REFERENCES documents(document_id);
-
-ALTER TABLE pro_forma_financial_statement
-  ADD CONSTRAINT fk_pro_forma_financial_statement_source_document_id
-  FOREIGN KEY (source_document_id) REFERENCES documents(document_id);
 
 ALTER TABLE pro_forma_financial_statement
   ADD CONSTRAINT fk_pro_forma_financial_statement_document_id
