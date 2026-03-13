@@ -198,9 +198,8 @@ export default function DocumentShelf({ attachment, email, onClose }: Props) {
               padding: "14px 20px",
             }}
           >
-            <ShelfButton variant="gold">Confirm Term →</ShelfButton>
-            <ShelfButton variant="ghost">Edit Terms</ShelfButton>
-            <ShelfButton variant="coral">Flag for Review</ShelfButton>
+            <ShelfButton variant="gold">Confirm & Advance Workflow →</ShelfButton>
+            <ShelfButton variant="ghost">Edit Workflow</ShelfButton>
           </div>
         </div>
 
