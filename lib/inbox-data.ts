@@ -24,6 +24,10 @@ export interface Attachment {
   pages: number;
   storage_url?: string;
   mock_doc: MockDocument;
+  /** Linked WorkflowForValidation ID (from pipeline) */
+  workflow_for_validation_id?: string;
+  /** Current workflow stage from the WFV record */
+  workflow_stage?: string;
 }
 
 export interface MockDocument {

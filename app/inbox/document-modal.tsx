@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { Attachment, Email } from "@/lib/inbox-data";
 
 /* ================================================================== */
@@ -16,6 +16,7 @@ const ds = {
   gold: "#c8a84b",
   goldDim: "rgba(200,168,75,0.15)",
   green: "#4caf82",
+  greenDim: "rgba(76,175,130,0.13)",
   amber: "#e8a040",
   coral: "#e07060",
   coralDim: "rgba(224,112,96,0.14)",
@@ -35,6 +36,7 @@ interface Props {
   attachment: Attachment;
   email: Email | null;
   onClose: () => void;
+  onValidated?: () => void;
 }
 
 /** Derive the classification badge */
@@ -49,9 +51,14 @@ function classTag(att: Attachment): { label: string; color: string; bg: string; 
   return { label: "FIN", color: ds.blue, bg: ds.blueDim, borderColor: "rgba(91,155,213,0.28)", cls: "FINANCIAL_DATA" };
 }
 
-export default function DocumentShelf({ attachment, email, onClose }: Props) {
+export default function DocumentShelf({ attachment, email, onClose, onValidated }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [validated, setValidated] = useState(
+    attachment.workflow_stage === "VALIDATED"
+  );
+  const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const tag = classTag(attachment);
@@ -96,6 +103,46 @@ export default function DocumentShelf({ attachment, email, onClose }: Props) {
     setIsOpen(false);
     setTimeout(onClose, 280);
   };
+
+  // ── Validate workflow handler ──────────────────────────────────────
+  const handleValidate = useCallback(async () => {
+    if (!attachment.workflow_for_validation_id) {
+      setError("No workflow_for_validation linked to this document");
+      return;
+    }
+    setValidating(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/workflows/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowForValidationId: attachment.workflow_for_validation_id,
+          assignedToId: "SYSTEM",
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+
+      setValidated(true);
+      onValidated?.();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setValidating(false);
+    }
+  }, [attachment.workflow_for_validation_id, onValidated]);
+
+  const displayStage = validated
+    ? "VALIDATED"
+    : attachment.workflow_stage || "TERMS_EXTRACTED";
+
+  const stageColor = validated ? ds.green : ds.amber;
 
   return (
     <>
@@ -218,11 +265,42 @@ export default function DocumentShelf({ attachment, email, onClose }: Props) {
               display: "flex",
               gap: 8,
               padding: "14px 20px",
+              alignItems: "center",
             }}
           >
-            <ShelfButton variant="gold">Confirm & Advance Workflow →</ShelfButton>
+            {validated ? (
+              <ShelfButton variant="green" disabled>
+                ✓ Workflow Validated
+              </ShelfButton>
+            ) : (
+              <ShelfButton
+                variant="gold"
+                onClick={handleValidate}
+                disabled={validating}
+              >
+                {validating
+                  ? "Validating…"
+                  : "Confirm & Advance Workflow →"}
+              </ShelfButton>
+            )}
             <ShelfButton variant="ghost">Edit Workflow</ShelfButton>
           </div>
+
+          {/* Error banner */}
+          {error && (
+            <div
+              style={{
+                padding: "8px 20px",
+                background: ds.coralDim,
+                borderTop: `1px solid rgba(224,112,96,0.30)`,
+                fontFamily: ds.fontMono,
+                fontSize: 11,
+                color: ds.coral,
+              }}
+            >
+              Error: {error}
+            </div>
+          )}
         </div>
 
         {/* ── Doc metadata strip ── */}
@@ -245,8 +323,8 @@ export default function DocumentShelf({ attachment, email, onClose }: Props) {
           <MetaItem label="Party Role" value={attachment.classification_role} />
           <MetaItem
             label="Workflow Stage"
-            value="TERMS_EXTRACTED"
-            valueColor={ds.amber}
+            value={displayStage}
+            valueColor={stageColor}
           />
         </div>
 
@@ -338,12 +416,17 @@ export default function DocumentShelf({ attachment, email, onClose }: Props) {
 function ShelfButton({
   variant,
   children,
+  onClick,
+  disabled,
 }: {
-  variant: "gold" | "ghost" | "coral";
+  variant: "gold" | "ghost" | "coral" | "green";
   children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
 }) {
   const styles: Record<string, React.CSSProperties> = {
     gold: { background: ds.gold, color: "#18140a", flex: 1 },
+    green: { background: ds.green, color: "#0d1017", flex: 1 },
     ghost: {
       background: "transparent",
       color: ds.textDim,
@@ -358,12 +441,15 @@ function ShelfButton({
 
   const hoverBgs: Record<string, string> = {
     gold: "#d9b85a",
+    green: "#5bbf92",
     ghost: "rgba(255,255,255,0.04)",
     coral: ds.coralDim,
   };
 
   return (
     <button
+      onClick={onClick}
+      disabled={disabled}
       style={{
         padding: "10px 18px",
         borderRadius: ds.radius,
@@ -372,18 +458,20 @@ function ShelfButton({
         fontWeight: 700,
         letterSpacing: "0.07em",
         textTransform: "uppercase",
-        cursor: "pointer",
+        cursor: disabled ? "default" : "pointer",
         border: "none",
         transition: "all 0.13s",
         whiteSpace: "nowrap",
+        opacity: disabled && variant !== "green" ? 0.6 : 1,
         ...styles[variant],
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = hoverBgs[variant];
+        if (!disabled) e.currentTarget.style.background = hoverBgs[variant];
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background =
-          (styles[variant].background as string) ?? "transparent";
+        if (!disabled)
+          e.currentTarget.style.background =
+            (styles[variant].background as string) ?? "transparent";
       }}
     >
       {children}

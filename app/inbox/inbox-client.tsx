@@ -98,11 +98,22 @@ function obligationMapping(att: Attachment): string {
 export default function InboxClient({ emails, notifications }: Props) {
   const [selectedEmailId, setSelectedEmailId] = useState(emails[0]?.id ?? "");
   const [openAttachment, setOpenAttachment] = useState<Attachment | null>(null);
+  const [validatedWfvIds, setValidatedWfvIds] = useState<Set<string>>(new Set());
 
   const selectedEmail = emails.find((e) => e.id === selectedEmailId) ?? null;
   const unreadCount = emails.filter((e) => !e.is_read).length;
 
   const closeShelf = useCallback(() => setOpenAttachment(null), []);
+
+  const handleValidated = useCallback(() => {
+    if (openAttachment?.workflow_for_validation_id) {
+      setValidatedWfvIds((prev) => {
+        const next = new Set(prev);
+        next.add(openAttachment.workflow_for_validation_id!);
+        return next;
+      });
+    }
+  }, [openAttachment]);
 
   return (
     <>
@@ -267,6 +278,14 @@ export default function InboxClient({ emails, notifications }: Props) {
               email={selectedEmail}
               onOpenAttachment={setOpenAttachment}
               activeAttachmentId={openAttachment?.id ?? null}
+              validatedWfvIds={validatedWfvIds}
+              onValidatedWfvId={(id: string) =>
+                setValidatedWfvIds((prev) => {
+                  const next = new Set(prev);
+                  next.add(id);
+                  return next;
+                })
+              }
             />
           </div>
         </div>
@@ -278,6 +297,7 @@ export default function InboxClient({ emails, notifications }: Props) {
           attachment={openAttachment}
           email={selectedEmail}
           onClose={closeShelf}
+          onValidated={handleValidated}
         />
       )}
     </>
@@ -819,11 +839,48 @@ function AttachmentColumn({
   email,
   onOpenAttachment,
   activeAttachmentId,
+  validatedWfvIds,
+  onValidatedWfvId,
 }: {
   email: Email | null;
   onOpenAttachment: (a: Attachment) => void;
   activeAttachmentId: string | null;
+  validatedWfvIds: Set<string>;
+  onValidatedWfvId: (id: string) => void;
 }) {
+  const [validating, setValidating] = useState(false);
+  const [validateError, setValidateError] = useState<string | null>(null);
+
+  // Find the first WFV id from this email's attachments
+  const wfvId = email?.attachments.find((a) => a.workflow_for_validation_id)
+    ?.workflow_for_validation_id;
+  const isValidated = wfvId ? validatedWfvIds.has(wfvId) : false;
+
+  const handleValidate = async () => {
+    if (!wfvId) return;
+    setValidating(true);
+    setValidateError(null);
+    try {
+      const res = await fetch("/api/workflows/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowForValidationId: wfvId,
+          assignedToId: "SYSTEM",
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      onValidatedWfvId(wfvId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setValidateError(msg);
+    } finally {
+      setValidating(false);
+    }
+  };
   if (!email) {
     return (
       <div
@@ -903,12 +960,34 @@ function AttachmentColumn({
           </span>
         </div>
 
-        <ActionButton variant="primary">
-          Confirm &amp; Advance Workflow
-          <span style={{ fontSize: 14, opacity: 0.7 }}>→</span>
-        </ActionButton>
+        {isValidated ? (
+          <ActionButton variant="validated" disabled>
+            ✓ Workflow Validated
+          </ActionButton>
+        ) : (
+          <ActionButton
+            variant="primary"
+            onClick={handleValidate}
+            disabled={validating || !wfvId}
+          >
+            {validating ? "Validating…" : "Confirm & Advance Workflow"}
+            {!validating && <span style={{ fontSize: 14, opacity: 0.7 }}>→</span>}
+          </ActionButton>
+        )}
         <ActionButton variant="secondary">Edit Workflow</ActionButton>
         <ActionButton variant="warn">Archive or Reassign</ActionButton>
+        {validateError && (
+          <div
+            style={{
+              fontFamily: ds.fontMono,
+              fontSize: 10,
+              color: ds.coral,
+              padding: "4px 0",
+            }}
+          >
+            Error: {validateError}
+          </div>
+        )}
       </div>
 
       {/* Attachment cards */}
@@ -1076,9 +1155,13 @@ function AttachmentColumn({
 function ActionButton({
   variant,
   children,
+  onClick,
+  disabled,
 }: {
-  variant: "primary" | "secondary" | "warn";
+  variant: "primary" | "secondary" | "warn" | "validated";
   children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
 }) {
   const baseStyle: React.CSSProperties = {
     width: "100%",
@@ -1090,18 +1173,23 @@ function ActionButton({
     textTransform: "uppercase",
     border: "none",
     borderRadius: ds.radius,
-    cursor: "pointer",
+    cursor: disabled ? "default" : "pointer",
     transition: "all 0.13s",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
+    opacity: disabled && variant !== "validated" ? 0.6 : 1,
   };
 
   const variants: Record<string, React.CSSProperties> = {
     primary: {
       background: ds.gold,
       color: "#18140a",
+    },
+    validated: {
+      background: ds.green,
+      color: "#0d1017",
     },
     secondary: {
       background: "transparent",
@@ -1117,19 +1205,23 @@ function ActionButton({
 
   const hoverBgs: Record<string, string> = {
     primary: "#d9b85a",
+    validated: "#5bbf92",
     secondary: "rgba(255,255,255,0.04)",
     warn: ds.coralDim,
   };
 
   return (
     <button
+      onClick={onClick}
+      disabled={disabled}
       style={{ ...baseStyle, ...variants[variant] }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = hoverBgs[variant];
+        if (!disabled) e.currentTarget.style.background = hoverBgs[variant];
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background =
-          variants[variant].background as string;
+        if (!disabled)
+          e.currentTarget.style.background =
+            variants[variant].background as string;
       }}
     >
       {children}

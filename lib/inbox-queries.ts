@@ -228,6 +228,8 @@ export async function fetchInboxData(): Promise<{
         classification_role: "BORROWER",
         pages: 0,
         storage_url: signedUrlMap[doc.document_id],
+        workflow_for_validation_id: wf?.workflow_for_validation_id ?? undefined,
+        workflow_stage: wf?.workflow_stage ?? undefined,
         mock_doc: {
           title: (doc.document_name ?? "Document").replace(/[_-]/g, " ").replace(/\.\w+$/, ""),
           date: formatTimestamp(doc.timestamp ?? row.sent_timestamp),
