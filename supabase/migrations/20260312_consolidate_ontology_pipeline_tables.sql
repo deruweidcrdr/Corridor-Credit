@@ -9,7 +9,7 @@
 --
 -- This migration:
 --   1. Drops FK constraints referencing the empty ontology tables
---   2. Drops the empty ontology tables
+--   2. Drops the empty ontology tables (CASCADE handles any stragglers)
 --   3. Adds useful ontology-only columns to the pipeline tables
 --   4. Recreates FK constraints so ontology-derived tables reference
 --      the pipeline tables by their current names
@@ -21,12 +21,10 @@ BEGIN;
 -- STEP 1: Drop FK constraints referencing the empty ontology tables
 -- ============================================================
 
--- FKs on ontology "document"
+-- FKs ON the ontology tables themselves
 ALTER TABLE document DROP CONSTRAINT IF EXISTS fk_document_email_id;
 ALTER TABLE document DROP CONSTRAINT IF EXISTS fk_document_workflow_id;
 ALTER TABLE document DROP CONSTRAINT IF EXISTS fk_document_deal_id;
-
--- FKs on ontology "counterparty"
 ALTER TABLE counterparty DROP CONSTRAINT IF EXISTS fk_counterparty_primary_banker_id;
 ALTER TABLE counterparty DROP CONSTRAINT IF EXISTS fk_counterparty_parent_company_id;
 
@@ -44,14 +42,24 @@ ALTER TABLE counterparty_risk DROP CONSTRAINT IF EXISTS fk_counterparty_risk_cou
 ALTER TABLE counterparty_profile_assignment DROP CONSTRAINT IF EXISTS fk_counterparty_profile_assignment_counterparty_id;
 ALTER TABLE collateral DROP CONSTRAINT IF EXISTS fk_collateral_counterparty_id;
 ALTER TABLE kyc_due_diligence DROP CONSTRAINT IF EXISTS fk_kyc_due_diligence_counterparty_id;
-ALTER TABLE relationship DROP CONSTRAINT IF EXISTS fk_relationship_counterparty_id;
 ALTER TABLE alert DROP CONSTRAINT IF EXISTS fk_alert_source_counterparty_id;
 ALTER TABLE pro_forma_financial_statement DROP CONSTRAINT IF EXISTS fk_pro_forma_financial_statement_counterparty_id;
+ALTER TABLE crdr_assessment_finding DROP CONSTRAINT IF EXISTS fk_crdr_assessment_finding_counterparty_id;
+ALTER TABLE facility DROP CONSTRAINT IF EXISTS fk_facility_counterparty_id;
+ALTER TABLE obligation_term_structure DROP CONSTRAINT IF EXISTS fk_obligation_term_structure_counterparty_id;
+ALTER TABLE projection_profile_performance DROP CONSTRAINT IF EXISTS fk_projection_profile_performance_counterparty_id;
 
 -- FKs referencing ontology "document"
 ALTER TABLE term DROP CONSTRAINT IF EXISTS fk_term_source_document_id;
+ALTER TABLE contract DROP CONSTRAINT IF EXISTS fk_contract_source_document_id;
+ALTER TABLE collateral DROP CONSTRAINT IF EXISTS fk_collateral_source_document_id;
+ALTER TABLE covenant_test_result DROP CONSTRAINT IF EXISTS fk_covenant_test_result_source_document_id;
 ALTER TABLE financial_statement DROP CONSTRAINT IF EXISTS fk_financial_statement_source_document_id;
+ALTER TABLE financial_statement DROP CONSTRAINT IF EXISTS fk_financial_statement_document_id;
+ALTER TABLE alert DROP CONSTRAINT IF EXISTS fk_alert_related_document_id;
 ALTER TABLE pro_forma_financial_statement DROP CONSTRAINT IF EXISTS fk_pro_forma_financial_statement_source_document_id;
+ALTER TABLE pro_forma_financial_statement DROP CONSTRAINT IF EXISTS fk_pro_forma_financial_statement_document_id;
+ALTER TABLE reporting_submission DROP CONSTRAINT IF EXISTS fk_reporting_submission_submitted_document_ids;
 
 -- Drop triggers on ontology tables
 DROP TRIGGER IF EXISTS set_email_updated_at ON email;
@@ -113,74 +121,80 @@ CREATE TRIGGER set_counterparties_updated_at
 -- STEP 5: Recreate FK constraints → pipeline tables
 -- ============================================================
 
--- workflow → emails
+-- === FKs referencing emails ===
+
 ALTER TABLE workflow
   ADD CONSTRAINT fk_workflow_source_email_id
   FOREIGN KEY (source_email_id) REFERENCES emails(email_id);
 
--- workflow → counterparties
+ALTER TABLE workflow_for_validation
+  ADD CONSTRAINT fk_wfv_source_email_id
+  FOREIGN KEY (source_email_id) REFERENCES emails(email_id);
+
+-- === FKs referencing counterparties ===
+
 ALTER TABLE workflow
   ADD CONSTRAINT fk_workflow_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- deal → counterparties
 ALTER TABLE deal
   ADD CONSTRAINT fk_deal_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- contract → counterparties
 ALTER TABLE contract
   ADD CONSTRAINT fk_contract_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- obligation → counterparties
 ALTER TABLE obligation
   ADD CONSTRAINT fk_obligation_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- financial_statement → counterparties
 ALTER TABLE financial_statement
   ADD CONSTRAINT fk_financial_statement_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- counterparty_projection → counterparties
 ALTER TABLE counterparty_projection
   ADD CONSTRAINT fk_counterparty_projection_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- counterparty_risk → counterparties
 ALTER TABLE counterparty_risk
   ADD CONSTRAINT fk_counterparty_risk_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- counterparty_profile_assignment → counterparties
 ALTER TABLE counterparty_profile_assignment
   ADD CONSTRAINT fk_counterparty_profile_assignment_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- collateral → counterparties
 ALTER TABLE collateral
   ADD CONSTRAINT fk_collateral_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- kyc_due_diligence → counterparties
 ALTER TABLE kyc_due_diligence
   ADD CONSTRAINT fk_kyc_due_diligence_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- relationship → counterparties
-ALTER TABLE relationship
-  ADD CONSTRAINT fk_relationship_counterparty_id
-  FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
-
--- alert → counterparties
 ALTER TABLE alert
   ADD CONSTRAINT fk_alert_source_counterparty_id
   FOREIGN KEY (source_counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- pro_forma_financial_statement → counterparties
 ALTER TABLE pro_forma_financial_statement
   ADD CONSTRAINT fk_pro_forma_financial_statement_counterparty_id
+  FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
+
+ALTER TABLE crdr_assessment_finding
+  ADD CONSTRAINT fk_crdr_assessment_finding_counterparty_id
+  FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
+
+ALTER TABLE facility
+  ADD CONSTRAINT fk_facility_counterparty_id
+  FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
+
+ALTER TABLE obligation_term_structure
+  ADD CONSTRAINT fk_obligation_term_structure_counterparty_id
+  FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
+
+ALTER TABLE projection_profile_performance
+  ADD CONSTRAINT fk_projection_profile_performance_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
 -- counterparties self-reference (parent company)
@@ -193,50 +207,70 @@ ALTER TABLE counterparties
   ADD CONSTRAINT fk_counterparties_primary_banker_id
   FOREIGN KEY (primary_banker_id) REFERENCES corridor_banker(banker_id);
 
--- documents → emails
-ALTER TABLE documents
-  ADD CONSTRAINT fk_documents_email_id
-  FOREIGN KEY (email_id) REFERENCES emails(email_id);
-
--- documents → deal
-ALTER TABLE documents
-  ADD CONSTRAINT fk_documents_deal_id
-  FOREIGN KEY (deal_id) REFERENCES deal(deal_id);
-
--- documents → workflow
-ALTER TABLE documents
-  ADD CONSTRAINT fk_documents_workflow_id
-  FOREIGN KEY (workflow_id) REFERENCES workflow(workflow_id);
-
--- documents → workflow_for_validation
-ALTER TABLE documents
-  ADD CONSTRAINT fk_documents_workflow_for_validation_id
-  FOREIGN KEY (workflow_for_validation_id) REFERENCES workflow_for_validation(workflow_for_validation_id);
-
--- workflow_for_validation → emails
-ALTER TABLE workflow_for_validation
-  ADD CONSTRAINT fk_wfv_source_email_id
-  FOREIGN KEY (source_email_id) REFERENCES emails(email_id);
-
 -- workflow_for_validation → counterparties
 ALTER TABLE workflow_for_validation
   ADD CONSTRAINT fk_wfv_counterparty_id
   FOREIGN KEY (counterparty_id) REFERENCES counterparties(counterparty_id);
 
--- term → documents (source_document_id)
+-- === FKs referencing documents ===
+
+ALTER TABLE documents
+  ADD CONSTRAINT fk_documents_email_id
+  FOREIGN KEY (email_id) REFERENCES emails(email_id);
+
+ALTER TABLE documents
+  ADD CONSTRAINT fk_documents_deal_id
+  FOREIGN KEY (deal_id) REFERENCES deal(deal_id);
+
+ALTER TABLE documents
+  ADD CONSTRAINT fk_documents_workflow_id
+  FOREIGN KEY (workflow_id) REFERENCES workflow(workflow_id);
+
+ALTER TABLE documents
+  ADD CONSTRAINT fk_documents_workflow_for_validation_id
+  FOREIGN KEY (workflow_for_validation_id) REFERENCES workflow_for_validation(workflow_for_validation_id);
+
 ALTER TABLE term
   ADD CONSTRAINT fk_term_source_document_id
   FOREIGN KEY (source_document_id) REFERENCES documents(document_id);
 
--- financial_statement → documents
+ALTER TABLE contract
+  ADD CONSTRAINT fk_contract_source_document_id
+  FOREIGN KEY (source_document_id) REFERENCES documents(document_id);
+
+ALTER TABLE collateral
+  ADD CONSTRAINT fk_collateral_source_document_id
+  FOREIGN KEY (source_document_id) REFERENCES documents(document_id);
+
+ALTER TABLE covenant_test_result
+  ADD CONSTRAINT fk_covenant_test_result_source_document_id
+  FOREIGN KEY (source_document_id) REFERENCES documents(document_id);
+
 ALTER TABLE financial_statement
   ADD CONSTRAINT fk_financial_statement_source_document_id
   FOREIGN KEY (source_document_id) REFERENCES documents(document_id);
 
--- pro_forma_financial_statement → documents
+ALTER TABLE financial_statement
+  ADD CONSTRAINT fk_financial_statement_document_id
+  FOREIGN KEY (document_id) REFERENCES documents(document_id);
+
+ALTER TABLE alert
+  ADD CONSTRAINT fk_alert_related_document_id
+  FOREIGN KEY (related_document_id) REFERENCES documents(document_id);
+
 ALTER TABLE pro_forma_financial_statement
   ADD CONSTRAINT fk_pro_forma_financial_statement_source_document_id
   FOREIGN KEY (source_document_id) REFERENCES documents(document_id);
+
+ALTER TABLE pro_forma_financial_statement
+  ADD CONSTRAINT fk_pro_forma_financial_statement_document_id
+  FOREIGN KEY (document_id) REFERENCES documents(document_id);
+
+-- NOTE: reporting_submission.submitted_document_ids is TEXT[] (array),
+-- so it cannot have a standard FK constraint. Skipped intentionally.
+
+-- NOTE: relationship.counterparty_ids is TEXT[] (array),
+-- so it cannot have a standard FK constraint. Skipped intentionally.
 
 -- ============================================================
 -- STEP 6: Indexes on pipeline tables
