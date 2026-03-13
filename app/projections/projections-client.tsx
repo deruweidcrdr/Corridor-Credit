@@ -60,7 +60,7 @@ const ds = {
 const STEPS = [
   { number: 1, label: "Obligation Term Structure" },
   { number: 2, label: "Projections" },
-  { number: 3, label: "Coverage" },
+  { number: 3, label: "Collateral" },
   { number: 4, label: "Approval" },
 ];
 
@@ -303,7 +303,7 @@ export default function ProjectionsClient() {
           />
         )}
         {activeStep === 2 && <ProjectionsStep />}
-        {activeStep === 3 && <ComingSoon label="Coverage" />}
+        {activeStep === 3 && <ComingSoon label="Collateral" />}
         {activeStep === 4 && <ComingSoon label="Approval" />}
       </div>
     </div>
