@@ -167,8 +167,7 @@ The demo shows the full pipeline: email arrives with CIM and term sheet → docu
 ## Technical Conventions
 
 - **Primary key formats**: `CTR_YYYYMMDD_###` (counterparties), `CNT_YYYYMMDD_###` (contracts), `OBL_YYYYMMDD_###` (obligations), `CPJ_YYYYMMDD_###` (projections), `PMT_{contract_id}_{payment_number}` (payment events), `FIN_YYYYMMDD_###` (financial statements)
-- **LLM outputs use pipe-delimited format**, not JSON. Example: `COUNTERPARTY|CONTENT_FLAGS|PROSPECT_CAT|INTENT|PERIOD|DOC_TYPES`. This is a hard-won lesson from Foundry debugging — JSON parsing from LLMs is unreliable.
-- **A JSON output is utilized for FINANCIAL STATEMENT entity extraction, but is kept to a single level of depth.
+- **LLM output formats**: Use pipe-delimited format for simple LLM extractions with fewer than 6 fields (counterparty extraction, document classification, workflow routing). Example: `COUNTERPARTY|CONTENT_FLAGS|PROSPECT_CAT|INTENT|PERIOD|DOC_TYPES`. Use shallow template-based JSON for structured data extraction (financial statements, contract entity extraction) where the LLM fills in values against a predefined schema. The Foundry-era difficulties with JSON parsing were platform-specific and do not apply when calling the Anthropic API directly. In both cases, always validate the output before writing to the database.
 - **Validation-first pattern**: Data enters as "ForValidation" records. Users review and confirm before promoting to canonical objects.
 - **Status-based filtering** with workflow_stage/workflow_status rather than incremental processing decorators. More portable across platforms.
 - **Percentage/relative parameters in templates**, not absolute dollar amounts, so profiles are reusable across companies of different sizes.
