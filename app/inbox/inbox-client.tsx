@@ -98,7 +98,17 @@ function obligationMapping(att: Attachment): string {
 export default function InboxClient({ emails, notifications }: Props) {
   const [selectedEmailId, setSelectedEmailId] = useState(emails[0]?.id ?? "");
   const [openAttachment, setOpenAttachment] = useState<Attachment | null>(null);
-  const [validatedWfvIds, setValidatedWfvIds] = useState<Set<string>>(new Set());
+  const [validatedWfvIds, setValidatedWfvIds] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    for (const e of emails) {
+      for (const att of e.attachments) {
+        if (att.workflow_for_validation_id && att.workflow_stage === "VALIDATED") {
+          initial.add(att.workflow_for_validation_id);
+        }
+      }
+    }
+    return initial;
+  });
 
   const selectedEmail = emails.find((e) => e.id === selectedEmailId) ?? null;
   const unreadCount = emails.filter((e) => !e.is_read).length;
@@ -294,10 +304,26 @@ export default function InboxClient({ emails, notifications }: Props) {
       {/* ── Document shelf ── */}
       {openAttachment && (
         <DocumentShelf
+          key={`${openAttachment.id}-${validatedWfvIds.has(openAttachment.workflow_for_validation_id ?? '')}`}
           attachment={openAttachment}
           email={selectedEmail}
           onClose={closeShelf}
           onValidated={handleValidated}
+          onReset={() => {
+            if (openAttachment?.workflow_for_validation_id) {
+              setValidatedWfvIds((prev) => {
+                const next = new Set(prev);
+                next.delete(openAttachment.workflow_for_validation_id!);
+                return next;
+              });
+            }
+          }}
+          initialValidated={
+            openAttachment.workflow_stage === "VALIDATED" ||
+            (openAttachment.workflow_for_validation_id
+              ? validatedWfvIds.has(openAttachment.workflow_for_validation_id)
+              : false)
+          }
         />
       )}
     </>

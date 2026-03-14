@@ -37,6 +37,8 @@ interface Props {
   email: Email | null;
   onClose: () => void;
   onValidated?: () => void;
+  onReset?: () => void;
+  initialValidated?: boolean;
 }
 
 /** Derive the classification badge */
@@ -58,13 +60,14 @@ interface BankerOption {
   title: string;
 }
 
-export default function DocumentShelf({ attachment, email, onClose, onValidated }: Props) {
+export default function DocumentShelf({ attachment, email, onClose, onValidated, onReset, initialValidated }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(
-    attachment.workflow_stage === "VALIDATED"
+    initialValidated ?? attachment.workflow_stage === "VALIDATED"
   );
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -159,6 +162,38 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated 
       setValidating(false);
     }
   }, [attachment.workflow_for_validation_id, onValidated, selectedBankerId]);
+
+  // ── Reset workflow handler (dev/testing) ────────────────────────────
+  const handleReset = useCallback(async () => {
+    if (!attachment.workflow_for_validation_id) return;
+    if (!confirm("Reset this workflow to pre-validation state? This deletes the Workflow, Events, and Alerts created during validation.")) return;
+
+    setResetting(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/workflows/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowForValidationId: attachment.workflow_for_validation_id,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+
+      setValidated(false);
+      onReset?.();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setResetting(false);
+    }
+  }, [attachment.workflow_for_validation_id, onReset]);
 
   const displayStage = validated
     ? "VALIDATED"
@@ -291,9 +326,18 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated 
             }}
           >
             {validated ? (
-              <ShelfButton variant="green" disabled>
-                ✓ Workflow Validated
-              </ShelfButton>
+              <>
+                <ShelfButton variant="green" disabled>
+                  ✓ Workflow Validated
+                </ShelfButton>
+                <ShelfButton
+                  variant="coral"
+                  onClick={handleReset}
+                  disabled={resetting}
+                >
+                  {resetting ? "Resetting…" : "Reset Workflow"}
+                </ShelfButton>
+              </>
             ) : (
               <ShelfButton
                 variant="gold"
