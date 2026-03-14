@@ -82,6 +82,50 @@ function formatTimestamp(ts: string | null): string {
 }
 
 // ---------------------------------------------------------------------------
+// Strip HTML duplicate & inline link artefacts from mailparser body
+// ---------------------------------------------------------------------------
+function cleanEmailBody(raw: string): string {
+  // mailparser concatenates plain-text + HTML parts separated by a boundary
+  const boundaryIdx = raw.indexOf("--- mail_boundary");
+  let text = boundaryIdx > 0 ? raw.substring(0, boundaryIdx) : raw;
+
+  // Fallback: if no boundary marker, cut at first <html tag
+  if (boundaryIdx < 0) {
+    const htmlIdx = text.indexOf("<html");
+    if (htmlIdx > 0) text = text.substring(0, htmlIdx);
+  }
+
+  // Remove inline mailto/http link artefacts like <mailto:x@y.com> or <http://...>
+  text = text.replace(/<mailto:[^>]+>/g, "");
+  text = text.replace(/<https?:\/\/[^>]+>/g, "");
+
+  // Normalize \r\n to \n, then insert paragraph breaks between lines.
+  // mailparser uses single \n between what are logically separate paragraphs.
+  // Keep bullet items (* ) and consecutive short lines (signature) grouped.
+  text = text.replace(/\r\n/g, "\n");
+  const lines = text.split("\n");
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    out.push(lines[i]);
+    // Don't double-break after empty lines (already a break)
+    if (lines[i].trim() === "") continue;
+    const next = lines[i + 1];
+    if (next === undefined) continue;
+    // Keep bullet lists grouped (lines starting with *)
+    if (next.trim().startsWith("*")) continue;
+    if (lines[i].trim().startsWith("*") && next.trim() === "") continue;
+    // Keep signature block lines together (short consecutive lines after "Best regards")
+    const inSig = lines.slice(0, i + 1).some((l) => /^(Best regards|Sincerely)/i.test(l.trim()));
+    if (inSig) continue;
+    // Insert paragraph break between regular body paragraphs
+    if (next.trim() !== "") out.push("");
+  }
+  text = out.join("\n");
+
+  return text.trim();
+}
+
+// ---------------------------------------------------------------------------
 // Derive classification from document_type / content flags
 // ---------------------------------------------------------------------------
 function deriveClassification(
@@ -253,7 +297,7 @@ export async function fetchInboxData(): Promise<{
       from: row.from_address ?? "",
       to: Array.isArray(row.to_addresses) ? row.to_addresses[0] ?? "" : "",
       sent_at: formatTimestamp(row.sent_timestamp),
-      body: row.body_plain ?? row.body_html ?? "",
+      body: cleanEmailBody(row.body_plain ?? row.body_html ?? ""),
       is_read: false,
       attachments,
     };
