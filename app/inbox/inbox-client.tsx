@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type {
   Email,
   Attachment,
@@ -109,6 +109,28 @@ export default function InboxClient({ emails, notifications }: Props) {
     }
     return initial;
   });
+
+  const [pollingOn, setPollingOn] = useState<boolean | null>(null); // null = loading
+
+  useEffect(() => {
+    fetch("https://email-processing-production-production.up.railway.app/api/polling/status")
+      .then((r) => r.json())
+      .then((d) => setPollingOn(d.polling_active ?? d.active ?? false))
+      .catch(() => setPollingOn(false));
+  }, []);
+
+  const togglePolling = useCallback(async () => {
+    const endpoint = pollingOn ? "stop" : "start";
+    try {
+      const r = await fetch(
+        `https://email-processing-production-production.up.railway.app/api/polling/${endpoint}`,
+        { method: "POST" }
+      );
+      if (r.ok) setPollingOn(!pollingOn);
+    } catch {
+      // silently fail
+    }
+  }, [pollingOn]);
 
   const selectedEmail = emails.find((e) => e.id === selectedEmailId) ?? null;
   const unreadCount = emails.filter((e) => !e.is_read).length;
@@ -259,6 +281,25 @@ export default function InboxClient({ emails, notifications }: Props) {
                   {unreadCount} Unread
                 </span>
               )}
+              <button
+                onClick={togglePolling}
+                disabled={pollingOn === null}
+                style={{
+                  fontFamily: ds.fontMono,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "3px 10px",
+                  borderRadius: 10,
+                  border: `1px solid ${pollingOn ? "rgba(76,175,130,0.35)" : "rgba(255,255,255,0.12)"}`,
+                  background: pollingOn ? ds.greenDim : "rgba(255,255,255,0.05)",
+                  color: pollingOn ? ds.green : ds.textMuted,
+                  cursor: pollingOn === null ? "wait" : "pointer",
+                  letterSpacing: "0.06em",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {pollingOn === null ? "Polling: …" : pollingOn ? "Polling: ON" : "Polling: OFF"}
+              </button>
             </div>
           </div>
 
@@ -304,7 +345,7 @@ export default function InboxClient({ emails, notifications }: Props) {
       {/* ── Document shelf ── */}
       {openAttachment && (
         <DocumentShelf
-          key={`${openAttachment.id}-${validatedWfvIds.has(openAttachment.workflow_for_validation_id ?? '')}`}
+          key={openAttachment.id}
           attachment={openAttachment}
           email={selectedEmail}
           onClose={closeShelf}
