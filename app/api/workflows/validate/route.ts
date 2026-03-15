@@ -376,7 +376,7 @@ export async function POST(req: NextRequest) {
     const pipelineEvents: typeof events = [];
     try {
       const pipelineResp = await fetch(
-        `${pipelineUrl}/api/pipeline/continue`,
+        `${pipelineUrl}/api/extract`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
