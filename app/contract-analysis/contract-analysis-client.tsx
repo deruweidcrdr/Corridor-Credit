@@ -76,6 +76,7 @@ interface ContractForValidation {
   contract_status: string | null;
   maturity_date: string | null;
   counterparty_id: string | null;
+  storage_url: string | null;
   terms: TermForValidation[];
 }
 
@@ -146,9 +147,6 @@ export default function ContractAnalysisClient() {
   const [selectedTermId, setSelectedTermId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [activeStep, setActiveStep] = useState(1);
-  const [zoom, setZoom] = useState(88);
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 13;
 
   // Mutation state
   const [saving, setSaving] = useState(false);
@@ -496,11 +494,6 @@ export default function ContractAnalysisClient() {
                 editValue={editValue}
                 onSelectTerm={handleSelectTerm}
                 onEditValueChange={setEditValue}
-                zoom={zoom}
-                onZoomChange={setZoom}
-                currentPage={currentPage}
-                onPageChange={setCurrentPage}
-                totalPages={totalPages}
                 terms={terms}
                 deals={deals}
                 selectedDealId={selectedDealId}
@@ -534,6 +527,125 @@ export default function ContractAnalysisClient() {
 }
 
 /* ================================================================== */
+/*  PDF Panel — iframe viewer with blob URL (same pattern as Inbox)    */
+/* ================================================================== */
+
+function PdfPanel({
+  storageUrl,
+  documentName,
+}: {
+  storageUrl: string | null;
+  documentName: string | null;
+}) {
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Fetch the PDF as a blob so we can set the correct MIME type
+  // (Supabase serves files as application/octet-stream)
+  useEffect(() => {
+    if (!storageUrl) {
+      setPdfBlobUrl(null);
+      return;
+    }
+    let revoked = false;
+    setLoading(true);
+    fetch(storageUrl)
+      .then((r) => r.blob())
+      .then((blob) => {
+        if (revoked) return;
+        const pdfBlob = new Blob([blob], { type: "application/pdf" });
+        setPdfBlobUrl(URL.createObjectURL(pdfBlob));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!revoked) setLoading(false);
+      });
+    return () => {
+      revoked = true;
+      setPdfBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, [storageUrl]);
+
+  const handleFullscreen = useCallback(() => {
+    iframeRef.current?.requestFullscreen?.();
+  }, []);
+
+  return (
+    <div style={{ width: "45%", flexShrink: 0, display: "flex", flexDirection: "column", borderRight: `1px solid ${ds.border}` }}>
+      {/* Toolbar */}
+      <div
+        style={{
+          padding: "6px 12px",
+          borderBottom: `1px solid ${ds.border}`,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontFamily: ds.fontMono,
+          fontSize: 12,
+          color: ds.textDim,
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontSize: 12,
+            color: ds.textDim,
+          }}
+          title={documentName ?? undefined}
+        >
+          {documentName ?? "No document"}
+        </span>
+        {pdfBlobUrl && (
+          <ToolbarButton
+            label={<FitPageIcon />}
+            title="Fullscreen"
+            onClick={handleFullscreen}
+          />
+        )}
+      </div>
+
+      {/* PDF content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", background: ds.bg }}>
+        {!storageUrl && (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textMuted }}>
+              No document available
+            </span>
+          </div>
+        )}
+        {storageUrl && loading && (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textMuted }}>
+              Loading PDF...
+            </span>
+          </div>
+        )}
+        {pdfBlobUrl && (
+          <iframe
+            ref={iframeRef}
+            src={pdfBlobUrl}
+            style={{
+              flex: 1,
+              width: "100%",
+              border: "none",
+              background: "#fff",
+            }}
+            title={documentName ?? "Contract document"}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
 /*  STEP 1 — Document                                                  */
 /* ================================================================== */
 
@@ -542,11 +654,6 @@ function DocumentStep({
   editValue,
   onSelectTerm,
   onEditValueChange,
-  zoom,
-  onZoomChange,
-  currentPage,
-  onPageChange,
-  totalPages,
   terms,
   deals,
   selectedDealId,
@@ -567,11 +674,6 @@ function DocumentStep({
   editValue: string;
   onSelectTerm: (t: TermForValidation) => void;
   onEditValueChange: (v: string) => void;
-  zoom: number;
-  onZoomChange: (z: number) => void;
-  currentPage: number;
-  onPageChange: (p: number) => void;
-  totalPages: number;
   terms: TermForValidation[];
   deals: DealInfo[];
   selectedDealId: string | null;
@@ -701,112 +803,10 @@ function DocumentStep({
       {/* Three-panel content */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* LEFT: PDF Viewer */}
-        <div style={{ width: "45%", flexShrink: 0, display: "flex", flexDirection: "column", borderRight: `1px solid ${ds.border}` }}>
-          {/* PDF toolbar */}
-          <div
-            style={{
-              padding: "6px 12px",
-              borderBottom: `1px solid ${ds.border}`,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              fontFamily: ds.fontMono,
-              fontSize: 12,
-              color: ds.textDim,
-            }}
-          >
-            <input
-              type="text"
-              value={currentPage}
-              onChange={(e) => {
-                const v = parseInt(e.target.value);
-                if (v >= 1 && v <= totalPages) onPageChange(v);
-              }}
-              style={{
-                width: 36,
-                textAlign: "center",
-                background: ds.surface,
-                border: `1px solid ${ds.border}`,
-                borderRadius: 4,
-                padding: "3px 0",
-                color: ds.text,
-                fontFamily: ds.fontMono,
-                fontSize: 12,
-                outline: "none",
-              }}
-            />
-            <span>of {totalPages}</span>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
-              <ToolbarButton onClick={() => onZoomChange(Math.max(25, zoom - 12))} label="−" />
-              <span style={{ width: 42, textAlign: "center", fontSize: 11, color: ds.textMuted }}>{zoom}%</span>
-              <ToolbarButton onClick={() => onZoomChange(Math.min(200, zoom + 12))} label="+" />
-            </div>
-
-            <ToolbarButton label={<FitWidthIcon />} title="Fit width" style={{ marginLeft: 6 }} />
-            <ToolbarButton label={<FitPageIcon />} title="Fit page" />
-            <ToolbarButton label={<SearchIcon />} title="Search" style={{ marginLeft: "auto" }} />
-            <ToolbarButton label="···" title="More" />
-          </div>
-
-          {/* PDF document area */}
-          <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", justifyContent: "center", background: ds.bg }}>
-            <div
-              style={{
-                width: `${5.1 * (zoom / 100)}in`,
-                minHeight: `${6.6 * (zoom / 100)}in`,
-                padding: `${0.5 * (zoom / 100)}in`,
-                background: "#ffffff",
-                borderRadius: 4,
-                boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
-              }}
-            >
-              <div style={{ textAlign: "center", marginBottom: 24 }}>
-                <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.16em", marginBottom: 16, fontWeight: 600, color: "#c0392b", fontFamily: "serif" }}>
-                  Confidential Information Memorandum
-                </p>
-                <h2 style={{ color: "#111827", fontSize: 18, fontWeight: 700, marginTop: 24, fontFamily: "serif" }}>
-                  Solar Valley Renewable Energy Project
-                </h2>
-                <p style={{ color: "#4b5563", fontSize: 13, marginTop: 12, fontFamily: "serif" }}>
-                  180 MW Solar Photovoltaic Facility
-                </p>
-                <p style={{ color: "#4b5563", fontSize: 13, fontFamily: "serif" }}>
-                  Kern County, California
-                </p>
-              </div>
-
-              {/* Key terms table */}
-              <div style={{ marginTop: 32, border: "1px solid #d1d5db", fontSize: 12 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
-                  {["Senior Secured Term Loan", "Power Purchase Agreement", "Debt Service Coverage"].map((h) => (
-                    <div key={h} style={{ background: "#1a3a5c", color: "#fff", padding: "8px 12px", fontWeight: 600, textAlign: "center", fontSize: 11 }}>
-                      {h}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: "1px solid #d1d5db" }}>
-                  <div style={{ padding: "8px 12px", textAlign: "center", color: "#111827", fontWeight: 700, fontSize: 13 }}>$250,000,000</div>
-                  <div style={{ padding: "8px 12px", textAlign: "center", color: "#111827", fontWeight: 700, fontSize: 13, borderLeft: "1px solid #d1d5db", borderRight: "1px solid #d1d5db" }}>20-Year Fixed Price</div>
-                  <div style={{ padding: "8px 12px", textAlign: "center", color: "#111827", fontWeight: 700, fontSize: 13 }}>1.45x Average (P50)</div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: "1px solid #e5e7eb" }}>
-                  <div style={{ padding: "6px 12px", textAlign: "center", color: "#6b7280", fontSize: 11 }}>SOFR + 275 bps</div>
-                  <div style={{ padding: "6px 12px", textAlign: "center", color: "#6b7280", fontSize: 11, borderLeft: "1px solid #e5e7eb", borderRight: "1px solid #e5e7eb" }}>Southern California Edison</div>
-                  <div style={{ padding: "6px 12px", textAlign: "center", color: "#6b7280", fontSize: 11 }}>1.28x Minimum</div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 40, color: "#374151", fontSize: 13 }}>
-                <p style={{ fontWeight: 600, fontFamily: "serif" }}>Sponsored by</p>
-                <p style={{ color: "#4b5563", fontFamily: "serif" }}>GreenHorizon Energy Partners</p>
-                <p style={{ color: "#4b5563", fontFamily: "serif" }}>Denver, Colorado</p>
-              </div>
-
-              <div style={{ marginTop: 32, color: "#9ca3af", fontSize: 13, fontFamily: "serif" }}>January 2026</div>
-            </div>
-          </div>
-        </div>
+        <PdfPanel
+          storageUrl={selectedContract?.storage_url ?? null}
+          documentName={selectedContract?.document_name ?? null}
+        />
 
         {/* MIDDLE: Extracted terms table */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", borderRight: `1px solid ${ds.border}`, minWidth: 0 }}>
@@ -948,7 +948,7 @@ function DocumentStep({
                   {selectedContract?.document_name ?? "Unknown"}
                 </p>
                 <p style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, marginTop: 2 }}>
-                  Page {currentPage}, Section 2.1
+                  Contract source document
                 </p>
               </div>
 
@@ -1512,35 +1512,10 @@ function FooterMeta({ label, value, valueColor }: { label: string; value: string
 /*  Icons                                                              */
 /* ================================================================== */
 
-function BuildingIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="2" width="16" height="20" rx="2" />
-      <line x1="9" y1="6" x2="9" y2="6.01" />
-      <line x1="15" y1="6" x2="15" y2="6.01" />
-      <line x1="9" y1="10" x2="9" y2="10.01" />
-      <line x1="15" y1="10" x2="15" y2="10.01" />
-      <line x1="9" y1="14" x2="9" y2="14.01" />
-      <line x1="15" y1="14" x2="15" y2="14.01" />
-      <path d="M9 18h6v4H9z" />
-    </svg>
-  );
-}
-
 function ChevronDownIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
-
-function FitWidthIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <line x1="9" y1="3" x2="9" y2="21" />
-      <line x1="15" y1="3" x2="15" y2="21" />
     </svg>
   );
 }
@@ -1553,11 +1528,3 @@ function FitPageIcon() {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}

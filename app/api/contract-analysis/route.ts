@@ -73,7 +73,30 @@ export async function GET() {
       terms = data ?? [];
     }
 
-    // 6. Fetch counterparties
+    // 6. Fetch documents for signed URL generation
+    let signedUrlMap: Record<string, string> = {};
+    if (documentIds.length > 0) {
+      const { data: docs } = await supabase
+        .from("documents")
+        .select("document_id, document_name, email_id")
+        .in("document_id", documentIds);
+
+      if (docs?.length) {
+        const urlRequests = docs.map(async (doc: any) => {
+          if (!doc.email_id || !doc.document_name) return;
+          const storagePath = `${doc.email_id}/${doc.document_name}`;
+          const { data } = await supabase.storage
+            .from("attachments")
+            .createSignedUrl(storagePath, 3600);
+          if (data?.signedUrl) {
+            signedUrlMap[doc.document_id] = data.signedUrl;
+          }
+        });
+        await Promise.all(urlRequests);
+      }
+    }
+
+    // 7. Fetch counterparties
     const counterpartyIds = [
       ...new Set(deals.map((d: any) => d.counterparty_id).filter(Boolean)),
     ];
@@ -114,6 +137,7 @@ export async function GET() {
         const contractWithTerms = {
           ...c,
           terms: termsByContract[c.contract_for_validation_id] ?? [],
+          storage_url: signedUrlMap[c.document_id] ?? null,
         };
         (contractsByDeal[dealId] ??= []).push(contractWithTerms);
       }
