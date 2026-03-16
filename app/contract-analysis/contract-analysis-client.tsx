@@ -147,6 +147,8 @@ export default function ContractAnalysisClient() {
   const [selectedTermId, setSelectedTermId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [activeStep, setActiveStep] = useState(1);
+  // Tracks term IDs whose values have been edited and confirmed by the user
+  const [editedTermIds, setEditedTermIds] = useState<Set<string>>(new Set());
 
   // Mutation state
   const [saving, setSaving] = useState(false);
@@ -180,11 +182,6 @@ export default function ContractAnalysisClient() {
     const f = selectedDeal.facilities[0];
     return f.facility_name ?? f.facility_type ?? "";
   }, [selectedDeal]);
-
-  const pendingCount = useMemo(
-    () => terms.filter((t) => !t.validation_status || t.validation_status === "PENDING").length,
-    [terms]
-  );
 
   // Fetch data on mount
   useEffect(() => {
@@ -242,31 +239,36 @@ export default function ContractAnalysisClient() {
     []
   );
 
-  // Confirm term
-  const handleConfirmTerm = useCallback(async () => {
-    if (!selectedTerm || saving) return;
+  // Confirm term edit — only available when user has changed the value
+  const termValueChanged = useMemo(
+    () => selectedTerm ? editValue !== (selectedTerm.term_value ?? "") : false,
+    [selectedTerm, editValue]
+  );
+
+  const handleConfirmTermEdit = useCallback(async () => {
+    if (!selectedTerm || saving || !termValueChanged) return;
     setSaving(true);
     try {
-      const valueChanged = editValue !== (selectedTerm.term_value ?? "");
       const res = await fetch("/api/contract-analysis/terms", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           term_for_validation_id: selectedTerm.term_for_validation_id,
           validation_status: "CONFIRMED",
-          ...(valueChanged && { term_value: editValue }),
+          term_value: editValue,
         }),
       });
       if (res.ok) {
         updateTermLocally(selectedTerm.term_for_validation_id, {
           validation_status: "CONFIRMED",
-          ...(valueChanged && { term_value: editValue }),
+          term_value: editValue,
         });
+        setEditedTermIds((prev) => new Set(prev).add(selectedTerm.term_for_validation_id));
       }
     } finally {
       setSaving(false);
     }
-  }, [selectedTerm, editValue, saving, updateTermLocally]);
+  }, [selectedTerm, editValue, saving, termValueChanged, updateTermLocally]);
 
   // Flag term
   const handleFlagTerm = useCallback(async () => {
@@ -291,9 +293,9 @@ export default function ContractAnalysisClient() {
     }
   }, [selectedTerm, saving, updateTermLocally]);
 
-  // Validate contract & terms
+  // Validate contract & all terms (omnibus — always available)
   const handleValidateContract = useCallback(async () => {
-    if (!selectedContract || validating || pendingCount > 0) return;
+    if (!selectedContract || validating) return;
     setValidating(true);
     try {
       const res = await fetch("/api/contract-analysis/validate", {
@@ -310,7 +312,7 @@ export default function ContractAnalysisClient() {
     } finally {
       setValidating(false);
     }
-  }, [selectedContract, selectedDeal, validating, pendingCount]);
+  }, [selectedContract, selectedDeal, validating]);
 
   // Deal selection handler
   const handleSelectDeal = useCallback(
@@ -501,12 +503,13 @@ export default function ContractAnalysisClient() {
                 selectedDeal={selectedDeal}
                 selectedContract={selectedContract}
                 facilityLabel={facilityLabel}
-                pendingCount={pendingCount}
                 saving={saving}
                 validating={validating}
+                termValueChanged={termValueChanged}
+                editedTermIds={editedTermIds}
                 onSelectDeal={handleSelectDeal}
                 onSelectContract={handleSelectContract}
-                onConfirmTerm={handleConfirmTerm}
+                onConfirmTermEdit={handleConfirmTermEdit}
                 onFlagTerm={handleFlagTerm}
                 onValidateContract={handleValidateContract}
               />
@@ -661,12 +664,13 @@ function DocumentStep({
   selectedDeal,
   selectedContract,
   facilityLabel,
-  pendingCount,
   saving,
   validating,
+  termValueChanged,
+  editedTermIds,
   onSelectDeal,
   onSelectContract,
-  onConfirmTerm,
+  onConfirmTermEdit,
   onFlagTerm,
   onValidateContract,
 }: {
@@ -681,12 +685,13 @@ function DocumentStep({
   selectedDeal: DealInfo | null;
   selectedContract: ContractForValidation | null;
   facilityLabel: string;
-  pendingCount: number;
   saving: boolean;
   validating: boolean;
+  termValueChanged: boolean;
+  editedTermIds: Set<string>;
   onSelectDeal: (id: string) => void;
   onSelectContract: (id: string) => void;
-  onConfirmTerm: () => void;
+  onConfirmTermEdit: () => void;
   onFlagTerm: () => void;
   onValidateContract: () => void;
 }) {
@@ -776,8 +781,7 @@ function DocumentStep({
         ]} />
         <button
           onClick={onValidateContract}
-          disabled={pendingCount > 0 || validating || terms.length === 0}
-          title={pendingCount > 0 ? `${pendingCount} pending term(s) remaining` : undefined}
+          disabled={validating || terms.length === 0}
           style={{
             padding: "7px 14px",
             borderRadius: ds.radius,
@@ -786,10 +790,10 @@ function DocumentStep({
             fontWeight: 700,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
-            background: pendingCount > 0 || terms.length === 0 ? ds.goldDim : ds.gold,
-            color: pendingCount > 0 || terms.length === 0 ? ds.textMuted : "#18140a",
+            background: terms.length === 0 ? ds.goldDim : ds.gold,
+            color: terms.length === 0 ? ds.textMuted : "#18140a",
             border: "none",
-            cursor: pendingCount > 0 || validating || terms.length === 0 ? "not-allowed" : "pointer",
+            cursor: validating || terms.length === 0 ? "not-allowed" : "pointer",
             whiteSpace: "nowrap",
             flexShrink: 0,
             marginLeft: 20,
@@ -838,6 +842,7 @@ function DocumentStep({
             )}
             {terms.map((term) => {
               const isSelected = selectedTerm?.term_for_validation_id === term.term_for_validation_id;
+              const isEdited = editedTermIds.has(term.term_for_validation_id);
               return (
                 <button
                   key={term.term_for_validation_id}
@@ -850,16 +855,16 @@ function DocumentStep({
                     padding: "9px 16px",
                     textAlign: "left",
                     borderBottom: `1px solid ${ds.border}`,
-                    background: isSelected ? ds.surfaceRaised : "transparent",
+                    background: isSelected ? ds.surfaceRaised : isEdited ? ds.amberDim : "transparent",
                     cursor: "pointer",
                     borderTop: "none",
                     borderRight: "none",
-                    borderLeft: "none",
+                    borderLeft: isEdited ? `3px solid ${ds.amber}` : "none",
                     transition: "background 0.1s",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: statusDotColor(term.validation_status) }} />
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: isEdited ? ds.amber : statusDotColor(term.validation_status) }} />
                     <span
                       style={{
                         fontFamily: ds.fontBody,
@@ -872,13 +877,32 @@ function DocumentStep({
                     >
                       {term.term_name}
                     </span>
+                    {isEdited && (
+                      <span
+                        style={{
+                          fontFamily: ds.fontMono,
+                          fontSize: 10,
+                          fontWeight: 600,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: ds.amber,
+                          background: ds.amberDim,
+                          border: `1px solid ${ds.pwBorder}`,
+                          padding: "1px 5px",
+                          borderRadius: 3,
+                          flexShrink: 0,
+                        }}
+                      >
+                        Edited
+                      </span>
+                    )}
                   </div>
                   <span
                     style={{
                       fontFamily: ds.fontMono,
                       fontSize: 13,
                       fontWeight: 500,
-                      color: isSelected ? ds.text : ds.textDim,
+                      color: isEdited ? ds.amber : isSelected ? ds.text : ds.textDim,
                       flexShrink: 0,
                       marginLeft: 16,
                     }}
@@ -993,8 +1017,9 @@ function DocumentStep({
               {/* Action buttons */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button
-                  onClick={onConfirmTerm}
-                  disabled={saving || selectedTerm.validation_status === "CONFIRMED"}
+                  onClick={onConfirmTermEdit}
+                  disabled={saving || !termValueChanged}
+                  title={!termValueChanged ? "Edit the term value above to enable" : undefined}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -1004,14 +1029,14 @@ function DocumentStep({
                     fontWeight: 700,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
-                    background: selectedTerm.validation_status === "CONFIRMED" ? ds.greenDim : ds.gold,
-                    color: selectedTerm.validation_status === "CONFIRMED" ? ds.green : "#18140a",
+                    background: !termValueChanged ? ds.goldDim : ds.gold,
+                    color: !termValueChanged ? ds.textMuted : "#18140a",
                     border: "none",
-                    cursor: saving || selectedTerm.validation_status === "CONFIRMED" ? "not-allowed" : "pointer",
+                    cursor: saving || !termValueChanged ? "not-allowed" : "pointer",
                     opacity: saving ? 0.6 : 1,
                   }}
                 >
-                  {selectedTerm.validation_status === "CONFIRMED" ? "Confirmed ✓" : saving ? "Saving..." : "Confirm Term"}
+                  {saving ? "Saving..." : "Confirm Term Edit"}
                 </button>
                 <button
                   onClick={onFlagTerm}

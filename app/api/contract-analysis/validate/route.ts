@@ -75,10 +75,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Insert confirmed terms into ontology term table
+    // 5. Insert all non-flagged terms into ontology term table
+    //    Omnibus validation: all extracted terms are promoted unless flagged.
+    //    Terms individually edited by the user will already have CONFIRMED status.
     let termsPromoted = 0;
     for (const tfv of terms ?? []) {
-      if (tfv.validation_status !== "CONFIRMED") continue;
+      if (tfv.validation_status === "FLAGGED") continue;
 
       const termRand = Math.random().toString(36).substring(2, 8);
       const termId = `TRM_${dateStr}_${termRand}`;
