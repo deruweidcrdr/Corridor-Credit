@@ -153,6 +153,7 @@ export default function ContractAnalysisClient() {
   // Mutation state
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [validatingCounterparty, setValidatingCounterparty] = useState(false);
 
   // Derived data
   const selectedDeal = useMemo(
@@ -355,6 +356,36 @@ export default function ContractAnalysisClient() {
     [selectedDeal]
   );
 
+  // Validate counterparty — promotes PROSPECT → ACTIVE, creates KYC + event + alert
+  const handleValidateCounterparty = useCallback(async () => {
+    if (!counterparty || validatingCounterparty) return;
+    setValidatingCounterparty(true);
+    try {
+      const res = await fetch("/api/contract-analysis/validate-counterparty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          counterparty_id: counterparty.counterparty_id,
+        }),
+      });
+      if (res.ok) {
+        // Update local counterparty state to reflect ACTIVE status
+        setCounterparties((prev) => ({
+          ...prev,
+          [counterparty.counterparty_id]: {
+            ...counterparty,
+            status: "ACTIVE",
+            relationship_status: "ACTIVE",
+            kyc_status: "PENDING_REVIEW",
+          },
+        }));
+        setActiveStep(3);
+      }
+    } finally {
+      setValidatingCounterparty(false);
+    }
+  }, [counterparty, validatingCounterparty]);
+
   // Counterparty properties for Step 2
   const counterpartyPropsLeft = useMemo(
     () =>
@@ -519,6 +550,8 @@ export default function ContractAnalysisClient() {
                 counterparty={counterparty}
                 counterpartyPropsLeft={counterpartyPropsLeft}
                 counterpartyPropsRight={counterpartyPropsRight}
+                validatingCounterparty={validatingCounterparty}
+                onValidateCounterparty={handleValidateCounterparty}
               />
             )}
             {activeStep === 3 && <ComingSoon label="Approval" />}
@@ -1105,10 +1138,14 @@ function CounterpartyStep({
   counterparty,
   counterpartyPropsLeft,
   counterpartyPropsRight,
+  validatingCounterparty,
+  onValidateCounterparty,
 }: {
   counterparty: CounterpartyInfo | null;
   counterpartyPropsLeft: { label: string; value: string }[];
   counterpartyPropsRight: { label: string; value: string }[];
+  validatingCounterparty: boolean;
+  onValidateCounterparty: () => void;
 }) {
   const cpName = counterparty?.counterparty_name ?? "Unknown";
   const cpType = counterparty?.counterparty_type ?? "";
@@ -1127,7 +1164,6 @@ function CounterpartyStep({
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <GhostButton label="Edit Prospective Counterparty" />
-              <GhostButtonWarn label="Flag Prospective Counterparty" />
             </div>
           </div>
           <DealSubheader items={[
@@ -1288,6 +1324,8 @@ function CounterpartyStep({
         <div style={{ display: "flex", gap: 8 }}>
           <GhostButtonWarn label="Flag Counterparty" />
           <button
+            onClick={onValidateCounterparty}
+            disabled={validatingCounterparty || !counterparty}
             style={{
               padding: "8px 16px",
               borderRadius: ds.radius,
@@ -1296,13 +1334,14 @@ function CounterpartyStep({
               fontWeight: 700,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
-              background: ds.gold,
-              color: "#18140a",
+              background: !counterparty ? ds.goldDim : ds.gold,
+              color: !counterparty ? ds.textMuted : "#18140a",
               border: "none",
-              cursor: "pointer",
+              cursor: validatingCounterparty || !counterparty ? "not-allowed" : "pointer",
+              opacity: validatingCounterparty ? 0.6 : 1,
             }}
           >
-            Validate Counterparty →
+            {validatingCounterparty ? "Validating..." : "Validate Counterparty →"}
           </button>
         </div>
       </div>
