@@ -51,16 +51,27 @@ export async function GET() {
       .select("*")
       .in("deal_id", dealIds);
 
-    // 4. Fetch contract_for_validation for these documents
+    // 4. Fetch contract_for_validation via two paths:
+    //    a) Through deal_documents (document_id join)
+    //    b) Fallback: by counterparty_id match (catches contracts not yet linked in deal_documents)
     const documentIds = (dealDocs ?? []).map((dd: any) => dd.document_id).filter(Boolean);
-    let contracts: any[] = [];
-    if (documentIds.length > 0) {
-      const { data } = await supabase
-        .from("contract_for_validation")
-        .select("*")
-        .in("document_id", documentIds);
-      contracts = data ?? [];
+    const dealCounterpartyIds = deals.map((d: any) => d.counterparty_id).filter(Boolean);
+
+    const [docResult, cpResult] = await Promise.all([
+      documentIds.length > 0
+        ? supabase.from("contract_for_validation").select("*").in("document_id", documentIds)
+        : Promise.resolve({ data: [] }),
+      dealCounterpartyIds.length > 0
+        ? supabase.from("contract_for_validation").select("*").in("counterparty_id", dealCounterpartyIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    // Merge & deduplicate by contract_for_validation_id
+    const contractMap = new Map<string, any>();
+    for (const c of [...(docResult.data ?? []), ...(cpResult.data ?? [])]) {
+      contractMap.set(c.contract_for_validation_id, c);
     }
+    const contracts = Array.from(contractMap.values());
 
     // 5. Fetch term_for_validation for these contracts
     const contractIds = contracts.map((c: any) => c.contract_for_validation_id);
@@ -73,13 +84,15 @@ export async function GET() {
       terms = data ?? [];
     }
 
-    // 6. Fetch documents for signed URL generation
+    // 6. Fetch documents for signed URL generation (all document IDs from contracts)
+    const allDocumentIds = [...new Set(contracts.map((c: any) => c.document_id).filter(Boolean))];
     let signedUrlMap: Record<string, string> = {};
-    if (documentIds.length > 0) {
+    let docNameMap: Record<string, string> = {};
+    if (allDocumentIds.length > 0) {
       const { data: docs } = await supabase
         .from("documents")
         .select("document_id, document_name, email_id")
-        .in("document_id", documentIds);
+        .in("document_id", allDocumentIds);
 
       if (docs?.length) {
         const urlRequests = docs.map(async (doc: any) => {
@@ -93,6 +106,10 @@ export async function GET() {
           }
         });
         await Promise.all(urlRequests);
+        // Also build doc name map (contract_for_validation.document_name is often empty)
+        for (const doc of docs) {
+          docNameMap[doc.document_id] = doc.document_name;
+        }
       }
     }
 
@@ -129,13 +146,20 @@ export async function GET() {
       (termsByContract[t.contract_for_validation_id] ??= []).push(t);
     }
 
-    // Group contracts by deal (through deal_documents)
+    // Map counterparty_id → deal_id for fallback grouping
+    const cpToDeal: Record<string, string> = {};
+    for (const deal of deals) {
+      if (deal.counterparty_id) cpToDeal[deal.counterparty_id] = deal.deal_id;
+    }
+
+    // Group contracts by deal (primary: deal_documents join, fallback: counterparty_id)
     const contractsByDeal: Record<string, any[]> = {};
     for (const c of contracts) {
-      const dealId = docToDeal[c.document_id];
+      const dealId = docToDeal[c.document_id] ?? cpToDeal[c.counterparty_id];
       if (dealId) {
         const contractWithTerms = {
           ...c,
+          document_name: docNameMap[c.document_id] ?? c.document_name ?? null,
           terms: termsByContract[c.contract_for_validation_id] ?? [],
           storage_url: signedUrlMap[c.document_id] ?? null,
         };

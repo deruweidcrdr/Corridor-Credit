@@ -697,7 +697,7 @@ function DocumentStep({
   const contractOptions = useMemo(
     () =>
       (selectedDeal?.contracts ?? []).map((c) => ({
-        label: c.contract_for_validation_id,
+        label: c.document_name?.replace(/\.pdf$/i, "").replace(/_/g, " ") || c.contract_for_validation_id,
         value: c.contract_for_validation_id,
       })),
     [selectedDeal]
@@ -747,7 +747,7 @@ function DocumentStep({
               Contract to Process
             </span>
             <DropdownChip
-              label={selectedContractId ?? "Select contract"}
+              label={contractOptions.find(o => o.value === selectedContractId)?.label ?? "Select contract"}
               dotColor={ds.green}
               options={contractOptions}
               selectedValue={selectedContractId}
