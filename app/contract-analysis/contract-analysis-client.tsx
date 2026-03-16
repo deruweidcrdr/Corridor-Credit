@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Sidebar from "@/app/components/sidebar";
 
 /* ================================================================== */
@@ -52,80 +52,341 @@ const STEPS = [
 ];
 
 /* ================================================================== */
-/*  Mock extracted contract terms                                      */
+/*  Data interfaces (matching API response)                            */
 /* ================================================================== */
-interface ContractTerm {
-  id: string;
-  title: string;
-  value: string;
+interface TermForValidation {
+  term_for_validation_id: string;
+  contract_for_validation_id: string;
+  term_name: string | null;
+  term_value: string | null;
+  term_unit: string | null;
+  extraction_confidence: number | null;
+  is_key_term: boolean | null;
+  validation_status: string | null;
+  term_identity_id: string | null;
+  document_id: string | null;
 }
 
-const MOCK_TERMS: ContractTerm[] = [
-  { id: "1", title: "Applicable Margin Spread", value: "275" },
-  { id: "2", title: "Base Rate Index", value: "SOFR" },
-  { id: "3", title: "Monthly Financials Required", value: "YES" },
-  { id: "4", title: "Upfront Origination Fee", value: "1.0" },
-  { id: "5", title: "Insurance Lender Loss Payee", value: "YES" },
-  { id: "6", title: "Lien Priority", value: "FIRST_LIEN" },
-  { id: "7", title: "Field Examination Frequency", value: "ANNUAL" },
-  { id: "8", title: "Loan To Value Ratio", value: "87.7%" },
-  { id: "9", title: "Compliance Certificates Required", value: "YES" },
-  { id: "10", title: "Title Retention", value: "SECURITY_INTEREST" },
-  { id: "11", title: "Effective Date", value: "2026-04-15" },
-  { id: "12", title: "Facility Type", value: "TERM_LOAN" },
-  { id: "13", title: "Annual Audited Statements Required", value: "YES" },
-  { id: "14", title: "Quarterly Statements Required", value: "YES" },
-  { id: "15", title: "Administrative Fee", value: "75000" },
-  { id: "16", title: "Property Insurance Required", value: "YES" },
-  { id: "17", title: "Maximum Facility Amount", value: "250000000" },
-  { id: "18", title: "Maturity Date", value: "2033-04-15" },
-  { id: "19", title: "DSCR Covenant Minimum", value: "1.25" },
-  { id: "20", title: "Leverage Covenant Maximum", value: "3.25" },
-  { id: "21", title: "FCCR Covenant Minimum", value: "1.15" },
-  { id: "22", title: "Amortization Type", value: "SCULPTED" },
-  { id: "23", title: "Payment Frequency", value: "SEMI_ANNUAL" },
-];
+interface ContractForValidation {
+  contract_for_validation_id: string;
+  workflow_for_validation_id: string | null;
+  document_id: string | null;
+  document_name: string | null;
+  contract_type: string | null;
+  contract_status: string | null;
+  maturity_date: string | null;
+  counterparty_id: string | null;
+  terms: TermForValidation[];
+}
+
+interface FacilityInfo {
+  facility_id: string;
+  deal_id: string | null;
+  facility_name: string | null;
+  facility_type: string | null;
+  facility_status: string | null;
+}
+
+interface DealInfo {
+  deal_id: string;
+  deal_name: string | null;
+  counterparty_id: string | null;
+  counterparty_name: string | null;
+  deal_status: string | null;
+  execution_status: string | null;
+  total_facilities: number | null;
+  total_documents: number | null;
+  facilities: FacilityInfo[];
+  contracts: ContractForValidation[];
+}
+
+interface CounterpartyInfo {
+  counterparty_id: string;
+  counterparty_name: string | null;
+  counterparty_type: string | null;
+  credit_score: number | null;
+  risk_rating: string | null;
+  kyc_status: string | null;
+  registration_number: string | null;
+  country_of_domicile: string | null;
+  business_type: string | null;
+  industry_code: number | null;
+  incorporation_date: string | null;
+  relationship_status: string | null;
+  notes: string | null;
+  status: string | null;
+  source_prospective_counterparty_id: string | null;
+  created_at: string | null;
+}
 
 /* ================================================================== */
-/*  Counterparty properties                                            */
+/*  Helper: validation status → dot color                              */
 /* ================================================================== */
-const COUNTERPARTY_PROPERTIES_LEFT: { label: string; value: string }[] = [
-  { label: "Credit Score", value: "" },
-  { label: "Requires KYC Review", value: "false" },
-  { label: "Registration Number", value: "" },
-  { label: "Counterparty Type", value: "BORROWER" },
-  { label: "Prospective Counterparty ID", value: "PCTR_CTR_20260305_843506c11a" },
-  { label: "Country Of Domicile", value: "" },
-  { label: "Business Type", value: "" },
-];
-
-const COUNTERPARTY_PROPERTIES_RIGHT: { label: string; value: string }[] = [
-  { label: "Notes", value: "Auto-created from workflow" },
-  { label: "Validated Timestamp", value: "2026-03-07T05:59:36.909Z" },
-  { label: "Industry Code", value: "" },
-  { label: "Linked To Existing Counterparty ID", value: "" },
-  { label: "Relationship Status", value: "PROSPECT" },
-  { label: "Risk Rating", value: "" },
-  { label: "Incorporation Date", value: "" },
-];
+function statusDotColor(status: string | null): string {
+  switch (status) {
+    case "CONFIRMED": return ds.green;
+    case "FLAGGED": return ds.coral;
+    default: return ds.blue;
+  }
+}
 
 /* ================================================================== */
 /*  Root component                                                     */
 /* ================================================================== */
 export default function ContractAnalysisClient() {
-  const [selectedTerm, setSelectedTerm] = useState<ContractTerm | null>(
-    MOCK_TERMS[0]
-  );
-  const [editValue, setEditValue] = useState(MOCK_TERMS[0].value);
+  // Data state
+  const [deals, setDeals] = useState<DealInfo[]>([]);
+  const [counterparties, setCounterparties] = useState<Record<string, CounterpartyInfo>>({});
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // UI state
+  const [selectedTermId, setSelectedTermId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
   const [activeStep, setActiveStep] = useState(1);
   const [zoom, setZoom] = useState(88);
   const [currentPage, setCurrentPage] = useState(1);
   const totalPages = 13;
 
-  function handleSelectTerm(term: ContractTerm) {
-    setSelectedTerm(term);
-    setEditValue(term.value);
-  }
+  // Mutation state
+  const [saving, setSaving] = useState(false);
+  const [validating, setValidating] = useState(false);
+
+  // Derived data
+  const selectedDeal = useMemo(
+    () => deals.find((d) => d.deal_id === selectedDealId) ?? null,
+    [deals, selectedDealId]
+  );
+
+  const selectedContract = useMemo(
+    () => selectedDeal?.contracts.find((c) => c.contract_for_validation_id === selectedContractId) ?? null,
+    [selectedDeal, selectedContractId]
+  );
+
+  const terms = useMemo(() => selectedContract?.terms ?? [], [selectedContract]);
+
+  const selectedTerm = useMemo(
+    () => terms.find((t) => t.term_for_validation_id === selectedTermId) ?? null,
+    [terms, selectedTermId]
+  );
+
+  const counterparty = useMemo(
+    () => (selectedDeal?.counterparty_id ? counterparties[selectedDeal.counterparty_id] : null) ?? null,
+    [selectedDeal, counterparties]
+  );
+
+  const facilityLabel = useMemo(() => {
+    if (!selectedDeal?.facilities.length) return "";
+    const f = selectedDeal.facilities[0];
+    return f.facility_name ?? f.facility_type ?? "";
+  }, [selectedDeal]);
+
+  const pendingCount = useMemo(
+    () => terms.filter((t) => !t.validation_status || t.validation_status === "PENDING").length,
+    [terms]
+  );
+
+  // Fetch data on mount
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const res = await fetch("/api/contract-analysis");
+        if (!res.ok) throw new Error("Failed to load data");
+        const data = await res.json();
+        setDeals(data.deals ?? []);
+        setCounterparties(data.counterparties ?? {});
+
+        // Auto-select first deal and contract
+        if (data.deals?.length) {
+          const firstDeal = data.deals[0];
+          setSelectedDealId(firstDeal.deal_id);
+          if (firstDeal.contracts?.length) {
+            const firstContract = firstDeal.contracts[0];
+            setSelectedContractId(firstContract.contract_for_validation_id);
+            if (firstContract.terms?.length) {
+              setSelectedTermId(firstContract.terms[0].term_for_validation_id);
+              setEditValue(firstContract.terms[0].term_value ?? "");
+            }
+          }
+        }
+      } catch (err: any) {
+        setError(err.message ?? "Failed to load data");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  // Select term handler
+  const handleSelectTerm = useCallback((term: TermForValidation) => {
+    setSelectedTermId(term.term_for_validation_id);
+    setEditValue(term.term_value ?? "");
+  }, []);
+
+  // Update a term in local state (for optimistic updates)
+  const updateTermLocally = useCallback(
+    (termId: string, updates: Partial<TermForValidation>) => {
+      setDeals((prev) =>
+        prev.map((deal) => ({
+          ...deal,
+          contracts: deal.contracts.map((contract) => ({
+            ...contract,
+            terms: contract.terms.map((term) =>
+              term.term_for_validation_id === termId ? { ...term, ...updates } : term
+            ),
+          })),
+        }))
+      );
+    },
+    []
+  );
+
+  // Confirm term
+  const handleConfirmTerm = useCallback(async () => {
+    if (!selectedTerm || saving) return;
+    setSaving(true);
+    try {
+      const valueChanged = editValue !== (selectedTerm.term_value ?? "");
+      const res = await fetch("/api/contract-analysis/terms", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          term_for_validation_id: selectedTerm.term_for_validation_id,
+          validation_status: "CONFIRMED",
+          ...(valueChanged && { term_value: editValue }),
+        }),
+      });
+      if (res.ok) {
+        updateTermLocally(selectedTerm.term_for_validation_id, {
+          validation_status: "CONFIRMED",
+          ...(valueChanged && { term_value: editValue }),
+        });
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedTerm, editValue, saving, updateTermLocally]);
+
+  // Flag term
+  const handleFlagTerm = useCallback(async () => {
+    if (!selectedTerm || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/contract-analysis/terms", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          term_for_validation_id: selectedTerm.term_for_validation_id,
+          validation_status: "FLAGGED",
+        }),
+      });
+      if (res.ok) {
+        updateTermLocally(selectedTerm.term_for_validation_id, {
+          validation_status: "FLAGGED",
+        });
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedTerm, saving, updateTermLocally]);
+
+  // Validate contract & terms
+  const handleValidateContract = useCallback(async () => {
+    if (!selectedContract || validating || pendingCount > 0) return;
+    setValidating(true);
+    try {
+      const res = await fetch("/api/contract-analysis/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contract_for_validation_id: selectedContract.contract_for_validation_id,
+          counterparty_id: selectedDeal?.counterparty_id,
+        }),
+      });
+      if (res.ok) {
+        setActiveStep(2);
+      }
+    } finally {
+      setValidating(false);
+    }
+  }, [selectedContract, selectedDeal, validating, pendingCount]);
+
+  // Deal selection handler
+  const handleSelectDeal = useCallback(
+    (dealId: string) => {
+      setSelectedDealId(dealId);
+      const deal = deals.find((d) => d.deal_id === dealId);
+      if (deal?.contracts.length) {
+        setSelectedContractId(deal.contracts[0].contract_for_validation_id);
+        if (deal.contracts[0].terms.length) {
+          setSelectedTermId(deal.contracts[0].terms[0].term_for_validation_id);
+          setEditValue(deal.contracts[0].terms[0].term_value ?? "");
+        } else {
+          setSelectedTermId(null);
+          setEditValue("");
+        }
+      } else {
+        setSelectedContractId(null);
+        setSelectedTermId(null);
+        setEditValue("");
+      }
+    },
+    [deals]
+  );
+
+  // Contract selection handler
+  const handleSelectContract = useCallback(
+    (contractId: string) => {
+      setSelectedContractId(contractId);
+      const contract = selectedDeal?.contracts.find(
+        (c) => c.contract_for_validation_id === contractId
+      );
+      if (contract?.terms.length) {
+        setSelectedTermId(contract.terms[0].term_for_validation_id);
+        setEditValue(contract.terms[0].term_value ?? "");
+      } else {
+        setSelectedTermId(null);
+        setEditValue("");
+      }
+    },
+    [selectedDeal]
+  );
+
+  // Counterparty properties for Step 2
+  const counterpartyPropsLeft = useMemo(
+    () =>
+      counterparty
+        ? [
+            { label: "Credit Score", value: counterparty.credit_score?.toString() ?? "" },
+            { label: "Requires KYC Review", value: counterparty.kyc_status ?? "" },
+            { label: "Registration Number", value: counterparty.registration_number ?? "" },
+            { label: "Counterparty Type", value: counterparty.counterparty_type ?? "" },
+            { label: "Prospective Counterparty ID", value: counterparty.source_prospective_counterparty_id ?? counterparty.counterparty_id },
+            { label: "Country Of Domicile", value: counterparty.country_of_domicile ?? "" },
+            { label: "Business Type", value: counterparty.business_type ?? "" },
+          ]
+        : [],
+    [counterparty]
+  );
+
+  const counterpartyPropsRight = useMemo(
+    () =>
+      counterparty
+        ? [
+            { label: "Notes", value: counterparty.notes ?? "" },
+            { label: "Validated Timestamp", value: counterparty.created_at ?? "" },
+            { label: "Industry Code", value: counterparty.industry_code?.toString() ?? "" },
+            { label: "Linked To Existing Counterparty ID", value: "" },
+            { label: "Relationship Status", value: counterparty.relationship_status ?? "" },
+            { label: "Risk Rating", value: counterparty.risk_rating ?? "" },
+            { label: "Incorporation Date", value: counterparty.incorporation_date ?? "" },
+          ]
+        : [],
+    [counterparty]
+  );
 
   return (
     <div
@@ -203,22 +464,70 @@ export default function ContractAnalysisClient() {
           })}
         </div>
 
-        {/* ── Step content ── */}
-        {activeStep === 1 && (
-          <DocumentStep
-            selectedTerm={selectedTerm}
-            editValue={editValue}
-            onSelectTerm={handleSelectTerm}
-            onEditValueChange={setEditValue}
-            zoom={zoom}
-            onZoomChange={setZoom}
-            currentPage={currentPage}
-            onPageChange={setCurrentPage}
-            totalPages={totalPages}
-          />
+        {/* ── Loading / Error / Empty states ── */}
+        {loading && (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: ds.fontBody, fontSize: 14, color: ds.textMuted }}>Loading contract data...</span>
+          </div>
         )}
-        {activeStep === 2 && <CounterpartyStep />}
-        {activeStep === 3 && <ComingSoon label="Approval" />}
+        {!loading && error && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+            <span style={{ fontFamily: ds.fontBody, fontSize: 14, color: ds.coral }}>{error}</span>
+            <button
+              onClick={() => window.location.reload()}
+              style={{ padding: "6px 14px", borderRadius: ds.radius, background: ds.surfaceRaised, border: `1px solid ${ds.border}`, color: ds.textDim, fontFamily: ds.fontBody, fontSize: 12, cursor: "pointer" }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && deals.length === 0 && (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: ds.fontBody, fontSize: 14, color: ds.textMuted }}>No deals found</span>
+          </div>
+        )}
+
+        {/* ── Step content ── */}
+        {!loading && !error && deals.length > 0 && (
+          <>
+            {activeStep === 1 && (
+              <DocumentStep
+                selectedTerm={selectedTerm}
+                editValue={editValue}
+                onSelectTerm={handleSelectTerm}
+                onEditValueChange={setEditValue}
+                zoom={zoom}
+                onZoomChange={setZoom}
+                currentPage={currentPage}
+                onPageChange={setCurrentPage}
+                totalPages={totalPages}
+                terms={terms}
+                deals={deals}
+                selectedDealId={selectedDealId}
+                selectedContractId={selectedContractId}
+                selectedDeal={selectedDeal}
+                selectedContract={selectedContract}
+                facilityLabel={facilityLabel}
+                pendingCount={pendingCount}
+                saving={saving}
+                validating={validating}
+                onSelectDeal={handleSelectDeal}
+                onSelectContract={handleSelectContract}
+                onConfirmTerm={handleConfirmTerm}
+                onFlagTerm={handleFlagTerm}
+                onValidateContract={handleValidateContract}
+              />
+            )}
+            {activeStep === 2 && (
+              <CounterpartyStep
+                counterparty={counterparty}
+                counterpartyPropsLeft={counterpartyPropsLeft}
+                counterpartyPropsRight={counterpartyPropsRight}
+              />
+            )}
+            {activeStep === 3 && <ComingSoon label="Approval" />}
+          </>
+        )}
       </div>
     </div>
   );
@@ -238,17 +547,60 @@ function DocumentStep({
   currentPage,
   onPageChange,
   totalPages,
+  terms,
+  deals,
+  selectedDealId,
+  selectedContractId,
+  selectedDeal,
+  selectedContract,
+  facilityLabel,
+  pendingCount,
+  saving,
+  validating,
+  onSelectDeal,
+  onSelectContract,
+  onConfirmTerm,
+  onFlagTerm,
+  onValidateContract,
 }: {
-  selectedTerm: ContractTerm | null;
+  selectedTerm: TermForValidation | null;
   editValue: string;
-  onSelectTerm: (t: ContractTerm) => void;
+  onSelectTerm: (t: TermForValidation) => void;
   onEditValueChange: (v: string) => void;
   zoom: number;
   onZoomChange: (z: number) => void;
   currentPage: number;
   onPageChange: (p: number) => void;
   totalPages: number;
+  terms: TermForValidation[];
+  deals: DealInfo[];
+  selectedDealId: string | null;
+  selectedContractId: string | null;
+  selectedDeal: DealInfo | null;
+  selectedContract: ContractForValidation | null;
+  facilityLabel: string;
+  pendingCount: number;
+  saving: boolean;
+  validating: boolean;
+  onSelectDeal: (id: string) => void;
+  onSelectContract: (id: string) => void;
+  onConfirmTerm: () => void;
+  onFlagTerm: () => void;
+  onValidateContract: () => void;
 }) {
+  const dealOptions = useMemo(
+    () => deals.map((d) => ({ label: d.deal_id, value: d.deal_id })),
+    [deals]
+  );
+  const contractOptions = useMemo(
+    () =>
+      (selectedDeal?.contracts ?? []).map((c) => ({
+        label: c.contract_for_validation_id,
+        value: c.contract_for_validation_id,
+      })),
+    [selectedDeal]
+  );
+
   return (
     <>
       {/* Row 2: Page title LEFT — Deal/Contract selector chips RIGHT */}
@@ -280,13 +632,25 @@ function DocumentStep({
             <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
               Deal to Process
             </span>
-            <DropdownChip label="DEAL_20260126_48f8e7cf" dotColor={ds.green} />
+            <DropdownChip
+              label={selectedDealId ?? "Select deal"}
+              dotColor={ds.green}
+              options={dealOptions}
+              selectedValue={selectedDealId}
+              onSelect={onSelectDeal}
+            />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
               Contract to Process
             </span>
-            <DropdownChip label="WF_1772683175197_hpghfbgk6" dotColor={ds.green} />
+            <DropdownChip
+              label={selectedContractId ?? "Select contract"}
+              dotColor={ds.green}
+              options={contractOptions}
+              selectedValue={selectedContractId}
+              onSelect={onSelectContract}
+            />
           </div>
         </div>
       </div>
@@ -303,12 +667,15 @@ function DocumentStep({
         }}
       >
         <DealSubheader items={[
-          { label: "DEAL", value: "DEAL_20260126_48f8e7cf" },
-          { label: "COUNTERPARTY", value: "Solar Valley Holdings" },
-          { label: "FACILITY", value: "$250MM Sr. Secured Term · SOFR + 275 bps" },
-          { label: "TERMS", value: `${MOCK_TERMS.length} extracted` },
+          { label: "DEAL", value: selectedDealId ?? "" },
+          { label: "COUNTERPARTY", value: selectedDeal?.counterparty_name ?? "" },
+          { label: "FACILITY", value: facilityLabel },
+          { label: "TERMS", value: `${terms.length} extracted` },
         ]} />
         <button
+          onClick={onValidateContract}
+          disabled={pendingCount > 0 || validating || terms.length === 0}
+          title={pendingCount > 0 ? `${pendingCount} pending term(s) remaining` : undefined}
           style={{
             padding: "7px 14px",
             borderRadius: ds.radius,
@@ -317,16 +684,17 @@ function DocumentStep({
             fontWeight: 700,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
-            background: ds.gold,
-            color: "#18140a",
+            background: pendingCount > 0 || terms.length === 0 ? ds.goldDim : ds.gold,
+            color: pendingCount > 0 || terms.length === 0 ? ds.textMuted : "#18140a",
             border: "none",
-            cursor: "pointer",
+            cursor: pendingCount > 0 || validating || terms.length === 0 ? "not-allowed" : "pointer",
             whiteSpace: "nowrap",
             flexShrink: 0,
             marginLeft: 20,
+            opacity: validating ? 0.6 : 1,
           }}
         >
-          Validate Contract &amp; Terms →
+          {validating ? "Validating..." : "Validate Contract & Terms →"}
         </button>
       </div>
 
@@ -463,11 +831,16 @@ function DocumentStep({
 
           {/* Term rows */}
           <div style={{ flex: 1, overflowY: "auto" }}>
-            {MOCK_TERMS.map((term) => {
-              const isSelected = selectedTerm?.id === term.id;
+            {terms.length === 0 && (
+              <div style={{ padding: 24, textAlign: "center", color: ds.textMuted, fontFamily: ds.fontBody }}>
+                No terms extracted
+              </div>
+            )}
+            {terms.map((term) => {
+              const isSelected = selectedTerm?.term_for_validation_id === term.term_for_validation_id;
               return (
                 <button
-                  key={term.id}
+                  key={term.term_for_validation_id}
                   onClick={() => onSelectTerm(term)}
                   style={{
                     width: "100%",
@@ -486,7 +859,7 @@ function DocumentStep({
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: ds.blue }} />
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: statusDotColor(term.validation_status) }} />
                     <span
                       style={{
                         fontFamily: ds.fontBody,
@@ -497,7 +870,7 @@ function DocumentStep({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {term.title}
+                      {term.term_name}
                     </span>
                   </div>
                   <span
@@ -510,7 +883,7 @@ function DocumentStep({
                       marginLeft: 16,
                     }}
                   >
-                    {term.value}
+                    {term.term_value}
                   </span>
                 </button>
               );
@@ -540,7 +913,7 @@ function DocumentStep({
                 <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Term
                 </label>
-                <p style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.text }}>{selectedTerm.title}</p>
+                <p style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.text }}>{selectedTerm.term_name}</p>
               </div>
 
               {/* Editable value */}
@@ -572,7 +945,7 @@ function DocumentStep({
                   Source Document
                 </label>
                 <p style={{ fontFamily: ds.fontMono, fontSize: 12, color: ds.textDim }}>
-                  Credit_Agreement_Solar_Valley.pdf
+                  {selectedContract?.document_name ?? "Unknown"}
                 </p>
                 <p style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, marginTop: 2 }}>
                   Page {currentPage}, Section 2.1
@@ -580,23 +953,48 @@ function DocumentStep({
               </div>
 
               {/* Obligation mapping */}
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 12 }}>
                 <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
                   Maps to Obligation
                 </label>
                 <p style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: ds.text }}>
-                  {selectedTerm.title.includes("Covenant")
-                    ? "FINANCIAL_COVENANT"
-                    : selectedTerm.title.includes("Fee") ||
-                        selectedTerm.title.includes("Payment")
-                      ? "PAYMENT_OBLIGATION"
-                      : "CONTRACT_TERM"}
+                  {selectedTerm.term_identity_id
+                    ? selectedTerm.term_identity_id
+                    : (selectedTerm.term_name ?? "").includes("Covenant")
+                      ? "FINANCIAL_COVENANT"
+                      : (selectedTerm.term_name ?? "").includes("Fee") ||
+                          (selectedTerm.term_name ?? "").includes("Payment")
+                        ? "PAYMENT_OBLIGATION"
+                        : "CONTRACT_TERM"}
                 </p>
+              </div>
+
+              {/* Status indicator */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
+                  Status
+                </label>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontFamily: ds.fontMono,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: statusDotColor(selectedTerm.validation_status),
+                  }}
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusDotColor(selectedTerm.validation_status) }} />
+                  {selectedTerm.validation_status ?? "PENDING"}
+                </span>
               </div>
 
               {/* Action buttons */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button
+                  onClick={onConfirmTerm}
+                  disabled={saving || selectedTerm.validation_status === "CONFIRMED"}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -606,15 +1004,18 @@ function DocumentStep({
                     fontWeight: 700,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
-                    background: ds.gold,
-                    color: "#18140a",
+                    background: selectedTerm.validation_status === "CONFIRMED" ? ds.greenDim : ds.gold,
+                    color: selectedTerm.validation_status === "CONFIRMED" ? ds.green : "#18140a",
                     border: "none",
-                    cursor: "pointer",
+                    cursor: saving || selectedTerm.validation_status === "CONFIRMED" ? "not-allowed" : "pointer",
+                    opacity: saving ? 0.6 : 1,
                   }}
                 >
-                  Confirm Term
+                  {selectedTerm.validation_status === "CONFIRMED" ? "Confirmed ✓" : saving ? "Saving..." : "Confirm Term"}
                 </button>
                 <button
+                  onClick={onFlagTerm}
+                  disabled={saving || selectedTerm.validation_status === "FLAGGED"}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -624,13 +1025,14 @@ function DocumentStep({
                     fontWeight: 700,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
-                    background: "transparent",
+                    background: selectedTerm.validation_status === "FLAGGED" ? ds.coralDim : "transparent",
                     color: ds.coral,
-                    border: `1px solid rgba(224,112,96,0.38)`,
-                    cursor: "pointer",
+                    border: selectedTerm.validation_status === "FLAGGED" ? "none" : `1px solid rgba(224,112,96,0.38)`,
+                    cursor: saving || selectedTerm.validation_status === "FLAGGED" ? "not-allowed" : "pointer",
+                    opacity: saving ? 0.6 : 1,
                   }}
                 >
-                  Flag for Review
+                  {selectedTerm.validation_status === "FLAGGED" ? "Flagged" : "Flag for Review"}
                 </button>
               </div>
             </div>
@@ -657,10 +1059,10 @@ function DocumentStep({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <FooterMeta label="Deal" value="DEAL_20260126_48f8e7cf" />
-          <FooterMeta label="Facility" value="$250MM Sr. Secured Term" />
-          <FooterMeta label="Terms" value={`${MOCK_TERMS.length} extracted`} valueColor={ds.green} />
-          <FooterMeta label="Counterparty" value="Solar Valley Holdings" />
+          <FooterMeta label="Deal" value={selectedDealId ?? ""} />
+          <FooterMeta label="Facility" value={facilityLabel} />
+          <FooterMeta label="Terms" value={`${terms.length} extracted`} valueColor={ds.green} />
+          <FooterMeta label="Counterparty" value={selectedDeal?.counterparty_name ?? ""} />
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <GhostButtonWarn label="Reject Terms" />
@@ -674,7 +1076,20 @@ function DocumentStep({
 /*  STEP 2 — Counterparty                                              */
 /* ================================================================== */
 
-function CounterpartyStep() {
+function CounterpartyStep({
+  counterparty,
+  counterpartyPropsLeft,
+  counterpartyPropsRight,
+}: {
+  counterparty: CounterpartyInfo | null;
+  counterpartyPropsLeft: { label: string; value: string }[];
+  counterpartyPropsRight: { label: string; value: string }[];
+}) {
+  const cpName = counterparty?.counterparty_name ?? "Unknown";
+  const cpType = counterparty?.counterparty_type ?? "";
+  const cpStatus = counterparty?.relationship_status ?? counterparty?.status ?? "";
+  const cpId = counterparty?.source_prospective_counterparty_id ?? counterparty?.counterparty_id ?? "";
+
   return (
     <>
       {/* Scrollable content */}
@@ -691,10 +1106,10 @@ function CounterpartyStep() {
             </div>
           </div>
           <DealSubheader items={[
-            { label: "COUNTERPARTY", value: "Meridian Precision Manufacturing, LLC" },
-            { label: "TYPE", value: "BORROWER" },
-            { label: "STATUS", value: "PROSPECT" },
-            { label: "ID", value: "PCTR_CTR_20260305_843506c11a" },
+            { label: "COUNTERPARTY", value: cpName },
+            { label: "TYPE", value: cpType },
+            { label: "STATUS", value: cpStatus },
+            { label: "ID", value: cpId },
           ]} />
         </div>
 
@@ -736,17 +1151,17 @@ function CounterpartyStep() {
                 border: `1px solid ${ds.pwBorder}`,
               }}
             >
-              Prospect
+              {cpStatus || "Prospect"}
             </span>
           </div>
           <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
             <div>
-              {COUNTERPARTY_PROPERTIES_LEFT.map((prop) => (
+              {counterpartyPropsLeft.map((prop) => (
                 <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
               ))}
             </div>
             <div>
-              {COUNTERPARTY_PROPERTIES_RIGHT.map((prop) => (
+              {counterpartyPropsRight.map((prop) => (
                 <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
               ))}
             </div>
@@ -840,10 +1255,10 @@ function CounterpartyStep() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <FooterMeta label="Counterparty" value="Meridian Precision Mfg." />
-          <FooterMeta label="Type" value="BORROWER" />
-          <FooterMeta label="Status" value="PROSPECT" valueColor={ds.amber} />
-          <FooterMeta label="KYC" value="Pending" valueColor={ds.textMuted} />
+          <FooterMeta label="Counterparty" value={cpName} />
+          <FooterMeta label="Type" value={cpType} />
+          <FooterMeta label="Status" value={cpStatus} valueColor={ds.amber} />
+          <FooterMeta label="KYC" value={counterparty?.kyc_status ?? "Pending"} valueColor={ds.textMuted} />
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <GhostButtonWarn label="Flag Counterparty" />
@@ -935,27 +1350,104 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DropdownChip({ label, dotColor }: { label: string; dotColor: string }) {
+function DropdownChip({
+  label,
+  dotColor,
+  options,
+  selectedValue,
+  onSelect,
+}: {
+  label: string;
+  dotColor: string;
+  options: { label: string; value: string }[];
+  selectedValue: string | null;
+  onSelect: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        fontFamily: ds.fontMono,
-        fontSize: 12,
-        fontWeight: 500,
-        color: ds.text,
-        background: ds.surfaceRaised,
-        border: `1px solid ${ds.border}`,
-        padding: "4px 10px",
-        borderRadius: 4,
-      }}
-    >
-      <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor }} />
-      {label}
-      <ChevronDownIcon />
-    </span>
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((prev) => !prev)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          fontFamily: ds.fontMono,
+          fontSize: 12,
+          fontWeight: 500,
+          color: ds.text,
+          background: ds.surfaceRaised,
+          border: `1px solid ${ds.border}`,
+          padding: "4px 10px",
+          borderRadius: 4,
+          cursor: "pointer",
+        }}
+      >
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor }} />
+        {label}
+        <ChevronDownIcon />
+      </button>
+
+      {open && options.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            right: 0,
+            minWidth: 260,
+            maxHeight: 240,
+            overflowY: "auto",
+            background: ds.surfaceRaised,
+            border: `1px solid ${ds.borderAccent}`,
+            borderRadius: ds.radius,
+            zIndex: 100,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+          }}
+        >
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                onSelect(opt.value);
+                setOpen(false);
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                fontFamily: ds.fontMono,
+                fontSize: 12,
+                color: opt.value === selectedValue ? ds.text : ds.textDim,
+                background: opt.value === selectedValue ? ds.surface : "transparent",
+                border: "none",
+                borderBottom: `1px solid ${ds.border}`,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: opt.value === selectedValue ? ds.green : ds.textMuted, flexShrink: 0 }} />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
