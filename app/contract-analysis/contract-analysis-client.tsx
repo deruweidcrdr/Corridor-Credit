@@ -154,6 +154,11 @@ export default function ContractAnalysisClient() {
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validatingCounterparty, setValidatingCounterparty] = useState(false);
+  const [revertingContract, setRevertingContract] = useState(false);
+  const [revertingCounterparty, setRevertingCounterparty] = useState(false);
+  // Track which contracts/counterparties have been validated (green state)
+  const [validatedContractIds, setValidatedContractIds] = useState<Set<string>>(new Set());
+  const [validatedCounterpartyIds, setValidatedCounterpartyIds] = useState<Set<string>>(new Set());
 
   // Derived data
   const selectedDeal = useMemo(
@@ -193,6 +198,21 @@ export default function ContractAnalysisClient() {
         const data = await res.json();
         setDeals(data.deals ?? []);
         setCounterparties(data.counterparties ?? {});
+
+        // Initialize validated sets from existing data
+        const vcIds = new Set<string>();
+        for (const deal of data.deals ?? []) {
+          for (const c of deal.contracts ?? []) {
+            if (c.contract_status === "VALIDATED") vcIds.add(c.contract_for_validation_id);
+          }
+        }
+        if (vcIds.size > 0) setValidatedContractIds(vcIds);
+
+        const vpIds = new Set<string>();
+        for (const [id, cp] of Object.entries(data.counterparties ?? {})) {
+          if ((cp as any).status === "ACTIVE" || (cp as any).relationship_status === "ACTIVE") vpIds.add(id);
+        }
+        if (vpIds.size > 0) setValidatedCounterpartyIds(vpIds);
 
         // Auto-select first deal and contract
         if (data.deals?.length) {
@@ -308,6 +328,11 @@ export default function ContractAnalysisClient() {
         }),
       });
       if (res.ok) {
+        setValidatedContractIds((prev) => {
+          const next = new Set(prev);
+          next.add(selectedContract.contract_for_validation_id);
+          return next;
+        });
         setActiveStep(2);
       }
     } finally {
@@ -379,12 +404,76 @@ export default function ContractAnalysisClient() {
             kyc_status: "PENDING_REVIEW",
           },
         }));
+        setValidatedCounterpartyIds((prev) => {
+          const next = new Set(prev);
+          next.add(counterparty.counterparty_id);
+          return next;
+        });
         setActiveStep(3);
       }
     } finally {
       setValidatingCounterparty(false);
     }
   }, [counterparty, validatingCounterparty]);
+
+  // Revert contract validation
+  const handleRevertContract = useCallback(async () => {
+    if (!selectedContract || revertingContract) return;
+    setRevertingContract(true);
+    try {
+      const res = await fetch("/api/contract-analysis/revert-contract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contract_for_validation_id: selectedContract.contract_for_validation_id,
+        }),
+      });
+      if (res.ok) {
+        setValidatedContractIds((prev) => {
+          const next = new Set(prev);
+          next.delete(selectedContract.contract_for_validation_id);
+          return next;
+        });
+        // Reset term edited indicators since terms are back to PENDING
+        setEditedTermIds(new Set());
+      }
+    } finally {
+      setRevertingContract(false);
+    }
+  }, [selectedContract, revertingContract]);
+
+  // Revert counterparty validation
+  const handleRevertCounterparty = useCallback(async () => {
+    if (!counterparty || revertingCounterparty) return;
+    setRevertingCounterparty(true);
+    try {
+      const res = await fetch("/api/contract-analysis/revert-counterparty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          counterparty_id: counterparty.counterparty_id,
+        }),
+      });
+      if (res.ok) {
+        setValidatedCounterpartyIds((prev) => {
+          const next = new Set(prev);
+          next.delete(counterparty.counterparty_id);
+          return next;
+        });
+        setCounterparties((prev) => ({
+          ...prev,
+          [counterparty.counterparty_id]: {
+            ...counterparty,
+            status: "PROSPECT",
+            relationship_status: "PROSPECT",
+            kyc_status: null,
+          },
+        }));
+      }
+    } finally {
+      setRevertingCounterparty(false);
+    }
+  }, [counterparty, revertingCounterparty]);
 
   // Counterparty properties for Step 2
   const counterpartyPropsLeft = useMemo(
@@ -538,11 +627,14 @@ export default function ContractAnalysisClient() {
                 validating={validating}
                 termValueChanged={termValueChanged}
                 editedTermIds={editedTermIds}
+                contractValidated={selectedContract ? validatedContractIds.has(selectedContract.contract_for_validation_id) : false}
+                revertingContract={revertingContract}
                 onSelectDeal={handleSelectDeal}
                 onSelectContract={handleSelectContract}
                 onConfirmTermEdit={handleConfirmTermEdit}
                 onFlagTerm={handleFlagTerm}
                 onValidateContract={handleValidateContract}
+                onRevertContract={handleRevertContract}
               />
             )}
             {activeStep === 2 && (
@@ -551,7 +643,10 @@ export default function ContractAnalysisClient() {
                 counterpartyPropsLeft={counterpartyPropsLeft}
                 counterpartyPropsRight={counterpartyPropsRight}
                 validatingCounterparty={validatingCounterparty}
+                counterpartyValidated={counterparty ? validatedCounterpartyIds.has(counterparty.counterparty_id) : false}
+                revertingCounterparty={revertingCounterparty}
                 onValidateCounterparty={handleValidateCounterparty}
+                onRevertCounterparty={handleRevertCounterparty}
               />
             )}
             {activeStep === 3 && <ComingSoon label="Approval" />}
@@ -701,11 +796,14 @@ function DocumentStep({
   validating,
   termValueChanged,
   editedTermIds,
+  contractValidated,
+  revertingContract,
   onSelectDeal,
   onSelectContract,
   onConfirmTermEdit,
   onFlagTerm,
   onValidateContract,
+  onRevertContract,
 }: {
   selectedTerm: TermForValidation | null;
   editValue: string;
@@ -722,11 +820,14 @@ function DocumentStep({
   validating: boolean;
   termValueChanged: boolean;
   editedTermIds: Set<string>;
+  contractValidated: boolean;
+  revertingContract: boolean;
   onSelectDeal: (id: string) => void;
   onSelectContract: (id: string) => void;
   onConfirmTermEdit: () => void;
   onFlagTerm: () => void;
   onValidateContract: () => void;
+  onRevertContract: () => void;
 }) {
   const dealOptions = useMemo(
     () => deals.map((d) => ({ label: d.deal_id, value: d.deal_id })),
@@ -812,29 +913,74 @@ function DocumentStep({
           { label: "FACILITY", value: facilityLabel },
           { label: "TERMS", value: `${terms.length} extracted` },
         ]} />
-        <button
-          onClick={onValidateContract}
-          disabled={validating || terms.length === 0}
-          style={{
-            padding: "7px 14px",
-            borderRadius: ds.radius,
-            fontFamily: ds.fontBody,
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            background: terms.length === 0 ? ds.goldDim : ds.gold,
-            color: terms.length === 0 ? ds.textMuted : "#18140a",
-            border: "none",
-            cursor: validating || terms.length === 0 ? "not-allowed" : "pointer",
-            whiteSpace: "nowrap",
-            flexShrink: 0,
-            marginLeft: 20,
-            opacity: validating ? 0.6 : 1,
-          }}
-        >
-          {validating ? "Validating..." : "Validate Contract & Terms →"}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: 20, flexShrink: 0 }}>
+          {contractValidated ? (
+            <>
+              <button
+                disabled
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: ds.green,
+                  color: "#0d1017",
+                  border: "none",
+                  cursor: "default",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ✓ Contract Validated
+              </button>
+              <button
+                onClick={onRevertContract}
+                disabled={revertingContract}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "transparent",
+                  color: ds.coral,
+                  border: `1px solid ${ds.coral}`,
+                  cursor: revertingContract ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  opacity: revertingContract ? 0.6 : 1,
+                }}
+              >
+                {revertingContract ? "Reverting..." : "Revert"}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onValidateContract}
+              disabled={validating || terms.length === 0}
+              style={{
+                padding: "7px 14px",
+                borderRadius: ds.radius,
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: terms.length === 0 ? ds.goldDim : ds.gold,
+                color: terms.length === 0 ? ds.textMuted : "#18140a",
+                border: "none",
+                cursor: validating || terms.length === 0 ? "not-allowed" : "pointer",
+                whiteSpace: "nowrap",
+                opacity: validating ? 0.6 : 1,
+              }}
+            >
+              {validating ? "Validating..." : "Validate Contract & Terms →"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Three-panel content */}
@@ -1139,13 +1285,19 @@ function CounterpartyStep({
   counterpartyPropsLeft,
   counterpartyPropsRight,
   validatingCounterparty,
+  counterpartyValidated,
+  revertingCounterparty,
   onValidateCounterparty,
+  onRevertCounterparty,
 }: {
   counterparty: CounterpartyInfo | null;
   counterpartyPropsLeft: { label: string; value: string }[];
   counterpartyPropsRight: { label: string; value: string }[];
   validatingCounterparty: boolean;
+  counterpartyValidated: boolean;
+  revertingCounterparty: boolean;
   onValidateCounterparty: () => void;
+  onRevertCounterparty: () => void;
 }) {
   const cpName = counterparty?.counterparty_name ?? "Unknown";
   const cpType = counterparty?.counterparty_type ?? "";
@@ -1323,26 +1475,71 @@ function CounterpartyStep({
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <GhostButtonWarn label="Flag Counterparty" />
-          <button
-            onClick={onValidateCounterparty}
-            disabled={validatingCounterparty || !counterparty}
-            style={{
-              padding: "8px 16px",
-              borderRadius: ds.radius,
-              fontFamily: ds.fontBody,
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              background: !counterparty ? ds.goldDim : ds.gold,
-              color: !counterparty ? ds.textMuted : "#18140a",
-              border: "none",
-              cursor: validatingCounterparty || !counterparty ? "not-allowed" : "pointer",
-              opacity: validatingCounterparty ? 0.6 : 1,
-            }}
-          >
-            {validatingCounterparty ? "Validating..." : "Validate Counterparty →"}
-          </button>
+          {counterpartyValidated ? (
+            <>
+              <button
+                disabled
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: ds.green,
+                  color: "#0d1017",
+                  border: "none",
+                  cursor: "default",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ✓ Counterparty Validated
+              </button>
+              <button
+                onClick={onRevertCounterparty}
+                disabled={revertingCounterparty}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "transparent",
+                  color: ds.coral,
+                  border: `1px solid ${ds.coral}`,
+                  cursor: revertingCounterparty ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  opacity: revertingCounterparty ? 0.6 : 1,
+                }}
+              >
+                {revertingCounterparty ? "Reverting..." : "Revert"}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onValidateCounterparty}
+              disabled={validatingCounterparty || !counterparty}
+              style={{
+                padding: "8px 16px",
+                borderRadius: ds.radius,
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: !counterparty ? ds.goldDim : ds.gold,
+                color: !counterparty ? ds.textMuted : "#18140a",
+                border: "none",
+                cursor: validatingCounterparty || !counterparty ? "not-allowed" : "pointer",
+                opacity: validatingCounterparty ? 0.6 : 1,
+              }}
+            >
+              {validatingCounterparty ? "Validating..." : "Validate Counterparty →"}
+            </button>
+          )}
         </div>
       </div>
     </>
