@@ -17,11 +17,11 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { financial_statement_for_validation_id, counterparty_id } = body;
+    const { id, counterparty_id } = body;
 
-    if (!financial_statement_for_validation_id) {
+    if (!id) {
       return NextResponse.json(
-        { error: "financial_statement_for_validation_id is required" },
+        { error: "id is required" },
         { status: 400 }
       );
     }
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const { data: fsv, error: fsvErr } = await supabase
       .from("financial_statement_for_validation")
       .select("*")
-      .eq("financial_statement_for_validation_id", financial_statement_for_validation_id)
+      .eq("id", id)
       .single();
 
     if (fsvErr || !fsv) {
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     // 3. Build canonical record — copy all metric and reference columns
     const canonicalRecord: Record<string, any> = {
       statement_id: statementId,
-      source_financial_statement_for_validation_id: financial_statement_for_validation_id,
+      source_id: id,
       counterparty_id: counterparty_id ?? fsv.counterparty_id,
       counterparty_name: fsv.counterparty_name,
       contract_id: fsv.contract_id,
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     await supabase
       .from("financial_statement_for_validation")
       .update({ validation_status: "VALIDATED" })
-      .eq("financial_statement_for_validation_id", financial_statement_for_validation_id);
+      .eq("id", id);
 
     return NextResponse.json({
       success: true,

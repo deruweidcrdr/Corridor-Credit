@@ -23,6 +23,7 @@ export const METRIC_COLUMNS: {
   { column: "cash_and_equivalents", label: "Cash & Equivalents", category: "Balance Sheet" },
   { column: "accounts_receivable", label: "Accounts Receivable", category: "Balance Sheet" },
   { column: "inventory", label: "Inventory", category: "Balance Sheet" },
+  { column: "prepaid_expenses", label: "Prepaid Expenses", category: "Balance Sheet" },
   { column: "total_current_assets", label: "Total Current Assets", category: "Balance Sheet" },
   { column: "ppe", label: "Property, Plant & Equipment", category: "Balance Sheet" },
   { column: "goodwill", label: "Goodwill", category: "Balance Sheet" },
@@ -34,6 +35,7 @@ export const METRIC_COLUMNS: {
   { column: "notes_payable", label: "Notes Payable", category: "Balance Sheet" },
   { column: "short_term_debt", label: "Short-Term Debt", category: "Balance Sheet" },
   { column: "total_current_liabilities", label: "Total Current Liabilities", category: "Balance Sheet" },
+  { column: "dividends_payable", label: "Dividends Payable", category: "Balance Sheet" },
   { column: "long_term_debt", label: "Long-Term Debt", category: "Balance Sheet" },
   { column: "total_liabilities", label: "Total Liabilities", category: "Balance Sheet" },
 

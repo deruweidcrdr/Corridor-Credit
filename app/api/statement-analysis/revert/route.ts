@@ -16,11 +16,11 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { financial_statement_for_validation_id } = body;
+    const { id } = body;
 
-    if (!financial_statement_for_validation_id) {
+    if (!id) {
       return NextResponse.json(
-        { error: "financial_statement_for_validation_id is required" },
+        { error: "id is required" },
         { status: 400 }
       );
     }
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const { data: canonicalRecords } = await supabase
       .from("financial_statement")
       .select("statement_id")
-      .eq("source_financial_statement_for_validation_id", financial_statement_for_validation_id);
+      .eq("source_id", id);
 
     let statementsDeleted = 0;
     for (const rec of canonicalRecords ?? []) {
@@ -44,11 +44,11 @@ export async function POST(req: NextRequest) {
     await supabase
       .from("financial_statement_for_validation")
       .update({ validation_status: "PENDING" })
-      .eq("financial_statement_for_validation_id", financial_statement_for_validation_id);
+      .eq("id", id);
 
     return NextResponse.json({
       success: true,
-      financial_statement_for_validation_id,
+      id,
       statementsDeleted,
     });
   } catch (err) {

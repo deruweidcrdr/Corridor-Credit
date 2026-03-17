@@ -17,11 +17,11 @@ const supabase = createClient(
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { financial_statement_for_validation_id, column_name, value } = body;
+    const { id, column_name, value } = body;
 
-    if (!financial_statement_for_validation_id || !column_name) {
+    if (!id || !column_name) {
       return NextResponse.json(
-        { error: "financial_statement_for_validation_id and column_name are required" },
+        { error: "id and column_name are required" },
         { status: 400 }
       );
     }
@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest) {
     const { data: current, error: fetchErr } = await supabase
       .from("financial_statement_for_validation")
       .select("user_edited_columns")
-      .eq("financial_statement_for_validation_id", financial_statement_for_validation_id)
+      .eq("id", id)
       .single();
 
     if (fetchErr || !current) {
@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest) {
         is_user_override: true,
         user_edited_columns: editedCols,
       })
-      .eq("financial_statement_for_validation_id", financial_statement_for_validation_id);
+      .eq("id", id);
 
     if (updateErr) {
       return NextResponse.json(

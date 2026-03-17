@@ -56,7 +56,7 @@ export async function GET() {
     // Merge & deduplicate
     const fsvMap = new Map<string, any>();
     for (const s of [...(docResult.data ?? []), ...(cpResult.data ?? [])]) {
-      fsvMap.set(s.financial_statement_for_validation_id, s);
+      fsvMap.set(s.id, s);
     }
     const historicalStatements = Array.from(fsvMap.values());
 

@@ -46,7 +46,7 @@ const STEPS = [
 /*  Interfaces                                                         */
 /* ================================================================== */
 interface StatementForValidation {
-  financial_statement_for_validation_id: string;
+  id: string;
   document_id: string | null;
   document_name: string | null;
   statement_type: string | null;
@@ -145,13 +145,13 @@ export default function StatementAnalysisClient() {
   const selectedStatement = useMemo(() => {
     if (!selectedStatementId || !statements.length) return null;
     const idKey = activeTab === "historical"
-      ? "financial_statement_for_validation_id"
+      ? "id"
       : "pro_forma_statement_id";
     return statements.find((s: any) => s[idKey] === selectedStatementId) ?? null;
   }, [statements, selectedStatementId, activeTab]);
 
   const statementIdKey = activeTab === "historical"
-    ? "financial_statement_for_validation_id"
+    ? "id"
     : "pro_forma_statement_id";
 
   const metrics: MetricRow[] = useMemo(() => {
@@ -208,7 +208,7 @@ export default function StatementAnalysisClient() {
         const vIds = new Set<string>();
         for (const deal of data.deals ?? []) {
           for (const s of deal.historical_statements ?? []) {
-            if (s.validation_status === "VALIDATED") vIds.add(s.financial_statement_for_validation_id);
+            if (s.validation_status === "VALIDATED") vIds.add(s.id);
           }
           for (const s of deal.pro_forma_statements ?? []) {
             if (s.validation_status === "VALIDATED") vIds.add(s.pro_forma_statement_id);
@@ -222,7 +222,7 @@ export default function StatementAnalysisClient() {
           setSelectedDealId(firstDeal.deal_id);
           const hist = firstDeal.historical_statements ?? [];
           if (hist.length) {
-            setSelectedStatementId(hist[0].financial_statement_for_validation_id);
+            setSelectedStatementId(hist[0].id);
             setEditedColumns(new Set(hist[0].user_edited_columns ?? []));
             // Auto-select first metric with a value
             const firstMetric = METRIC_COLUMNS.find((mc) => hist[0][mc.column] != null);
@@ -250,7 +250,7 @@ export default function StatementAnalysisClient() {
         ? (deal?.historical_statements ?? [])
         : (deal?.pro_forma_statements ?? []);
       const idKey = activeTab === "historical"
-        ? "financial_statement_for_validation_id"
+        ? "id"
         : "pro_forma_statement_id";
       if (stmts.length) {
         setSelectedStatementId(stmts[0][idKey]);
@@ -280,7 +280,7 @@ export default function StatementAnalysisClient() {
         ? (selectedDeal?.historical_statements ?? [])
         : (selectedDeal?.pro_forma_statements ?? []);
       const idKey = tab === "historical"
-        ? "financial_statement_for_validation_id"
+        ? "id"
         : "pro_forma_statement_id";
       if (stmts.length) {
         setSelectedStatementId(stmts[0][idKey]);
@@ -307,7 +307,7 @@ export default function StatementAnalysisClient() {
     (stmtId: string) => {
       setSelectedStatementId(stmtId);
       const idKey = activeTab === "historical"
-        ? "financial_statement_for_validation_id"
+        ? "id"
         : "pro_forma_statement_id";
       const stmt = statements.find((s: any) => s[idKey] === stmtId);
       if (stmt) {
@@ -345,7 +345,7 @@ export default function StatementAnalysisClient() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          financial_statement_for_validation_id: selectedStatement.financial_statement_for_validation_id,
+          id: selectedStatement.id,
           column_name: selectedMetricColumn,
           value: editValue,
         }),
@@ -359,7 +359,7 @@ export default function StatementAnalysisClient() {
               ? {
                   ...deal,
                   historical_statements: deal.historical_statements.map((s) =>
-                    s.financial_statement_for_validation_id === selectedStatement.financial_statement_for_validation_id
+                    s.id === selectedStatement.id
                       ? { ...s, [selectedMetricColumn]: numValue }
                       : s
                   ),
@@ -387,14 +387,14 @@ export default function StatementAnalysisClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          financial_statement_for_validation_id: selectedStatement.financial_statement_for_validation_id,
+          id: selectedStatement.id,
           counterparty_id: selectedDeal?.counterparty_id,
         }),
       });
       if (res.ok) {
         setValidatedStatementIds((prev) => {
           const next = new Set(prev);
-          next.add(selectedStatement.financial_statement_for_validation_id);
+          next.add(selectedStatement.id);
           return next;
         });
       }
@@ -412,13 +412,13 @@ export default function StatementAnalysisClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          financial_statement_for_validation_id: selectedStatement.financial_statement_for_validation_id,
+          id: selectedStatement.id,
         }),
       });
       if (res.ok) {
         setValidatedStatementIds((prev) => {
           const next = new Set(prev);
-          next.delete(selectedStatement.financial_statement_for_validation_id);
+          next.delete(selectedStatement.id);
           return next;
         });
       }
@@ -451,7 +451,7 @@ export default function StatementAnalysisClient() {
 
   const statementLabel = useMemo(() => {
     if (!selectedStatement) return "";
-    return selectedStatement.financial_statement_for_validation_id
+    return selectedStatement.id
       ?? selectedStatement.pro_forma_statement_id
       ?? "";
   }, [selectedStatement]);
