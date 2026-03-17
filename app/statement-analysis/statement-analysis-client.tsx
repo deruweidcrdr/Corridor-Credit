@@ -64,16 +64,17 @@ interface StatementForValidation {
 }
 
 interface ProFormaStatement {
-  pro_forma_statement_id: string;
+  id: string;
   document_id: string | null;
   document_name: string | null;
   statement_type: string | null;
-  pro_forma_statement_title: string | null;
+  statement_title: string | null;
+  period_end_date: string | null;
   period_end_year: number | null;
-  period_type: string | null;
-  scenario_type: string | null;
+  period_end_month: string | null;
   counterparty_id: string | null;
   validation_status: string | null;
+  user_edited_columns: string[];
   storage_url: string | null;
   [key: string]: any;
 }
@@ -144,15 +145,10 @@ export default function StatementAnalysisClient() {
 
   const selectedStatement = useMemo(() => {
     if (!selectedStatementId || !statements.length) return null;
-    const idKey = activeTab === "historical"
-      ? "id"
-      : "pro_forma_statement_id";
-    return statements.find((s: any) => s[idKey] === selectedStatementId) ?? null;
-  }, [statements, selectedStatementId, activeTab]);
+    return statements.find((s: any) => s.id === selectedStatementId) ?? null;
+  }, [statements, selectedStatementId]);
 
-  const statementIdKey = activeTab === "historical"
-    ? "id"
-    : "pro_forma_statement_id";
+  const statementIdKey = "id";
 
   const metrics: MetricRow[] = useMemo(() => {
     if (!selectedStatement) return [];
@@ -211,7 +207,7 @@ export default function StatementAnalysisClient() {
             if (s.validation_status === "VALIDATED") vIds.add(s.id);
           }
           for (const s of deal.pro_forma_statements ?? []) {
-            if (s.validation_status === "VALIDATED") vIds.add(s.pro_forma_statement_id);
+            if (s.validation_status === "VALIDATED") vIds.add(s.id);
           }
         }
         if (vIds.size > 0) setValidatedStatementIds(vIds);
@@ -249,11 +245,8 @@ export default function StatementAnalysisClient() {
       const stmts = activeTab === "historical"
         ? (deal?.historical_statements ?? [])
         : (deal?.pro_forma_statements ?? []);
-      const idKey = activeTab === "historical"
-        ? "id"
-        : "pro_forma_statement_id";
       if (stmts.length) {
-        setSelectedStatementId(stmts[0][idKey]);
+        setSelectedStatementId(stmts[0].id);
         setEditedColumns(new Set(stmts[0].user_edited_columns ?? []));
         const firstMetric = METRIC_COLUMNS.find((mc) => stmts[0][mc.column] != null);
         if (firstMetric) {
@@ -279,11 +272,8 @@ export default function StatementAnalysisClient() {
       const stmts = tab === "historical"
         ? (selectedDeal?.historical_statements ?? [])
         : (selectedDeal?.pro_forma_statements ?? []);
-      const idKey = tab === "historical"
-        ? "id"
-        : "pro_forma_statement_id";
       if (stmts.length) {
-        setSelectedStatementId(stmts[0][idKey]);
+        setSelectedStatementId(stmts[0].id);
         setEditedColumns(new Set(stmts[0].user_edited_columns ?? []));
         const firstMetric = METRIC_COLUMNS.find((mc) => stmts[0][mc.column] != null);
         if (firstMetric) {
@@ -306,10 +296,7 @@ export default function StatementAnalysisClient() {
   const handleSelectStatement = useCallback(
     (stmtId: string) => {
       setSelectedStatementId(stmtId);
-      const idKey = activeTab === "historical"
-        ? "id"
-        : "pro_forma_statement_id";
-      const stmt = statements.find((s: any) => s[idKey] === stmtId);
+      const stmt = statements.find((s: any) => s.id === stmtId);
       if (stmt) {
         setEditedColumns(new Set((stmt as any).user_edited_columns ?? []));
         const firstMetric = METRIC_COLUMNS.find((mc) => stmt[mc.column] != null);
@@ -338,10 +325,12 @@ export default function StatementAnalysisClient() {
   // Confirm metric value edit
   const handleConfirmEdit = useCallback(async () => {
     if (!selectedStatement || !selectedMetricColumn || !metricValueChanged || saving) return;
-    if (activeTab !== "historical") return; // Only historical statements support editing
     setSaving(true);
     try {
-      const res = await fetch("/api/statement-analysis/metrics", {
+      const metricsUrl = activeTab === "historical"
+        ? "/api/statement-analysis/metrics"
+        : "/api/statement-analysis/pro-forma/metrics";
+      const res = await fetch(metricsUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -351,14 +340,14 @@ export default function StatementAnalysisClient() {
         }),
       });
       if (res.ok) {
-        // Optimistic update
         const numValue = editValue === "" ? null : Number(editValue);
+        const stmtKey = activeTab === "historical" ? "historical_statements" : "pro_forma_statements";
         setDeals((prev) =>
           prev.map((deal) =>
             deal.deal_id === selectedDealId
               ? {
                   ...deal,
-                  historical_statements: deal.historical_statements.map((s) =>
+                  [stmtKey]: deal[stmtKey].map((s: any) =>
                     s.id === selectedStatement.id
                       ? { ...s, [selectedMetricColumn]: numValue }
                       : s
@@ -378,12 +367,15 @@ export default function StatementAnalysisClient() {
     }
   }, [selectedStatement, selectedMetricColumn, metricValueChanged, saving, editValue, selectedDealId, activeTab]);
 
-  // Validate financial statement
+  // Validate statement (historical or pro forma)
   const handleValidate = useCallback(async () => {
-    if (!selectedStatement || validating || activeTab !== "historical") return;
+    if (!selectedStatement || validating) return;
     setValidating(true);
     try {
-      const res = await fetch("/api/statement-analysis/validate", {
+      const validateUrl = activeTab === "historical"
+        ? "/api/statement-analysis/validate"
+        : "/api/statement-analysis/pro-forma/validate";
+      const res = await fetch(validateUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -403,12 +395,15 @@ export default function StatementAnalysisClient() {
     }
   }, [selectedStatement, validating, selectedDeal, activeTab]);
 
-  // Revert validation
+  // Revert validation (historical or pro forma)
   const handleRevert = useCallback(async () => {
-    if (!selectedStatement || reverting || activeTab !== "historical") return;
+    if (!selectedStatement || reverting) return;
     setReverting(true);
     try {
-      const res = await fetch("/api/statement-analysis/revert", {
+      const revertUrl = activeTab === "historical"
+        ? "/api/statement-analysis/revert"
+        : "/api/statement-analysis/pro-forma/revert";
+      const res = await fetch(revertUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -442,8 +437,10 @@ export default function StatementAnalysisClient() {
         const yearLabel = s.period_end_year ? ` (FY ${s.period_end_year})` : "";
         label = docLabel + yearLabel || id;
       } else {
-        label = [s.scenario_type, s.period_type, s.period_end_year ? `FY ${s.period_end_year}` : ""]
-          .filter(Boolean).join(" — ") || id;
+        label = s.statement_title
+          ?? ([s.scenario_type, s.period_type, s.period_end_year ? `FY ${s.period_end_year}` : ""]
+            .filter(Boolean).join(" — ")
+          || id);
       }
       return { label, value: id };
     });
@@ -451,9 +448,7 @@ export default function StatementAnalysisClient() {
 
   const statementLabel = useMemo(() => {
     if (!selectedStatement) return "";
-    return selectedStatement.id
-      ?? selectedStatement.pro_forma_statement_id
-      ?? "";
+    return selectedStatement.id ?? "";
   }, [selectedStatement]);
 
   const metricsCount = metrics.length;
@@ -699,20 +694,6 @@ function DocumentStep({
           Statement Analysis
         </h1>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          {/* Deal dropdown */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
-              Deal to Process
-            </span>
-            <DropdownChip
-              label={selectedDealId ?? ""}
-              dotColor={ds.green}
-              options={dealOptions}
-              selectedValue={selectedDealId}
-              onSelect={onSelectDeal}
-            />
-          </div>
-
           {/* Historical / Pro Forma tabs */}
           <div style={{ display: "flex", gap: 0 }}>
             {(["historical", "pro_forma"] as const).map((tab) => (
@@ -741,7 +722,21 @@ function DocumentStep({
             ))}
           </div>
 
-          {/* Statement dropdown */}
+          {/* Deal dropdown — pushed right to align with COUNTERPARTY below */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
+              Deal to Process
+            </span>
+            <DropdownChip
+              label={selectedDealId ?? ""}
+              dotColor={ds.green}
+              options={dealOptions}
+              selectedValue={selectedDealId}
+              onSelect={onSelectDeal}
+            />
+          </div>
+
+          {/* Statement / Pro Forma dropdown — conditional label */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
               {activeTab === "historical" ? "Statement to Process" : "Pro Forma to Process"}
@@ -776,55 +771,11 @@ function DocumentStep({
         ]} />
 
         {/* Validate / Validated+Revert button group */}
-        {activeTab === "historical" && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: 20, flexShrink: 0 }}>
-            {isValidated ? (
-              <>
-                <button
-                  disabled
-                  style={{
-                    padding: "7px 14px",
-                    borderRadius: ds.radius,
-                    fontFamily: ds.fontBody,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    background: ds.green,
-                    color: "#0d1017",
-                    border: "none",
-                    cursor: "default",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  ✓ Statement Validated
-                </button>
-                <button
-                  onClick={onRevert}
-                  disabled={reverting}
-                  style={{
-                    padding: "7px 14px",
-                    borderRadius: ds.radius,
-                    fontFamily: ds.fontBody,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    background: "transparent",
-                    color: ds.coral,
-                    border: `1px solid ${ds.coral}`,
-                    cursor: reverting ? "not-allowed" : "pointer",
-                    whiteSpace: "nowrap",
-                    opacity: reverting ? 0.6 : 1,
-                  }}
-                >
-                  {reverting ? "Reverting..." : "Revert"}
-                </button>
-              </>
-            ) : (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: 20, flexShrink: 0 }}>
+          {isValidated ? (
+            <>
               <button
-                onClick={onValidate}
-                disabled={validating || metricsCount === 0}
+                disabled
                 style={{
                   padding: "7px 14px",
                   borderRadius: ds.radius,
@@ -833,19 +784,61 @@ function DocumentStep({
                   fontWeight: 700,
                   letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  background: metricsCount === 0 ? ds.goldDim : ds.gold,
-                  color: metricsCount === 0 ? ds.textMuted : "#18140a",
+                  background: ds.green,
+                  color: "#0d1017",
                   border: "none",
-                  cursor: validating || metricsCount === 0 ? "not-allowed" : "pointer",
+                  cursor: "default",
                   whiteSpace: "nowrap",
-                  opacity: validating ? 0.6 : 1,
                 }}
               >
-                {validating ? "Validating..." : "Validate Financial Statement →"}
+                {activeTab === "historical" ? "✓ Statement Validated" : "✓ Pro Forma Validated"}
               </button>
-            )}
-          </div>
-        )}
+              <button
+                onClick={onRevert}
+                disabled={reverting}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "transparent",
+                  color: ds.coral,
+                  border: `1px solid ${ds.coral}`,
+                  cursor: reverting ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  opacity: reverting ? 0.6 : 1,
+                }}
+              >
+                {reverting ? "Reverting..." : "Revert"}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onValidate}
+              disabled={validating || metricsCount === 0}
+              style={{
+                padding: "7px 14px",
+                borderRadius: ds.radius,
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: metricsCount === 0 ? ds.goldDim : ds.gold,
+                color: metricsCount === 0 ? ds.textMuted : "#18140a",
+                border: "none",
+                cursor: validating || metricsCount === 0 ? "not-allowed" : "pointer",
+                whiteSpace: "nowrap",
+                opacity: validating ? 0.6 : 1,
+              }}
+            >
+              {validating ? "Validating..." : activeTab === "historical" ? "Validate Financial Statement \u2192" : "Validate Pro Forma \u2192"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Three-panel content */}
@@ -872,7 +865,7 @@ function DocumentStep({
               Metric Name
             </span>
             <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
-              Financial Statement — {periodLabel}
+              {activeTab === "historical" ? "Financial Statement" : "Pro Forma"} — {periodLabel}
             </span>
           </div>
 
@@ -1020,49 +1013,47 @@ function DocumentStep({
               </div>
 
               {/* Action buttons */}
-              {activeTab === "historical" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <button
-                    onClick={onConfirmEdit}
-                    disabled={!metricValueChanged || saving}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: ds.radius,
-                      fontFamily: ds.fontBody,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      background: !metricValueChanged ? ds.goldDim : ds.gold,
-                      color: !metricValueChanged ? ds.textMuted : "#18140a",
-                      border: "none",
-                      cursor: !metricValueChanged || saving ? "not-allowed" : "pointer",
-                      opacity: saving ? 0.6 : 1,
-                    }}
-                  >
-                    {saving ? "Saving..." : "Confirm Value Edit"}
-                  </button>
-                  <button
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: ds.radius,
-                      fontFamily: ds.fontBody,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      background: "transparent",
-                      color: ds.coral,
-                      border: `1px solid rgba(224,112,96,0.38)`,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Flag for Review
-                  </button>
-                </div>
-              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button
+                  onClick={onConfirmEdit}
+                  disabled={!metricValueChanged || saving}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: ds.radius,
+                    fontFamily: ds.fontBody,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: !metricValueChanged ? ds.goldDim : ds.gold,
+                    color: !metricValueChanged ? ds.textMuted : "#18140a",
+                    border: "none",
+                    cursor: !metricValueChanged || saving ? "not-allowed" : "pointer",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? "Saving..." : "Confirm Value Edit"}
+                </button>
+                <button
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: ds.radius,
+                    fontFamily: ds.fontBody,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: "transparent",
+                    color: ds.coral,
+                    border: `1px solid rgba(224,112,96,0.38)`,
+                    cursor: "pointer",
+                  }}
+                >
+                  Flag for Review
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>

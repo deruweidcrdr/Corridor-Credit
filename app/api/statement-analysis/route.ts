@@ -10,12 +10,12 @@ const supabase = createClient(
 // GET /api/statement-analysis
 //
 // Returns all deals with their financial statements (historical from
-// financial_statement_for_validation, pro forma from pro_forma_financial_statement),
+// financial_statement_for_validation, pro forma from pro_forma_statement_for_validation),
 // signed URLs for document preview, and counterparty data.
 //
 // Query chain:
 //   deals → deal_documents (deal_id) → financial_statement_for_validation (document_id)
-//   deals → pro_forma_financial_statement (deal_id)
+//   deals → deal_documents (deal_id) → pro_forma_statement_for_validation (document_id)
 //   deals.counterparty_id → counterparties
 //   documents → signed URLs for PDF preview
 // ---------------------------------------------------------------------------
@@ -60,15 +60,21 @@ export async function GET() {
     }
     const historicalStatements = Array.from(fsvMap.values());
 
-    // 4. Fetch pro_forma_financial_statement by deal_id
-    let proFormaStatements: any[] = [];
-    {
-      const { data } = await supabase
-        .from("pro_forma_financial_statement")
-        .select("*")
-        .in("deal_id", dealIds);
-      proFormaStatements = data ?? [];
+    // 4. Fetch pro_forma_statement_for_validation via document_id + counterparty fallback
+    const [pfDocResult, pfCpResult] = await Promise.all([
+      documentIds.length > 0
+        ? supabase.from("pro_forma_statement_for_validation").select("*").in("document_id", documentIds)
+        : Promise.resolve({ data: [] }),
+      dealCounterpartyIds.length > 0
+        ? supabase.from("pro_forma_statement_for_validation").select("*").in("counterparty_id", dealCounterpartyIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const pfMap = new Map<string, any>();
+    for (const s of [...(pfDocResult.data ?? []), ...(pfCpResult.data ?? [])]) {
+      pfMap.set(s.id, s);
     }
+    const proFormaStatements = Array.from(pfMap.values());
 
     // 5. Fetch documents for signed URL generation
     const allDocumentIds = [
@@ -143,7 +149,7 @@ export async function GET() {
     // Group pro forma statements by deal
     const proFormaByDeal: Record<string, any[]> = {};
     for (const s of proFormaStatements) {
-      const dealId = s.deal_id ?? cpToDeal[s.counterparty_id];
+      const dealId = s.deal_id ?? docToDeal[s.document_id] ?? cpToDeal[s.counterparty_id];
       if (dealId) {
         (proFormaByDeal[dealId] ??= []).push({
           ...s,
