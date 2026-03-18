@@ -669,33 +669,34 @@ function DocumentStep({
 
   return (
     <>
-      {/* Row 2: Title LEFT — Deal dropdown, Tabs, Statement dropdown RIGHT */}
+      {/* Row 2: [Title + Tabs] | [Deal dropdown] | [Statement dropdown] — 3-column grid */}
       <div
         style={{
           padding: "18px 28px 12px",
-          display: "flex",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
           alignItems: "center",
-          justifyContent: "space-between",
           flexShrink: 0,
         }}
       >
-        <h1
-          style={{
-            margin: 0,
-            fontFamily: ds.fontSerif,
-            fontStyle: "italic",
-            fontSize: 28,
-            fontWeight: 400,
-            color: ds.text,
-            letterSpacing: "-0.01em",
-            lineHeight: 1.15,
-          }}
-        >
-          Statement Analysis
-        </h1>
+        {/* Column 1: Title + Tabs */}
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          {/* Historical / Pro Forma tabs */}
-          <div style={{ display: "flex", gap: 0 }}>
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: ds.fontSerif,
+              fontStyle: "italic",
+              fontSize: 28,
+              fontWeight: 400,
+              color: ds.text,
+              letterSpacing: "-0.01em",
+              lineHeight: 1.15,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Statement Analysis
+          </h1>
+          <div style={{ display: "flex", gap: 0, flexShrink: 0 }}>
             {(["historical", "pro_forma"] as const).map((tab) => (
               <button
                 key={tab}
@@ -721,34 +722,34 @@ function DocumentStep({
               </button>
             ))}
           </div>
+        </div>
 
-          {/* Deal dropdown — pushed right to align with COUNTERPARTY below */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
-              Deal to Process
-            </span>
-            <DropdownChip
-              label={selectedDealId ?? ""}
-              dotColor={ds.green}
-              options={dealOptions}
-              selectedValue={selectedDealId}
-              onSelect={onSelectDeal}
-            />
-          </div>
+        {/* Column 2: Deal dropdown */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, flexShrink: 0 }}>
+            Deal to Process
+          </span>
+          <DropdownChip
+            label={selectedDealId ?? ""}
+            dotColor={ds.green}
+            options={dealOptions}
+            selectedValue={selectedDealId}
+            onSelect={onSelectDeal}
+          />
+        </div>
 
-          {/* Statement / Pro Forma dropdown — conditional label */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted }}>
-              {activeTab === "historical" ? "Statement to Process" : "Pro Forma to Process"}
-            </span>
-            <DropdownChip
-              label={statementOptions.find((o) => o.value === selectedStatementId)?.label ?? "None"}
-              dotColor={ds.green}
-              options={statementOptions}
-              selectedValue={selectedStatementId}
-              onSelect={onSelectStatement}
-            />
-          </div>
+        {/* Column 3: Statement / Pro Forma dropdown */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, flexShrink: 0 }}>
+            {activeTab === "historical" ? "Statement to Process" : "Pro Forma to Process"}
+          </span>
+          <DropdownChip
+            label={statementOptions.find((o) => o.value === selectedStatementId)?.label ?? "None"}
+            dotColor={ds.green}
+            options={statementOptions}
+            selectedValue={selectedStatementId}
+            onSelect={onSelectStatement}
+          />
         </div>
       </div>
 
