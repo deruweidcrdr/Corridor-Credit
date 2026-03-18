@@ -44,9 +44,12 @@ export async function POST(req: NextRequest) {
     const rand = Math.random().toString(36).substring(2, 8);
     const statementId = `PFS_${dateStr}_${rand}`;
 
-    const canonicalRecord: Record<string, any> = {
+    // Columns on the pipeline table that don't exist on the canonical table
+    const SKIP_COLUMNS = new Set(["prepaid_expenses", "dividends_payable"]);
+
+    const draft: Record<string, any> = {
       pro_forma_statement_id: statementId,
-      source_id: id,
+      source_financial_statement_for_validation_id: id,
       counterparty_id: counterparty_id ?? fsv.counterparty_id,
       counterparty_name: fsv.counterparty_name,
       contract_id: fsv.contract_id,
@@ -55,23 +58,21 @@ export async function POST(req: NextRequest) {
       obligation_id: fsv.obligation_id,
       workflow_id: fsv.workflow_id,
       statement_type: fsv.statement_type,
-      statement_title: fsv.statement_title,
-      period_end_date: fsv.period_end_date,
-      period_end_month: fsv.period_end_month,
-      period_end_year: fsv.period_end_year,
+      pro_forma_statement_title: fsv.statement_title,
+      projection_period_end: fsv.period_end_date,
       reporting_currency: fsv.reporting_currency,
       industry_code: fsv.industry_code,
       confidence: fsv.confidence,
-      is_user_override: fsv.is_user_override,
-      override_justification: fsv.override_justification,
-      projection_method: fsv.projection_method,
-      projection_profile: fsv.projection_profile,
-      projection_profile_id: fsv.projection_profile_id,
-      audit_id: fsv.audit_id,
     };
 
     for (const col of METRIC_COLUMN_NAMES) {
-      canonicalRecord[col] = fsv[col] ?? null;
+      if (fsv[col] != null && !SKIP_COLUMNS.has(col)) draft[col] = fsv[col];
+    }
+
+    // Strip null/undefined values so Supabase doesn't error on missing columns
+    const canonicalRecord: Record<string, any> = {};
+    for (const [k, v] of Object.entries(draft)) {
+      if (v != null) canonicalRecord[k] = v;
     }
 
     const { error: insertErr } = await supabase

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const { data: canonicalRecords } = await supabase
       .from("pro_forma_financial_statement")
       .select("pro_forma_statement_id")
-      .eq("source_id", id);
+      .eq("source_financial_statement_for_validation_id", id);
 
     let statementsDeleted = 0;
     for (const rec of canonicalRecords ?? []) {

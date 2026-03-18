@@ -46,10 +46,15 @@ export async function POST(req: NextRequest) {
     const rand = Math.random().toString(36).substring(2, 8);
     const statementId = `FIN_${dateStr}_${rand}`;
 
-    // 3. Build canonical record — copy all metric and reference columns
-    const canonicalRecord: Record<string, any> = {
+    // 3. Build canonical record — copy reference and metric columns,
+    //    skipping nulls to avoid writing to columns that may not exist
+    //    on the canonical table.
+    // Columns on the pipeline table that don't exist on the canonical table
+    const SKIP_COLUMNS = new Set(["prepaid_expenses", "dividends_payable"]);
+
+    const draft: Record<string, any> = {
       statement_id: statementId,
-      source_id: id,
+      source_financial_statement_for_validation_id: id,
       counterparty_id: counterparty_id ?? fsv.counterparty_id,
       counterparty_name: fsv.counterparty_name,
       contract_id: fsv.contract_id,
@@ -65,17 +70,16 @@ export async function POST(req: NextRequest) {
       reporting_currency: fsv.reporting_currency,
       industry_code: fsv.industry_code,
       confidence: fsv.confidence,
-      is_user_override: fsv.is_user_override,
-      override_justification: fsv.override_justification,
-      projection_method: fsv.projection_method,
-      projection_profile: fsv.projection_profile,
-      projection_profile_id: fsv.projection_profile_id,
-      audit_id: fsv.audit_id,
     };
 
-    // Copy all metric columns
     for (const col of METRIC_COLUMN_NAMES) {
-      canonicalRecord[col] = fsv[col] ?? null;
+      if (fsv[col] != null && !SKIP_COLUMNS.has(col)) draft[col] = fsv[col];
+    }
+
+    // Strip null/undefined values so Supabase doesn't error on missing columns
+    const canonicalRecord: Record<string, any> = {};
+    for (const [k, v] of Object.entries(draft)) {
+      if (v != null) canonicalRecord[k] = v;
     }
 
     // 4. Insert into canonical financial_statement
