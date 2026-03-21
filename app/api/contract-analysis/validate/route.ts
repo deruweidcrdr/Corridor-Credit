@@ -113,10 +113,45 @@ export async function POST(req: NextRequest) {
       .update({ contract_status: "VALIDATED" })
       .eq("contract_for_validation_id", contract_for_validation_id);
 
+    // 6b. Update term_for_validation.validation_status so the pipeline can find them
+    await supabase
+      .from("term_for_validation")
+      .update({ validation_status: "VALIDATED" })
+      .eq("contract_for_validation_id", contract_for_validation_id)
+      .neq("validation_status", "FLAGGED");
+
+    // 7. Auto-dispatch obligation extraction to Railway pipeline (non-fatal)
+    const pipelineUrl = process.env.PIPELINE_SERVICE_URL;
+    let obligationDispatchTriggered = false;
+
+    if (pipelineUrl && cfv.document_id) {
+      try {
+        const pipelineResp = await fetch(
+          `${pipelineUrl}/api/dispatch-obligations`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ document_id: cfv.document_id }),
+          }
+        );
+        obligationDispatchTriggered = pipelineResp.ok;
+        if (!pipelineResp.ok) {
+          console.warn(
+            `Obligation dispatch returned HTTP ${pipelineResp.status} — contract validated but obligations not dispatched`
+          );
+        }
+      } catch (err) {
+        console.warn("Obligation dispatch failed (non-fatal):", err);
+      }
+    } else if (!pipelineUrl) {
+      console.warn("PIPELINE_SERVICE_URL not set — skipping obligation dispatch");
+    }
+
     return NextResponse.json({
       success: true,
       contract_id: contractId,
       termsPromoted,
+      obligationDispatchTriggered,
     });
   } catch (err) {
     console.error("Contract validate error:", err);
