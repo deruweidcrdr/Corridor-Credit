@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "@/app/components/sidebar";
 import {
   ResponsiveContainer,
@@ -65,7 +65,7 @@ const STEPS = [
 ];
 
 /* ================================================================== */
-/*  Mock obligation term structure data                                */
+/*  Types                                                              */
 /* ================================================================== */
 interface ObligationPayment {
   id: string;
@@ -75,56 +75,53 @@ interface ObligationPayment {
   scheduledInterest: number;
   scheduledTotalPayment: number;
   remainingBalance: number;
+  paymentStatus?: string;
+  validationStatus?: string;
 }
 
-const CONTRACT_ID = "CNT_20260305_001";
+interface ObligationProperties {
+  obligationId: string;
+  obligationType: string;
+  obligationSubtype?: string;
+  contractId: string;
+  obligationName?: string;
+  principalAmount: number;
+  interestRateIndex: string;
+  interestRateSpread: number;
+  amortizationType: string;
+  paymentFrequency: string;
+  originationDate: string;
+  maturityDate: string;
+  nextDueDate?: string;
+  totalPayments: number;
+  thresholdValue?: number;
+  isKeyObligation?: boolean;
+  validationStatus?: string;
+}
 
-const MOCK_PAYMENTS: ObligationPayment[] = [
-  { id: `PMT_${CONTRACT_ID}_1`, paymentNumber: 1, paymentDueDate: "2026-07-01", scheduledPrincipal: 118333, scheduledInterest: 60208, scheduledTotalPayment: 178541, remainingBalance: 8381667 },
-  { id: `PMT_${CONTRACT_ID}_2`, paymentNumber: 2, paymentDueDate: "2026-08-01", scheduledPrincipal: 118333, scheduledInterest: 59369, scheduledTotalPayment: 177702, remainingBalance: 8263334 },
-  { id: `PMT_${CONTRACT_ID}_3`, paymentNumber: 3, paymentDueDate: "2026-09-01", scheduledPrincipal: 118333, scheduledInterest: 58531, scheduledTotalPayment: 176864, remainingBalance: 8145001 },
-  { id: `PMT_${CONTRACT_ID}_4`, paymentNumber: 4, paymentDueDate: "2026-10-01", scheduledPrincipal: 118333, scheduledInterest: 57694, scheduledTotalPayment: 176027, remainingBalance: 8026668 },
-  { id: `PMT_${CONTRACT_ID}_5`, paymentNumber: 5, paymentDueDate: "2026-11-01", scheduledPrincipal: 118333, scheduledInterest: 56856, scheduledTotalPayment: 175189, remainingBalance: 7908335 },
-  { id: `PMT_${CONTRACT_ID}_6`, paymentNumber: 6, paymentDueDate: "2026-12-01", scheduledPrincipal: 118333, scheduledInterest: 56017, scheduledTotalPayment: 174350, remainingBalance: 7790002 },
-  { id: `PMT_${CONTRACT_ID}_7`, paymentNumber: 7, paymentDueDate: "2027-01-01", scheduledPrincipal: 118333, scheduledInterest: 55179, scheduledTotalPayment: 173512, remainingBalance: 7671669 },
-  { id: `PMT_${CONTRACT_ID}_8`, paymentNumber: 8, paymentDueDate: "2027-02-01", scheduledPrincipal: 118333, scheduledInterest: 54341, scheduledTotalPayment: 172674, remainingBalance: 7553336 },
-  { id: `PMT_${CONTRACT_ID}_9`, paymentNumber: 9, paymentDueDate: "2027-03-01", scheduledPrincipal: 118333, scheduledInterest: 53503, scheduledTotalPayment: 171836, remainingBalance: 7435003 },
-  { id: `PMT_${CONTRACT_ID}_10`, paymentNumber: 10, paymentDueDate: "2027-04-01", scheduledPrincipal: 118333, scheduledInterest: 52664, scheduledTotalPayment: 170997, remainingBalance: 7316670 },
-  { id: `PMT_${CONTRACT_ID}_11`, paymentNumber: 11, paymentDueDate: "2027-05-01", scheduledPrincipal: 118333, scheduledInterest: 51826, scheduledTotalPayment: 170159, remainingBalance: 7198337 },
-  { id: `PMT_${CONTRACT_ID}_12`, paymentNumber: 12, paymentDueDate: "2027-06-01", scheduledPrincipal: 118333, scheduledInterest: 50988, scheduledTotalPayment: 169321, remainingBalance: 7080004 },
-  { id: `PMT_${CONTRACT_ID}_13`, paymentNumber: 13, paymentDueDate: "2027-07-01", scheduledPrincipal: 118333, scheduledInterest: 50150, scheduledTotalPayment: 168483, remainingBalance: 6961671 },
-  { id: `PMT_${CONTRACT_ID}_14`, paymentNumber: 14, paymentDueDate: "2027-08-01", scheduledPrincipal: 118333, scheduledInterest: 49312, scheduledTotalPayment: 167645, remainingBalance: 6843338 },
-  { id: `PMT_${CONTRACT_ID}_15`, paymentNumber: 15, paymentDueDate: "2027-09-01", scheduledPrincipal: 118333, scheduledInterest: 48474, scheduledTotalPayment: 166807, remainingBalance: 6725005 },
-  { id: `PMT_${CONTRACT_ID}_16`, paymentNumber: 16, paymentDueDate: "2027-10-01", scheduledPrincipal: 118333, scheduledInterest: 47635, scheduledTotalPayment: 165968, remainingBalance: 6606672 },
-  { id: `PMT_${CONTRACT_ID}_17`, paymentNumber: 17, paymentDueDate: "2027-11-01", scheduledPrincipal: 118333, scheduledInterest: 46797, scheduledTotalPayment: 165130, remainingBalance: 6488339 },
-  { id: `PMT_${CONTRACT_ID}_18`, paymentNumber: 18, paymentDueDate: "2027-12-01", scheduledPrincipal: 118333, scheduledInterest: 45959, scheduledTotalPayment: 164292, remainingBalance: 6370006 },
-];
+interface ContractData {
+  contract_for_validation_id: string;
+  contract_title?: string;
+  contract_type?: string;
+  contract_status?: string;
+  document_id?: string;
+  document_name?: string;
+  counterparty_id?: string;
+  obligations: any[];
+  paymentSchedule: any[];
+  obligationProperties: ObligationProperties | null;
+}
 
-/* ================================================================== */
-/*  Obligation summary properties                                     */
-/* ================================================================== */
-const OBLIGATION_PROPERTIES_LEFT: { label: string; value: string }[] = [
-  { label: "Obligation ID", value: "OBL_20260305_001" },
-  { label: "Obligation Type", value: "PAYMENT_OBLIGATION" },
-  { label: "Contract ID", value: CONTRACT_ID },
-  { label: "Principal Amount", value: "$8,500,000" },
-  { label: "Interest Rate Index", value: "SOFR" },
-  { label: "Interest Rate Spread", value: "350 bps" },
-  { label: "Amortization Type", value: "STRAIGHT_LINE" },
-];
-
-const OBLIGATION_PROPERTIES_RIGHT: { label: string; value: string }[] = [
-  { label: "Payment Frequency", value: "MONTHLY" },
-  { label: "First Payment Date", value: "2026-07-01" },
-  { label: "Maturity Date", value: "2031-06-01" },
-  { label: "Total Payments", value: "60" },
-  { label: "All-In Rate", value: "8.50%" },
-  { label: "Total Interest", value: "$2,143,325" },
-  { label: "Measurement Frequency", value: "MONTHLY" },
-];
+interface DealData {
+  deal_id: string;
+  counterparty_id?: string;
+  counterparty_name?: string;
+  deal_name?: string;
+  contracts: ContractData[];
+}
 
 /* ================================================================== */
-/*  Mock projection profile properties                                 */
+/*  Mock projection profile properties (Step 2 — not wired yet)        */
 /* ================================================================== */
 const PROFILE_PROPERTIES_LEFT: { label: string; value: string }[] = [
   { label: "Profile ID", value: "PRF_MFG_MID_GRW_01" },
@@ -147,7 +144,7 @@ const PROFILE_PROPERTIES_RIGHT: { label: string; value: string }[] = [
 ];
 
 /* ================================================================== */
-/*  Mock DSCR corridor projection data                                 */
+/*  Mock DSCR corridor projection data (Step 2 — not wired yet)        */
 /* ================================================================== */
 interface CorridorDataPoint {
   period: string;
@@ -216,8 +213,180 @@ const TEMPORAL_MIN = CORRIDOR_DATA.reduce(
 /* ================================================================== */
 export default function ProjectionsClient() {
   const [activeStep, setActiveStep] = useState(1);
-  const [selectedPayment, setSelectedPayment] =
-    useState<ObligationPayment | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<ObligationPayment | null>(null);
+
+  // Data fetching state
+  const [deals, setDeals] = useState<DealData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/projections");
+      const json = await res.json();
+      const fetchedDeals: DealData[] = json.deals ?? [];
+      setDeals(fetchedDeals);
+
+      // Auto-select first deal with contracts
+      if (fetchedDeals.length > 0 && !selectedDealId) {
+        const firstWithContracts = fetchedDeals.find((d) => d.contracts.length > 0) ?? fetchedDeals[0];
+        setSelectedDealId(firstWithContracts.deal_id);
+        if (firstWithContracts.contracts.length > 0) {
+          setSelectedContractId(firstWithContracts.contracts[0].contract_for_validation_id);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch projections data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDealId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const selectedDeal = deals.find((d) => d.deal_id === selectedDealId) ?? null;
+  const selectedContract = selectedDeal?.contracts.find(
+    (c) => c.contract_for_validation_id === selectedContractId
+  ) ?? null;
+
+  // Map payment schedule to ObligationPayment shape
+  const payments: ObligationPayment[] = (selectedContract?.paymentSchedule ?? []).map((row: any) => ({
+    id: row.obligation_event_id,
+    paymentNumber: row.payment_number,
+    paymentDueDate: row.payment_due_date,
+    scheduledPrincipal: row.scheduled_principal ?? 0,
+    scheduledInterest: row.scheduled_interest ?? 0,
+    scheduledTotalPayment: row.scheduled_total_payment ?? 0,
+    remainingBalance: row.outstanding_principal_ending ?? 0,
+    paymentStatus: row.payment_status,
+    validationStatus: row.validation_status,
+  }));
+
+  const oblProps = selectedContract?.obligationProperties ?? null;
+
+  // Build obligation properties arrays for the 2-column layout
+  const obligationPropsLeft: { label: string; value: string }[] = oblProps
+    ? [
+        { label: "Obligation ID", value: oblProps.obligationId ?? "—" },
+        { label: "Obligation Type", value: oblProps.obligationType ?? "—" },
+        { label: "Contract ID", value: oblProps.contractId ?? "—" },
+        { label: "Principal Amount", value: oblProps.principalAmount ? formatCurrency(oblProps.principalAmount) : "—" },
+        { label: "Interest Rate Index", value: oblProps.interestRateIndex ?? "—" },
+        { label: "Interest Rate Spread", value: oblProps.interestRateSpread ? `${oblProps.interestRateSpread} bps` : "—" },
+        { label: "Amortization Type", value: oblProps.amortizationType ?? "—" },
+      ]
+    : [];
+
+  const obligationPropsRight: { label: string; value: string }[] = oblProps
+    ? [
+        { label: "Payment Frequency", value: oblProps.paymentFrequency ?? "—" },
+        { label: "Origination Date", value: oblProps.originationDate ?? "—" },
+        { label: "Maturity Date", value: oblProps.maturityDate ?? "—" },
+        { label: "Total Payments", value: oblProps.totalPayments ? String(oblProps.totalPayments) : "—" },
+        { label: "Next Due Date", value: oblProps.nextDueDate ?? "—" },
+        { label: "Key Obligation", value: oblProps.isKeyObligation ? "YES" : "NO" },
+        { label: "Validation Status", value: oblProps.validationStatus ?? "PENDING" },
+      ]
+    : [];
+
+  // Determine if obligations are pending (pipeline in progress)
+  const hasContracts = (selectedDeal?.contracts.length ?? 0) > 0;
+  const hasPaymentSchedule = payments.length > 0;
+  const hasObligations = (selectedContract?.obligations?.length ?? 0) > 0;
+  const obligationsPending = hasContracts && !hasPaymentSchedule && !hasObligations;
+
+  // Auto-poll when obligations are pending (pipeline may be running)
+  useEffect(() => {
+    if (!obligationsPending) return;
+    const interval = setInterval(() => {
+      fetchData();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [obligationsPending, fetchData]);
+
+  const handleValidateObligations = async () => {
+    if (!selectedContract) return;
+    const ids = selectedContract.obligations.map((o: any) => o.obligation_for_validation_id);
+    if (ids.length === 0) return;
+    setValidating(true);
+    try {
+      await fetch("/api/projections/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ obligation_for_validation_ids: ids }),
+      });
+      await fetchData();
+    } catch (err) {
+      console.error("Validate obligations failed:", err);
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleRevertObligations = async () => {
+    if (!selectedContract) return;
+    const ids = selectedContract.obligations.map((o: any) => o.obligation_for_validation_id);
+    if (ids.length === 0) return;
+    setValidating(true);
+    try {
+      await fetch("/api/projections/revert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ obligation_for_validation_ids: ids }),
+      });
+      await fetchData();
+    } catch (err) {
+      console.error("Revert obligations failed:", err);
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleValidateTermStructure = async () => {
+    if (!selectedContract) return;
+    setValidating(true);
+    try {
+      await fetch("/api/projections/validate-term-structure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contract_for_validation_id: selectedContract.contract_for_validation_id }),
+      });
+      await fetchData();
+    } catch (err) {
+      console.error("Validate term structure failed:", err);
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleRevertTermStructure = async () => {
+    if (!selectedContract) return;
+    setValidating(true);
+    try {
+      await fetch("/api/projections/revert-term-structure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contract_for_validation_id: selectedContract.contract_for_validation_id }),
+      });
+      await fetchData();
+    } catch (err) {
+      console.error("Revert term structure failed:", err);
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  // Check validation states
+  const allObligationsValidated = selectedContract?.obligations?.length
+    ? selectedContract.obligations.every((o: any) => o.validation_status === "VALIDATED")
+    : false;
+  const allTermStructureValidated = payments.length > 0
+    ? payments.every((p) => p.validationStatus === "VALIDATED")
+    : false;
 
   return (
     <div
@@ -297,10 +466,78 @@ export default function ProjectionsClient() {
 
         {/* ── Step content ── */}
         {activeStep === 1 && (
-          <ObligationTermStructureStep
-            selectedPayment={selectedPayment}
-            onSelectPayment={setSelectedPayment}
-          />
+          loading ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 13, color: ds.textMuted }}>Loading obligation data...</span>
+            </div>
+          ) : !selectedDeal || !selectedContract ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
+              <span style={{ fontFamily: ds.fontSerif, fontSize: 18, fontStyle: "italic", color: ds.textMuted }}>
+                {deals.length === 0 ? "No deals found" : "Select a deal with contracts"}
+              </span>
+            </div>
+          ) : obligationsPending ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: ds.amberDim,
+                  border: `1px solid ${ds.pwBorder}`,
+                  borderRadius: ds.radius,
+                  padding: "10px 20px",
+                }}
+              >
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: ds.amber }} />
+                <span style={{ fontFamily: ds.fontMono, fontSize: 12, color: ds.amber }}>
+                  Pipeline in progress
+                </span>
+              </div>
+              <span style={{ fontFamily: ds.fontSerif, fontSize: 18, fontStyle: "italic", color: ds.textMuted }}>
+                Obligation extraction in progress — data will appear automatically
+              </span>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
+                Auto-refreshing every 15 seconds
+              </span>
+              <GhostButton label="Refresh Now" onClick={() => fetchData()} />
+            </div>
+          ) : (
+            <ObligationTermStructureStep
+              payments={payments}
+              oblProps={oblProps}
+              obligationPropsLeft={obligationPropsLeft}
+              obligationPropsRight={obligationPropsRight}
+              selectedPayment={selectedPayment}
+              onSelectPayment={setSelectedPayment}
+              selectedDeal={selectedDeal}
+              selectedContract={selectedContract}
+              allObligationsValidated={allObligationsValidated}
+              allTermStructureValidated={allTermStructureValidated}
+              validating={validating}
+              onValidateObligations={handleValidateObligations}
+              onRevertObligations={handleRevertObligations}
+              onValidateTermStructure={handleValidateTermStructure}
+              onRevertTermStructure={handleRevertTermStructure}
+              deals={deals}
+              selectedDealId={selectedDealId}
+              selectedContractId={selectedContractId}
+              onDealChange={(dealId: string) => {
+                setSelectedDealId(dealId);
+                const deal = deals.find((d) => d.deal_id === dealId);
+                if (deal?.contracts.length) {
+                  setSelectedContractId(deal.contracts[0].contract_for_validation_id);
+                } else {
+                  setSelectedContractId(null);
+                }
+                setSelectedPayment(null);
+              }}
+              onContractChange={(contractId: string) => {
+                setSelectedContractId(contractId);
+                setSelectedPayment(null);
+              }}
+            />
+          )
         )}
         {activeStep === 2 && <ProjectionsStep />}
         {activeStep === 3 && <ComingSoon label="Collateral" />}
@@ -315,217 +552,342 @@ export default function ProjectionsClient() {
 /* ================================================================== */
 
 function ObligationTermStructureStep({
+  payments,
+  oblProps,
+  obligationPropsLeft,
+  obligationPropsRight,
   selectedPayment,
   onSelectPayment,
+  selectedDeal,
+  selectedContract,
+  allObligationsValidated,
+  allTermStructureValidated,
+  validating,
+  onValidateObligations,
+  onRevertObligations,
+  onValidateTermStructure,
+  onRevertTermStructure,
+  deals,
+  selectedDealId,
+  selectedContractId,
+  onDealChange,
+  onContractChange,
 }: {
+  payments: ObligationPayment[];
+  oblProps: ObligationProperties | null;
+  obligationPropsLeft: { label: string; value: string }[];
+  obligationPropsRight: { label: string; value: string }[];
   selectedPayment: ObligationPayment | null;
   onSelectPayment: (p: ObligationPayment | null) => void;
+  selectedDeal: DealData;
+  selectedContract: ContractData;
+  allObligationsValidated: boolean;
+  allTermStructureValidated: boolean;
+  validating: boolean;
+  onValidateObligations: () => void;
+  onRevertObligations: () => void;
+  onValidateTermStructure: () => void;
+  onRevertTermStructure: () => void;
+  deals: DealData[];
+  selectedDealId: string | null;
+  selectedContractId: string | null;
+  onDealChange: (dealId: string) => void;
+  onContractChange: (contractId: string) => void;
 }) {
+  const startingBalance = oblProps?.principalAmount ?? (payments.length > 0 ? payments[0].remainingBalance + payments[0].scheduledPrincipal : 0);
+  const lastPayment = payments.length > 0 ? payments[payments.length - 1] : null;
+
   return (
     <>
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px 80px" }}>
         {/* Page header */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+          {/* Status badges row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginBottom: 10 }}>
+            {selectedContract.obligations.length > 0 && (
+              <ValidationBadge validated={allObligationsValidated} label="Obligations" />
+            )}
+            {payments.length > 0 && (
+              <ValidationBadge validated={allTermStructureValidated} label="Term Structure" />
+            )}
+          </div>
+          {/* Title + dropdowns row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
             <div style={{ fontFamily: ds.fontSerif, fontSize: 28, fontStyle: "italic", color: ds.text, letterSpacing: "-0.01em", lineHeight: 1.15 }}>
               Obligation Term Structure
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <GhostButton label="Edit Term Structure" />
-              <GhostButtonWarn label="Flag Term Structure" />
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <label style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Deal
+              </label>
+              <select
+                value={selectedDealId ?? ""}
+                onChange={(e) => onDealChange(e.target.value)}
+                style={{
+                  background: ds.surfaceRaised,
+                  color: ds.text,
+                  border: `1px solid ${ds.borderAccent}`,
+                  borderRadius: ds.radius,
+                  padding: "5px 10px",
+                  fontFamily: ds.fontMono,
+                  fontSize: 12,
+                  minWidth: 220,
+                }}
+              >
+                {deals.map((d) => (
+                  <option key={d.deal_id} value={d.deal_id}>
+                    {d.counterparty_name ?? d.deal_name ?? d.deal_id}
+                  </option>
+                ))}
+              </select>
+              {(selectedDeal?.contracts.length ?? 0) > 0 && (
+                <>
+                  <label style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    Contract
+                  </label>
+                  <select
+                    value={selectedContractId ?? ""}
+                    onChange={(e) => onContractChange(e.target.value)}
+                    style={{
+                      background: ds.surfaceRaised,
+                      color: ds.text,
+                      border: `1px solid ${ds.borderAccent}`,
+                      borderRadius: ds.radius,
+                      padding: "5px 10px",
+                      fontFamily: ds.fontMono,
+                      fontSize: 12,
+                      minWidth: 220,
+                    }}
+                  >
+                    {selectedDeal?.contracts.map((c) => (
+                      <option key={c.contract_for_validation_id} value={c.contract_for_validation_id}>
+                        {c.contract_title?.trim() || c.contract_type?.trim() || c.document_name?.replace(/\.pdf$/i, "").replace(/_/g, " ").trim() || c.contract_for_validation_id}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
             </div>
           </div>
           <DealSubheader items={[
-            { label: "DEAL", value: "DEAL_20260222_49346d04" },
-            { label: "COUNTERPARTY", value: "Meridian Precision Manufacturing, LLC" },
-            { label: "CONTRACT", value: CONTRACT_ID },
-            { label: "OBLIGATION", value: "OBL_20260305_001" },
+            { label: "DEAL", value: selectedDeal.deal_id },
+            { label: "COUNTERPARTY", value: selectedDeal.counterparty_name ?? "—" },
+            { label: "CONTRACT", value: selectedContract.contract_for_validation_id },
+            ...(oblProps ? [{ label: "OBLIGATION", value: oblProps.obligationId }] : []),
           ]} />
         </div>
 
         {/* ── Obligation Summary ── */}
-        <SectionDivider label="Obligation Summary" />
-        <div
-          style={{
-            background: ds.surface,
-            border: `1px solid ${ds.border}`,
-            borderRadius: ds.radiusLg,
-            overflow: "hidden",
-            marginBottom: 24,
-          }}
-        >
-          <div
-            style={{
-              padding: "12px 20px",
-              background: ds.surfaceRaised,
-              borderBottom: `1px solid ${ds.border}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
-              Obligation Properties
-            </span>
-            <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
-              PAYMENT_OBLIGATION · STRAIGHT_LINE
-            </span>
-          </div>
-          <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
-            <div>
-              {OBLIGATION_PROPERTIES_LEFT.map((prop) => (
-                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
-              ))}
+        {oblProps && (
+          <>
+            <SectionDivider label="Obligation Summary" />
+            <div
+              style={{
+                background: ds.surface,
+                border: `1px solid ${ds.border}`,
+                borderRadius: ds.radiusLg,
+                overflow: "hidden",
+                marginBottom: 24,
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 20px",
+                  background: ds.surfaceRaised,
+                  borderBottom: `1px solid ${ds.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
+                  Obligation Properties
+                </span>
+                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
+                  {oblProps.obligationType}{oblProps.amortizationType ? ` · ${oblProps.amortizationType}` : ""}
+                </span>
+              </div>
+              <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+                <div>
+                  {obligationPropsLeft.map((prop) => (
+                    <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
+                  ))}
+                </div>
+                <div>
+                  {obligationPropsRight.map((prop) => (
+                    <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
+                  ))}
+                </div>
+              </div>
             </div>
-            <div>
-              {OBLIGATION_PROPERTIES_RIGHT.map((prop) => (
-                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
-              ))}
-            </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {/* ── Payment Schedule ── */}
-        <SectionDivider label="Payment Schedule" />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
-            {MOCK_PAYMENTS.length} of 60 payments shown
-          </span>
-        </div>
+        {payments.length > 0 ? (
+          <>
+            <SectionDivider label="Payment Schedule" />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
+                {payments.length} payment{payments.length !== 1 ? "s" : ""}
+              </span>
+            </div>
 
-        <div
-          style={{
-            background: ds.surface,
-            border: `1px solid ${ds.border}`,
-            borderRadius: ds.radiusLg,
-            overflow: "hidden",
-            marginBottom: 20,
-          }}
-        >
-          {/* Table header */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "60px 1fr 140px 140px 140px 160px",
-              background: ds.surfaceRaised,
-              borderBottom: `1px solid ${ds.border}`,
-            }}
-          >
-            {["#", "Payment Due Date", "Principal", "Interest", "Total Payment", "Remaining Balance"].map((h, i) => (
+            <div
+              style={{
+                background: ds.surface,
+                border: `1px solid ${ds.border}`,
+                borderRadius: ds.radiusLg,
+                overflow: "hidden",
+                marginBottom: 20,
+              }}
+            >
+              {/* Table header */}
               <div
-                key={h}
                 style={{
-                  padding: "10px 14px",
-                  fontFamily: ds.fontMono,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.12em",
-                  color: ds.textDim,
-                  textAlign: i >= 2 ? "right" : "left",
-                }}
-              >
-                {h}
-              </div>
-            ))}
-          </div>
-
-          {/* Table rows */}
-          {MOCK_PAYMENTS.map((payment) => {
-            const isSelected = selectedPayment?.id === payment.id;
-            return (
-              <button
-                key={payment.id}
-                onClick={() => onSelectPayment(payment)}
-                style={{
-                  width: "100%",
                   display: "grid",
-                  gridTemplateColumns: "60px 1fr 140px 140px 140px 160px",
+                  gridTemplateColumns: "60px 1fr 100px 140px 140px 140px 160px",
+                  background: ds.surfaceRaised,
                   borderBottom: `1px solid ${ds.border}`,
-                  background: isSelected ? ds.surfaceRaised : "transparent",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  border: "none",
-                  borderBlockEnd: `1px solid ${ds.border}`,
-                  transition: "background 0.1s",
-                  fontFamily: ds.fontMono,
                 }}
               >
-                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textMuted }}>
-                  {payment.paymentNumber}
-                </div>
-                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, fontFamily: ds.fontMono }}>
-                  {payment.paymentDueDate}
-                </div>
-                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, textAlign: "right" }}>
-                  {formatCurrency(payment.scheduledPrincipal)}
-                </div>
-                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, textAlign: "right" }}>
-                  {formatCurrency(payment.scheduledInterest)}
-                </div>
-                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.gold : ds.amber, textAlign: "right" }}>
-                  {formatCurrency(payment.scheduledTotalPayment)}
-                </div>
-                <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, textAlign: "right" }}>
-                  {formatCurrency(payment.remainingBalance)}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                {["#", "Payment Due Date", "Status", "Principal", "Interest", "Total Payment", "Remaining Balance"].map((h, i) => (
+                  <div
+                    key={h}
+                    style={{
+                      padding: "10px 14px",
+                      fontFamily: ds.fontMono,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                      color: ds.textDim,
+                      textAlign: i >= 3 ? "right" : "left",
+                    }}
+                  >
+                    {h}
+                  </div>
+                ))}
+              </div>
 
-        {/* Summary cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 16 }}>
-            <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 10 }}>
-              Total Debt Service (Shown)
+              {/* Table rows */}
+              {payments.map((payment) => {
+                const isSelected = selectedPayment?.id === payment.id;
+                return (
+                  <button
+                    key={payment.id}
+                    onClick={() => onSelectPayment(payment)}
+                    style={{
+                      width: "100%",
+                      display: "grid",
+                      gridTemplateColumns: "60px 1fr 100px 140px 140px 140px 160px",
+                      borderBottom: `1px solid ${ds.border}`,
+                      background: isSelected ? ds.surfaceRaised : "transparent",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      border: "none",
+                      borderBlockEnd: `1px solid ${ds.border}`,
+                      transition: "background 0.1s",
+                      fontFamily: ds.fontMono,
+                    }}
+                  >
+                    <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textMuted }}>
+                      {payment.paymentNumber}
+                    </div>
+                    <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, fontFamily: ds.fontMono }}>
+                      {payment.paymentDueDate}
+                    </div>
+                    <div style={{ padding: "10px 14px" }}>
+                      <PaymentStatusChip status={payment.paymentStatus} />
+                    </div>
+                    <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, textAlign: "right" }}>
+                      {formatCurrency(payment.scheduledPrincipal)}
+                    </div>
+                    <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, textAlign: "right" }}>
+                      {formatCurrency(payment.scheduledInterest)}
+                    </div>
+                    <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.gold : ds.amber, textAlign: "right" }}>
+                      {formatCurrency(payment.scheduledTotalPayment)}
+                    </div>
+                    <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 500, color: isSelected ? ds.text : ds.textDim, textAlign: "right" }}>
+                      {formatCurrency(payment.remainingBalance)}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 20 }}>
-              <div>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Principal: </span>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
-                  {formatCurrency(MOCK_PAYMENTS.reduce((sum, p) => sum + p.scheduledPrincipal, 0))}
-                </span>
+
+            {/* Summary cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 16 }}>
+                <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 10 }}>
+                  Total Debt Service
+                </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 20 }}>
+                  <div>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Principal: </span>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
+                      {formatCurrency(payments.reduce((sum, p) => sum + p.scheduledPrincipal, 0))}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Interest: </span>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
+                      {formatCurrency(payments.reduce((sum, p) => sum + p.scheduledInterest, 0))}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Total: </span>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.gold }}>
+                      {formatCurrency(payments.reduce((sum, p) => sum + p.scheduledTotalPayment, 0))}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Interest: </span>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
-                  {formatCurrency(MOCK_PAYMENTS.reduce((sum, p) => sum + p.scheduledInterest, 0))}
-                </span>
-              </div>
-              <div>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Total: </span>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.gold }}>
-                  {formatCurrency(MOCK_PAYMENTS.reduce((sum, p) => sum + p.scheduledTotalPayment, 0))}
-                </span>
+              <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 16 }}>
+                <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 10 }}>
+                  Balance Trajectory
+                </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 20 }}>
+                  <div>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Starting: </span>
+                    <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
+                      {formatCurrency(startingBalance)}
+                    </span>
+                  </div>
+                  {lastPayment && (
+                    <>
+                      <div>
+                        <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>After Pmt {lastPayment.paymentNumber}: </span>
+                        <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
+                          {formatCurrency(lastPayment.remainingBalance)}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Paydown: </span>
+                        <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.green }}>
+                          {startingBalance > 0
+                            ? (((startingBalance - lastPayment.remainingBalance) / startingBalance) * 100).toFixed(1)
+                            : "0.0"}%
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 16 }}>
-            <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 10 }}>
-              Balance Trajectory
+          </>
+        ) : (
+          /* No payment schedule yet but has obligations */
+          selectedContract.obligations.length > 0 && (
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <span style={{ fontFamily: ds.fontSerif, fontSize: 16, fontStyle: "italic", color: ds.textMuted }}>
+                Obligations extracted — payment schedule pending
+              </span>
             </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 20 }}>
-              <div>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Starting: </span>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>$8,500,000</span>
-              </div>
-              <div>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>After Pmt 18: </span>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.text }}>
-                  {formatCurrency(MOCK_PAYMENTS[MOCK_PAYMENTS.length - 1].remainingBalance)}
-                </span>
-              </div>
-              <div>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Paydown: </span>
-                <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: ds.green }}>
-                  {(((8500000 - MOCK_PAYMENTS[MOCK_PAYMENTS.length - 1].remainingBalance) / 8500000) * 100).toFixed(1)}%
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+          )
+        )}
       </div>
 
       {/* Footer action bar */}
@@ -541,30 +903,73 @@ function ObligationTermStructureStep({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <FooterMeta label="Contract" value={CONTRACT_ID} />
-          <FooterMeta label="Obligation" value="OBL_20260305_001" />
-          <FooterMeta label="Principal" value="$8,500,000" />
-          <FooterMeta label="All-in Rate" value="8.50%" valueColor={ds.amber} />
+          <FooterMeta label="Contract" value={selectedContract.contract_for_validation_id} />
+          {oblProps && (
+            <>
+              <FooterMeta label="Obligation" value={oblProps.obligationId} />
+              <FooterMeta label="Principal" value={oblProps.principalAmount ? formatCurrency(oblProps.principalAmount) : "—"} />
+              {oblProps.interestRateIndex && oblProps.interestRateSpread && (
+                <FooterMeta
+                  label="Rate"
+                  value={`${oblProps.interestRateIndex} + ${oblProps.interestRateSpread} bps`}
+                  valueColor={ds.amber}
+                />
+              )}
+            </>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <GhostButtonWarn label="Reject Structure" />
-          <button
-            style={{
-              padding: "8px 16px",
-              borderRadius: ds.radius,
-              fontFamily: ds.fontBody,
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              background: ds.gold,
-              color: "#18140a",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            Validate Structure →
-          </button>
+          {/* Revert buttons */}
+          {allObligationsValidated && (
+            <GhostButtonWarn label="Revert Obligations" onClick={onRevertObligations} disabled={validating} />
+          )}
+          {allTermStructureValidated && (
+            <GhostButtonWarn label="Revert Term Structure" onClick={onRevertTermStructure} disabled={validating} />
+          )}
+
+          {/* Validate buttons */}
+          {!allObligationsValidated && selectedContract.obligations.length > 0 && (
+            <button
+              onClick={onValidateObligations}
+              disabled={validating}
+              style={{
+                padding: "8px 16px",
+                borderRadius: ds.radius,
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: validating ? ds.textMuted : ds.gold,
+                color: "#18140a",
+                border: "none",
+                cursor: validating ? "wait" : "pointer",
+              }}
+            >
+              {validating ? "..." : "Validate Obligations"}
+            </button>
+          )}
+          {allObligationsValidated && payments.length > 0 && !allTermStructureValidated && (
+            <button
+              onClick={onValidateTermStructure}
+              disabled={validating}
+              style={{
+                padding: "8px 16px",
+                borderRadius: ds.radius,
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: validating ? ds.textMuted : ds.gold,
+                color: "#18140a",
+                border: "none",
+                cursor: validating ? "wait" : "pointer",
+              }}
+            >
+              {validating ? "..." : "Validate Structure →"}
+            </button>
+          )}
         </div>
       </div>
     </>
@@ -572,7 +977,7 @@ function ObligationTermStructureStep({
 }
 
 /* ================================================================== */
-/*  STEP 2 — Projections (Coverage Corridor)                           */
+/*  STEP 2 — Projections (Coverage Corridor) — unchanged / mock data   */
 /* ================================================================== */
 
 function ProjectionsStep() {
@@ -617,61 +1022,6 @@ function ProjectionsStep() {
             { label: "PROFILE", value: "PRF_MFG_MID_GRW_01" },
             { label: "HORIZON", value: "36 months" },
           ]} />
-        </div>
-
-        {/* ── Profile Properties ── */}
-        <SectionDivider label="Projection Profile Properties" />
-        <div
-          style={{
-            background: ds.surface,
-            border: `1px solid ${ds.border}`,
-            borderRadius: ds.radiusLg,
-            overflow: "hidden",
-            marginBottom: 24,
-          }}
-        >
-          <div
-            style={{
-              padding: "12px 20px",
-              background: ds.surfaceRaised,
-              borderBottom: `1px solid ${ds.border}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
-              Profile Assignment
-            </span>
-            <span
-              style={{
-                fontFamily: ds.fontMono,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                padding: "3px 8px",
-                borderRadius: 3,
-                background: ds.satBg,
-                color: ds.satColor,
-                border: `1px solid ${ds.satBorder}`,
-              }}
-            >
-              System-Assigned
-            </span>
-          </div>
-          <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
-            <div>
-              {PROFILE_PROPERTIES_LEFT.map((prop) => (
-                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
-              ))}
-            </div>
-            <div>
-              {PROFILE_PROPERTIES_RIGHT.map((prop) => (
-                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* ── Coverage Corridor Chart ── */}
@@ -941,7 +1291,7 @@ function ProjectionsStep() {
         </div>
 
         {/* Key metrics summary */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
           <MetricCard
             label="Temporal Min DSCR"
             value={`${TEMPORAL_MIN.dscrBase.toFixed(2)}x`}
@@ -966,6 +1316,61 @@ function ProjectionsStep() {
             sub="Peak uncertainty spread"
             accent={ds.amber}
           />
+        </div>
+
+        {/* ── Profile Properties ── */}
+        <SectionDivider label="Projection Profile Properties" />
+        <div
+          style={{
+            background: ds.surface,
+            border: `1px solid ${ds.border}`,
+            borderRadius: ds.radiusLg,
+            overflow: "hidden",
+            marginBottom: 24,
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 20px",
+              background: ds.surfaceRaised,
+              borderBottom: `1px solid ${ds.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
+              Profile Assignment
+            </span>
+            <span
+              style={{
+                fontFamily: ds.fontMono,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                padding: "3px 8px",
+                borderRadius: 3,
+                background: ds.satBg,
+                color: ds.satColor,
+                border: `1px solid ${ds.satBorder}`,
+              }}
+            >
+              System-Assigned
+            </span>
+          </div>
+          <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+            <div>
+              {PROFILE_PROPERTIES_LEFT.map((prop) => (
+                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
+              ))}
+            </div>
+            <div>
+              {PROFILE_PROPERTIES_RIGHT.map((prop) => (
+                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1204,6 +1609,8 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
     value === "MODERATE" ||
     value === "ADEQUATE" ||
     value === "HIGH" ||
+    value === "YES" ||
+    value === "VALIDATED" ||
     value.startsWith("OBL_") ||
     value.startsWith("CNT_") ||
     value.startsWith("PRF_");
@@ -1226,9 +1633,26 @@ function GhostButton({ label, onClick }: { label: string; onClick?: () => void }
   );
 }
 
-function GhostButtonWarn({ label }: { label: string }) {
+function GhostButtonWarn({ label, onClick, disabled }: { label: string; onClick?: () => void; disabled?: boolean }) {
   return (
-    <button style={{ padding: "8px 16px", borderRadius: ds.radius, fontFamily: ds.fontBody, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", background: "transparent", color: ds.coral, border: `1px solid rgba(224,112,96,0.38)`, cursor: "pointer", whiteSpace: "nowrap" }}>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: "8px 16px",
+        borderRadius: ds.radius,
+        fontFamily: ds.fontBody,
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        background: "transparent",
+        color: disabled ? ds.textMuted : ds.coral,
+        border: `1px solid ${disabled ? ds.border : "rgba(224,112,96,0.38)"}`,
+        cursor: disabled ? "not-allowed" : "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
       {label}
     </button>
   );
@@ -1239,6 +1663,68 @@ function FooterMeta({ label, value, valueColor }: { label: string; value: string
     <div style={{ fontSize: 12, fontFamily: ds.fontMono, color: ds.textMuted }}>
       {label}: <strong style={{ color: valueColor || ds.textDim }}>{value}</strong>
     </div>
+  );
+}
+
+function ValidationBadge({ validated, label }: { validated: boolean; label: string }) {
+  return (
+    <span
+      style={{
+        fontFamily: ds.fontMono,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        padding: "3px 8px",
+        borderRadius: 3,
+        background: validated ? ds.satBg : ds.pwBg,
+        color: validated ? ds.satColor : ds.pwColor,
+        border: `1px solid ${validated ? ds.satBorder : ds.pwBorder}`,
+      }}
+    >
+      {label}: {validated ? "Validated" : "Pending"}
+    </span>
+  );
+}
+
+function PaymentStatusChip({ status }: { status?: string }) {
+  if (!status) return null;
+  const upper = status.toUpperCase();
+  let bg = ds.surfaceRaised;
+  let color = ds.textMuted;
+  let border = ds.border;
+
+  if (upper === "PAST_DUE") {
+    bg = ds.wdwBg;
+    color = ds.wdwColor;
+    border = ds.wdwBorder;
+  } else if (upper === "DUE_SOON") {
+    bg = ds.pwBg;
+    color = ds.pwColor;
+    border = ds.pwBorder;
+  } else if (upper === "SCHEDULED") {
+    bg = ds.surfaceRaised;
+    color = ds.textMuted;
+    border = ds.border;
+  }
+
+  return (
+    <span
+      style={{
+        fontFamily: ds.fontMono,
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        padding: "2px 6px",
+        borderRadius: 3,
+        background: bg,
+        color,
+        border: `1px solid ${border}`,
+      }}
+    >
+      {status}
+    </span>
   );
 }
 
