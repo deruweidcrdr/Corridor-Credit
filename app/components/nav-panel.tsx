@@ -70,8 +70,7 @@ function CRDRMonogram({ size = 36 }: { size?: number }) {
       >
         CR
       </text>
-      {/* Diagonal slash */}
-      <line x1="38" y1="22" x2="62" y2="78" stroke={`url(#${id})`} strokeWidth="2.5" />
+      {/* Spacer — slash removed for cleaner stacked CR/DR presentation */}
       <text
         x="50"
         y="68"

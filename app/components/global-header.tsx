@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { ds } from "@/lib/design-tokens";
-import { useOrg } from "@/lib/contexts/org-context";
 
 const RAILWAY_URL = "https://email-processing-production-production.up.railway.app";
 
@@ -14,8 +13,6 @@ interface Props {
 }
 
 export default function GlobalHeader({ navExpanded, onToggleNav, unreadCount }: Props) {
-  const { user, organization } = useOrg();
-
   // ── Polling state ──
   const [pollingOn, setPollingOn] = useState<boolean | null>(null);
 
@@ -36,6 +33,14 @@ export default function GlobalHeader({ navExpanded, onToggleNav, unreadCount }: 
     }
   }, [pollingOn]);
 
+  const mono10: React.CSSProperties = {
+    fontFamily: ds.fontMono,
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+  };
+
   return (
     <header
       style={{
@@ -46,41 +51,61 @@ export default function GlobalHeader({ navExpanded, onToggleNav, unreadCount }: 
         display: "flex",
         alignItems: "center",
         padding: "0 16px",
-        gap: 16,
+        gap: 0,
         zIndex: 100,
       }}
     >
-      {/* ── Left: Nav toggle ── */}
-      <button
-        onClick={onToggleNav}
-        style={{
-          background: "transparent",
-          border: "none",
-          color: ds.textMuted,
-          cursor: "pointer",
-          padding: 4,
-          display: "flex",
-          alignItems: "center",
-        }}
-        title={navExpanded ? "Collapse navigation" : "Expand navigation"}
-      >
-        <Menu size={18} />
-      </button>
+      {/* ── Left group: Nav toggle + Username + Separator + Institution ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
+        {/* Nav toggle */}
+        <button
+          onClick={onToggleNav}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: ds.textMuted,
+            cursor: "pointer",
+            padding: 4,
+            display: "flex",
+            alignItems: "center",
+            marginRight: 12,
+          }}
+          title={navExpanded ? "Collapse navigation" : "Expand navigation"}
+        >
+          <Menu size={18} />
+        </button>
 
-      {/* ── Center-left: breadcrumb placeholder ── */}
+        {/* Username */}
+        <span style={{ ...mono10, color: ds.text, marginRight: 14 }}>
+          Brent Elliott
+        </span>
+
+        {/* Vertical separator — aligns with nav panel right edge (240px) */}
+        <div
+          style={{
+            width: 1,
+            height: 20,
+            background: "rgba(255,255,255,0.10)",
+            marginRight: 14,
+          }}
+        />
+
+        {/* Institution */}
+        <span style={{ ...mono10, color: ds.textDim }}>
+          Corridor Credit
+        </span>
+      </div>
+
+      {/* ── Spacer ── */}
       <div style={{ flex: 1 }} />
 
-      {/* ── Center-right: Platform status indicators ── */}
+      {/* ── Right group: Polling + Live + Unread + separator + Active Workflows ── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 14,
-          fontFamily: ds.fontMono,
-          fontSize: 10,
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
+          ...mono10,
         }}
       >
         {/* Polling toggle */}
@@ -88,17 +113,13 @@ export default function GlobalHeader({ navExpanded, onToggleNav, unreadCount }: 
           onClick={togglePolling}
           disabled={pollingOn === null}
           style={{
-            fontFamily: ds.fontMono,
-            fontSize: 10,
-            fontWeight: 700,
+            ...mono10,
             padding: "3px 10px",
             borderRadius: 10,
             border: `1px solid ${pollingOn ? "rgba(76,175,130,0.35)" : "rgba(255,255,255,0.12)"}`,
             background: pollingOn ? ds.greenDim : "rgba(255,255,255,0.05)",
             color: pollingOn ? ds.green : ds.textMuted,
             cursor: pollingOn === null ? "wait" : "pointer",
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
             transition: "all 0.15s ease",
           }}
         >
@@ -129,56 +150,33 @@ export default function GlobalHeader({ navExpanded, onToggleNav, unreadCount }: 
               border: "1px solid rgba(224,112,96,0.30)",
               padding: "2px 8px",
               borderRadius: 3,
-              letterSpacing: "0.06em",
             }}
           >
             {unreadCount} UNREAD
           </span>
         )}
-      </div>
 
-      {/* ── Separator ── */}
-      <div
-        style={{
-          width: 1,
-          height: 20,
-          background: "rgba(255,255,255,0.08)",
-          margin: "0 4px",
-        }}
-      />
+        {/* Separator */}
+        <div
+          style={{
+            width: 1,
+            height: 20,
+            background: "rgba(255,255,255,0.08)",
+          }}
+        />
 
-      {/* ── Far right: User identity ── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          fontFamily: ds.fontMono,
-          fontSize: 10,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-        }}
-      >
-        <span style={{ color: ds.textDim, fontWeight: 700 }}>
-          {organization?.name ?? "Corridor Credit"}
+        {/* Active workflows badge */}
+        <span
+          style={{
+            background: ds.goldDim,
+            color: ds.gold,
+            border: `1px solid rgba(200,168,75,0.30)`,
+            padding: "2px 8px",
+            borderRadius: 3,
+          }}
+        >
+          4 ACTIVE WORKFLOWS
         </span>
-        <span style={{ color: ds.textMuted }}>
-          {user?.email ?? ""}
-        </span>
-        {user?.role && (
-          <span
-            style={{
-              background: ds.goldDim,
-              color: ds.gold,
-              border: `1px solid rgba(200,168,75,0.30)`,
-              padding: "2px 8px",
-              borderRadius: 3,
-              fontWeight: 700,
-            }}
-          >
-            {user.role.replace(/_/g, " ")}
-          </span>
-        )}
       </div>
     </header>
   );
