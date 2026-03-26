@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Sidebar from "@/app/components/sidebar";
 
 /* ================================================================== */
 /*  Design-system tokens (from DESIGN_SYSTEM.md)                       */
@@ -89,20 +88,7 @@ export default function CreditAnalysisClient() {
   const [activeStep, setActiveStep] = useState(1);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        overflow: "hidden",
-        background: ds.bg,
-        color: ds.text,
-        fontFamily: ds.fontBody,
-        fontSize: 13,
-      }}
-    >
-      <Sidebar />
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100%", background: ds.bg, color: ds.text, fontFamily: ds.fontBody, fontSize: 13 }}>
         {/* ── Topbar / stage tabs ── */}
         <div
           style={{
@@ -169,7 +155,6 @@ export default function CreditAnalysisClient() {
         {activeStep === 2 && <PolicyStep />}
         {activeStep === 3 && <YardbookStep />}
         {activeStep === 4 && <ComingSoon label="Approval" />}
-      </div>
     </div>
   );
 }

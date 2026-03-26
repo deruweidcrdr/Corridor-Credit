@@ -7,7 +7,6 @@ import type {
   InboxNotification,
 } from "@/lib/inbox-data";
 import DocumentShelf from "./document-modal";
-import Sidebar from "@/app/components/sidebar";
 
 /* ================================================================== */
 /*  Design-system tokens (from DESIGN_SYSTEM.md v3)                    */
@@ -110,30 +109,7 @@ export default function InboxClient({ emails, notifications }: Props) {
     return initial;
   });
 
-  const [pollingOn, setPollingOn] = useState<boolean | null>(null); // null = loading
-
-  useEffect(() => {
-    fetch("https://email-processing-production-production.up.railway.app/api/polling/status")
-      .then((r) => r.json())
-      .then((d) => setPollingOn(d.polling_active ?? d.active ?? false))
-      .catch(() => setPollingOn(false));
-  }, []);
-
-  const togglePolling = useCallback(async () => {
-    const endpoint = pollingOn ? "stop" : "start";
-    try {
-      const r = await fetch(
-        `https://email-processing-production-production.up.railway.app/api/polling/${endpoint}`,
-        { method: "POST" }
-      );
-      if (r.ok) setPollingOn(!pollingOn);
-    } catch {
-      // silently fail
-    }
-  }, [pollingOn]);
-
   const selectedEmail = emails.find((e) => e.id === selectedEmailId) ?? null;
-  const unreadCount = emails.filter((e) => !e.is_read).length;
 
   const closeShelf = useCallback(() => setOpenAttachment(null), []);
 
@@ -152,89 +128,20 @@ export default function InboxClient({ emails, notifications }: Props) {
       <div
         style={{
           display: "flex",
-          height: "100vh",
+          flexDirection: "column",
           overflow: "hidden",
+          height: "100%",
           background: ds.bg,
           color: ds.text,
           fontFamily: ds.fontBody,
+          minWidth: 0,
         }}
       >
-        {/* ── Sidebar (preserved as-is) ── */}
-        <Sidebar />
-
-        {/* ── Main area ── */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            minWidth: 0,
-          }}
-        >
-          {/* ── Topbar ── */}
-          <div
-            style={{
-              height: 48,
-              flexShrink: 0,
-              background: ds.surfaceDeep,
-              borderBottom: `1px solid ${ds.border}`,
-              display: "flex",
-              alignItems: "center",
-              padding: "0 28px",
-              gap: 16,
-            }}
-          >
-            <div
-              style={{
-                fontFamily: ds.fontMono,
-                fontSize: 11,
-                fontWeight: 500,
-                textTransform: "uppercase",
-                letterSpacing: "0.12em",
-                color: ds.textMuted,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span>Corridor Credit</span>
-              <span style={{ color: ds.borderAccent }}>/</span>
-              <span style={{ color: ds.gold }}>Inbox &amp; Alerts</span>
-            </div>
-            <div
-              style={{
-                marginLeft: "auto",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontFamily: ds.fontMono,
-                fontSize: 11,
-                color: ds.textMuted,
-              }}
-            >
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: ds.green,
-                  boxShadow: `0 0 0 3px ${ds.greenDim}`,
-                  display: "inline-block",
-                }}
-              />
-              <span>Live · {unreadCount} unread</span>
-            </div>
-          </div>
-
           {/* ── Page header ── */}
           <div
             style={{
               padding: "22px 28px 16px",
               borderBottom: `1px solid ${ds.border}`,
-              display: "flex",
-              alignItems: "baseline",
-              justifyContent: "space-between",
               flexShrink: 0,
               background: ds.bg,
             }}
@@ -253,54 +160,6 @@ export default function InboxClient({ emails, notifications }: Props) {
             >
               Inbox &amp; Alerts
             </h1>
-            <div
-              style={{
-                fontFamily: ds.fontMono,
-                fontSize: 11,
-                color: ds.textMuted,
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-              }}
-            >
-              <span>elliott@corridor.credit</span>
-              {unreadCount > 0 && (
-                <span
-                  style={{
-                    background: ds.coralDim,
-                    color: ds.coral,
-                    border: "1px solid rgba(224,112,96,0.30)",
-                    fontFamily: ds.fontMono,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: "2px 8px",
-                    borderRadius: 3,
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {unreadCount} Unread
-                </span>
-              )}
-              <button
-                onClick={togglePolling}
-                disabled={pollingOn === null}
-                style={{
-                  fontFamily: ds.fontMono,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: "3px 10px",
-                  borderRadius: 10,
-                  border: `1px solid ${pollingOn ? "rgba(76,175,130,0.35)" : "rgba(255,255,255,0.12)"}`,
-                  background: pollingOn ? ds.greenDim : "rgba(255,255,255,0.05)",
-                  color: pollingOn ? ds.green : ds.textMuted,
-                  cursor: pollingOn === null ? "wait" : "pointer",
-                  letterSpacing: "0.06em",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                {pollingOn === null ? "Polling: …" : pollingOn ? "Polling: ON" : "Polling: OFF"}
-              </button>
-            </div>
           </div>
 
           {/* ── Three-column workspace ── */}
@@ -339,7 +198,6 @@ export default function InboxClient({ emails, notifications }: Props) {
               }
             />
           </div>
-        </div>
       </div>
 
       {/* ── Document shelf ── */}

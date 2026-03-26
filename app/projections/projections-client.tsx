@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Sidebar from "@/app/components/sidebar";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -121,27 +120,111 @@ interface DealData {
 }
 
 /* ================================================================== */
-/*  Mock projection profile properties (Step 2 — not wired yet)        */
+/*  Profile property builders (from live Supabase data)                 */
 /* ================================================================== */
-const PROFILE_PROPERTIES_LEFT: { label: string; value: string }[] = [
-  { label: "Profile ID", value: "PRF_MFG_MID_GRW_01" },
-  { label: "Industry", value: "Manufacturing — Precision Components" },
-  { label: "NAICS Code", value: "332710" },
-  { label: "Scale", value: "Middle Market ($50-250M Rev)" },
-  { label: "Maturity Stage", value: "GROWTH" },
-  { label: "Market Orientation", value: "B2B" },
-  { label: "Revenue Characteristics", value: "Contract / Order-Based" },
-];
 
-const PROFILE_PROPERTIES_RIGHT: { label: string; value: string }[] = [
-  { label: "Typical Leverage", value: "2.5x – 3.5x" },
-  { label: "Capitalization", value: "MODERATE" },
-  { label: "Commodity Risk Exposure", value: "MODERATE (Metals / Raw Materials)" },
-  { label: "Fixed Charge Exposure", value: "ADEQUATE" },
-  { label: "Working Capital Intensity", value: "HIGH" },
-  { label: "Revenue Cyclicality", value: "MODERATE" },
-  { label: "Assignment Confidence", value: "0.87" },
-];
+function deriveMaturityLabel(category: string | undefined): string {
+  if (!category) return "—";
+  const c = category.toLowerCase();
+  if (c.includes("growth") || c.includes("high")) return "GROWTH";
+  if (c.includes("mature") || c.includes("stable")) return "MATURE";
+  if (c.includes("decline") || c.includes("distress")) return "DECLINE";
+  if (c.includes("startup") || c.includes("early")) return "STARTUP";
+  return category.toUpperCase();
+}
+
+function deriveMarketOrientation(b2b?: number, b2c?: number): string {
+  if (b2b == null && b2c == null) return "—";
+  const b2bPct = b2b ?? 0;
+  const b2cPct = b2c ?? 0;
+  if (b2bPct >= 80) return "B2B";
+  if (b2cPct >= 80) return "B2C";
+  return "B2B / B2C";
+}
+
+function deriveRevenueCharacteristics(method?: string, relationship?: string): string {
+  if (!method && !relationship) return "—";
+  const parts = [method, relationship].filter(Boolean);
+  return parts.join(" / ") || "—";
+}
+
+function deriveCapitalization(leverage?: number): string {
+  if (leverage == null) return "—";
+  if (leverage < 2) return "HIGH";
+  if (leverage <= 4) return "MODERATE";
+  return "LOW";
+}
+
+function formatLeverage(leverage?: number): string {
+  if (leverage == null) return "—";
+  const low = Math.max(leverage - 0.5, 0).toFixed(1);
+  const high = (leverage + 0.5).toFixed(1);
+  return `${low}x – ${high}x`;
+}
+
+function deriveCommodityRisk(cantillonLayer?: string, industry?: string): string {
+  if (cantillonLayer) return cantillonLayer;
+  if (!industry) return "—";
+  const ind = industry.toLowerCase();
+  if (ind.includes("manufacturing") || ind.includes("mining")) return "MODERATE (Metals / Raw Materials)";
+  if (ind.includes("energy") || ind.includes("oil")) return "HIGH (Energy / Commodities)";
+  if (ind.includes("tech") || ind.includes("software")) return "LOW";
+  return "MODERATE";
+}
+
+function deriveFixedChargeExposure(fixedPct?: number): string {
+  if (fixedPct == null) return "—";
+  if (fixedPct >= 80) return "STRONG";
+  if (fixedPct >= 50) return "ADEQUATE";
+  return "WEAK";
+}
+
+function deriveWorkingCapitalIntensity(profile: any): string {
+  const daysAr = profile?.working_capital_days_ar;
+  const daysInv = profile?.working_capital_days_inventory;
+  const daysAp = profile?.working_capital_days_ap;
+  if (daysAr == null && daysInv == null && daysAp == null) return "—";
+  const cycle = (daysAr ?? 0) + (daysInv ?? 0) - (daysAp ?? 0);
+  if (cycle > 60) return "HIGH";
+  if (cycle > 30) return "MODERATE";
+  return "LOW";
+}
+
+function buildProfilePropertiesLeft(assignment: any, profile: any): { label: string; value: string }[] {
+  const industrySector = assignment?.industry_sector_label ?? "";
+  const profileName = profile?.profile_name ?? "";
+  const industryDisplay = industrySector && profileName
+    ? `${industrySector} — ${profileName}`
+    : industrySector || profileName || "—";
+
+  const revBucket = assignment?.revenue_size_bucket ?? "";
+  const annualRev = assignment?.annual_revenue;
+  const scaleDisplay = annualRev
+    ? `${revBucket} ($${(annualRev / 1_000_000).toFixed(0)}M Rev)`
+    : revBucket || "—";
+
+  return [
+    { label: "Profile ID", value: assignment?.effective_profile_id ?? "—" },
+    { label: "Industry", value: industryDisplay },
+    { label: "NAICS Code", value: assignment?.resolved_industry_code ?? "—" },
+    { label: "Scale", value: scaleDisplay },
+    { label: "Maturity Stage", value: deriveMaturityLabel(assignment?.logical_profile_category) },
+    { label: "Market Orientation", value: deriveMarketOrientation(profile?.b2b_percentage, profile?.b2c_percentage) },
+    { label: "Revenue Characteristics", value: deriveRevenueCharacteristics(profile?.revenue_method, profile?.revenue_relationship_type) },
+  ];
+}
+
+function buildProfilePropertiesRight(assignment: any, profile: any): { label: string; value: string }[] {
+  return [
+    { label: "Typical Leverage", value: formatLeverage(profile?.debt_target_leverage_ratio) },
+    { label: "Capitalization", value: deriveCapitalization(profile?.debt_target_leverage_ratio) },
+    { label: "Commodity Risk Exposure", value: deriveCommodityRisk(profile?.cantillon_cost_layer, profile?.industry) },
+    { label: "Fixed Charge Exposure", value: deriveFixedChargeExposure(profile?.interest_rate_fixed_exposure_percentage) },
+    { label: "Working Capital Intensity", value: deriveWorkingCapitalIntensity(profile) },
+    { label: "Revenue Cyclicality", value: (assignment?.volatility_label ?? "—").toUpperCase() },
+    { label: "Assignment Confidence", value: assignment?.confidence_score != null ? Number(assignment.confidence_score).toFixed(2) : "—" },
+  ];
+}
 
 /* ================================================================== */
 /*  Mock DSCR corridor projection data (Step 2 — not wired yet)        */
@@ -222,12 +305,18 @@ export default function ProjectionsClient() {
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
 
+  // Profile assignment state
+  const [profileAssignments, setProfileAssignments] = useState<Record<string, any>>({});
+  const [profileDetails, setProfileDetails] = useState<Record<string, any>>({});
+
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/projections");
       const json = await res.json();
       const fetchedDeals: DealData[] = json.deals ?? [];
       setDeals(fetchedDeals);
+      setProfileAssignments(json.profileAssignments ?? {});
+      setProfileDetails(json.profileDetails ?? {});
 
       // Auto-select first deal with contracts
       if (fetchedDeals.length > 0 && !selectedDealId) {
@@ -389,20 +478,7 @@ export default function ProjectionsClient() {
     : false;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        overflow: "hidden",
-        background: ds.bg,
-        color: ds.text,
-        fontFamily: ds.fontBody,
-        fontSize: 13,
-      }}
-    >
-      <Sidebar />
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100%", background: ds.bg, color: ds.text, fontFamily: ds.fontBody, fontSize: 13 }}>
         {/* ── Topbar / stage tabs ── */}
         <div
           style={{
@@ -539,10 +615,31 @@ export default function ProjectionsClient() {
             />
           )
         )}
-        {activeStep === 2 && <ProjectionsStep />}
+        {activeStep === 2 && (
+          <ProjectionsStep
+            counterpartyId={selectedDeal?.counterparty_id}
+            counterpartyName={selectedDeal?.counterparty_name}
+            dealId={selectedDeal?.deal_id}
+            profileAssignments={profileAssignments}
+            profileDetails={profileDetails}
+            onProfileUpdate={(updatedAssignment: any) => {
+              setProfileAssignments((prev) => ({
+                ...prev,
+                [updatedAssignment.counterparty_id]: updatedAssignment,
+              }));
+            }}
+            onProfileDetailUpdate={(profile: any) => {
+              if (profile?.projection_profile_id) {
+                setProfileDetails((prev) => ({
+                  ...prev,
+                  [profile.projection_profile_id]: profile,
+                }));
+              }
+            }}
+          />
+        )}
         {activeStep === 3 && <ComingSoon label="Collateral" />}
         {activeStep === 4 && <ComingSoon label="Approval" />}
-      </div>
     </div>
   );
 }
@@ -980,13 +1077,91 @@ function ObligationTermStructureStep({
 /*  STEP 2 — Projections (Coverage Corridor) — unchanged / mock data   */
 /* ================================================================== */
 
-function ProjectionsStep() {
+function ProjectionsStep({
+  counterpartyId,
+  counterpartyName,
+  dealId,
+  profileAssignments,
+  profileDetails,
+  onProfileUpdate,
+  onProfileDetailUpdate,
+}: {
+  counterpartyId?: string;
+  counterpartyName?: string;
+  dealId?: string;
+  profileAssignments: Record<string, any>;
+  profileDetails: Record<string, any>;
+  onProfileUpdate: (updatedAssignment: any) => void;
+  onProfileDetailUpdate?: (profile: any) => void;
+}) {
   const [activeScenario, setActiveScenario] = useState<
     "base" | "stress" | "optimistic"
   >("base");
   const [activeRatio, setActiveRatio] = useState<
     "DSCR" | "LLCR" | "GDSCR" | "All"
   >("DSCR");
+  const [profileActionLoading, setProfileActionLoading] = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+
+  // Look up assignment and profile for the selected counterparty
+  const assignment = counterpartyId ? profileAssignments[counterpartyId] : null;
+  const profile = assignment?.effective_profile_id
+    ? profileDetails[assignment.effective_profile_id]
+    : null;
+
+  const profilePropsLeft = assignment
+    ? buildProfilePropertiesLeft(assignment, profile)
+    : buildProfilePropertiesLeft(null, null);
+  const profilePropsRight = assignment
+    ? buildProfilePropertiesRight(assignment, profile)
+    : buildProfilePropertiesRight(null, null);
+
+  // Assign profile — creates the initial assignment by matching counterparty to best profile
+  const handleAssignProfile = async () => {
+    if (!counterpartyId) return;
+    setAssignLoading(true);
+    try {
+      const res = await fetch("/api/projections/profile-assignment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ counterparty_id: counterpartyId }),
+      });
+      const json = await res.json();
+      if (json.success && json.assignment) {
+        onProfileUpdate(json.assignment);
+        // Also update profileDetails if a new profile was returned
+        if (json.profile) {
+          onProfileDetailUpdate?.(json.profile);
+        }
+      }
+    } catch (err) {
+      console.error("Profile assignment failed:", err);
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  // Profile action handlers (confirm/flag/override existing assignment)
+  const handleProfileAction = async (action: string, extra?: Record<string, any>) => {
+    if (!counterpartyId) return;
+    setProfileActionLoading(true);
+    try {
+      const res = await fetch("/api/projections/profile-assignment", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ counterparty_id: counterpartyId, action, ...extra }),
+      });
+      const json = await res.json();
+      if (json.success && json.assignment) {
+        onProfileUpdate(json.assignment);
+      }
+    } catch (err) {
+      console.error("Profile action failed:", err);
+    } finally {
+      setProfileActionLoading(false);
+    }
+  };
 
   const scenarioTabs = [
     { key: "base" as const, label: "Base Case" },
@@ -1012,14 +1187,38 @@ function ProjectionsStep() {
               Coverage Corridor Analysis
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <GhostButton label="Override Profile Assignment" />
+              {!assignment ? (
+                <button
+                  onClick={handleAssignProfile}
+                  disabled={assignLoading || !counterpartyId}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: ds.radius,
+                    fontFamily: ds.fontBody,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    background: ds.gold,
+                    color: "#18140a",
+                    border: "none",
+                    cursor: assignLoading || !counterpartyId ? "not-allowed" : "pointer",
+                    opacity: assignLoading || !counterpartyId ? 0.6 : 1,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {assignLoading ? "Assigning..." : "Assign Profile"}
+                </button>
+              ) : (
+                <GhostButton label="Override Profile Assignment" onClick={() => setShowOverrideModal(true)} />
+              )}
               <GhostButton label="Create Scenario" />
             </div>
           </div>
           <DealSubheader items={[
-            { label: "DEAL", value: "DEAL_20260222_49346d04" },
-            { label: "COUNTERPARTY", value: "Meridian Precision Manufacturing, LLC" },
-            { label: "PROFILE", value: "PRF_MFG_MID_GRW_01" },
+            { label: "DEAL", value: dealId ?? "—" },
+            { label: "COUNTERPARTY", value: counterpartyName ?? "—" },
+            { label: "PROFILE", value: assignment?.effective_profile_id ?? "Not Assigned" },
             { label: "HORIZON", value: "36 months" },
           ]} />
         </div>
@@ -1342,37 +1541,69 @@ function ProjectionsStep() {
             <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
               Profile Assignment
             </span>
-            <span
-              style={{
-                fontFamily: ds.fontMono,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                padding: "3px 8px",
-                borderRadius: 3,
-                background: ds.satBg,
-                color: ds.satColor,
-                border: `1px solid ${ds.satBorder}`,
-              }}
-            >
-              System-Assigned
-            </span>
+            <ProfileStatusBadge assignment={assignment} />
           </div>
-          <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
-            <div>
-              {PROFILE_PROPERTIES_LEFT.map((prop) => (
-                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
-              ))}
+          {!assignment ? (
+            <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+              <span style={{ fontFamily: ds.fontSerif, fontSize: 18, fontStyle: "italic", color: ds.textMuted }}>
+                No projection profile assigned
+              </span>
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, textAlign: "center", maxWidth: 440 }}>
+                Assign a projection profile to match this counterparty to industry benchmarks, growth assumptions, and cost structure parameters.
+              </span>
+              <button
+                onClick={handleAssignProfile}
+                disabled={assignLoading || !counterpartyId}
+                style={{
+                  marginTop: 8,
+                  padding: "10px 24px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: ds.gold,
+                  color: "#18140a",
+                  border: "none",
+                  cursor: assignLoading || !counterpartyId ? "not-allowed" : "pointer",
+                  opacity: assignLoading || !counterpartyId ? 0.6 : 1,
+                  transition: "all 0.15s",
+                }}
+              >
+                {assignLoading ? "Matching Profile..." : "Assign Projection Profile"}
+              </button>
             </div>
-            <div>
-              {PROFILE_PROPERTIES_RIGHT.map((prop) => (
-                <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
-              ))}
+          ) : (
+            <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+              <div>
+                {profilePropsLeft.map((prop) => (
+                  <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
+                ))}
+              </div>
+              <div>
+                {profilePropsRight.map((prop) => (
+                  <PropertyRow key={prop.label} label={prop.label} value={prop.value} />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
+
+      {/* Override modal */}
+      {showOverrideModal && (
+        <OverrideModal
+          onClose={() => setShowOverrideModal(false)}
+          onSubmit={(profileId, justification) => {
+            setShowOverrideModal(false);
+            handleProfileAction("OVERRIDE", {
+              user_selected_profile: profileId,
+              override_justification: justification,
+            });
+          }}
+        />
+      )}
 
       {/* Footer action bar */}
       <div
@@ -1387,47 +1618,80 @@ function ProjectionsStep() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <FooterMeta label="Profile" value="PRF_MFG_MID_GRW_01" />
+          <FooterMeta label="Profile" value={assignment?.effective_profile_id ?? "—"} />
           <FooterMeta label="Scenario" value="Base Case" />
           <FooterMeta label="Temporal Min" value={`${TEMPORAL_MIN.dscrBase.toFixed(2)}x`} valueColor={ds.wdwColor} />
           <FooterMeta label="Covenant Cushion" value={`${(((TEMPORAL_MIN.dscrBase - 1.25) / 1.25) * 100).toFixed(1)}%`} valueColor={TEMPORAL_MIN.dscrBase < 1.25 ? ds.wdwColor : ds.green} />
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <GhostButton label="Override Profile" />
-          <button
-            style={{
-              padding: "8px 14px",
-              borderRadius: ds.radius,
-              fontFamily: ds.fontBody,
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              background: ds.coral,
-              color: "#fff",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            Flag for Review
-          </button>
-          <button
-            style={{
-              padding: "8px 16px",
-              borderRadius: ds.radius,
-              fontFamily: ds.fontBody,
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              background: ds.gold,
-              color: "#18140a",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            Confirm Profile →
-          </button>
+          {!assignment ? (
+            <button
+              onClick={handleAssignProfile}
+              disabled={assignLoading || !counterpartyId}
+              style={{
+                padding: "8px 16px",
+                borderRadius: ds.radius,
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: ds.gold,
+                color: "#18140a",
+                border: "none",
+                cursor: assignLoading || !counterpartyId ? "not-allowed" : "pointer",
+                opacity: assignLoading || !counterpartyId ? 0.6 : 1,
+              }}
+            >
+              {assignLoading ? "Assigning..." : "Assign Profile"}
+            </button>
+          ) : (
+            <>
+              <GhostButton label="Override Profile" onClick={() => setShowOverrideModal(true)} />
+              <button
+                onClick={() => handleProfileAction("FLAGGED")}
+                disabled={profileActionLoading}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: ds.coral,
+                  color: "#fff",
+                  border: "none",
+                  cursor: profileActionLoading ? "not-allowed" : "pointer",
+                  opacity: profileActionLoading ? 0.6 : 1,
+                }}
+              >
+                Flag for Review
+              </button>
+            </>
+          )}
+          {assignment && (
+            <button
+              onClick={() => handleProfileAction("CONFIRMED")}
+              disabled={profileActionLoading}
+              style={{
+                padding: "8px 16px",
+                borderRadius: ds.radius,
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: ds.gold,
+                color: "#18140a",
+                border: "none",
+                cursor: profileActionLoading ? "not-allowed" : "pointer",
+                opacity: profileActionLoading ? 0.6 : 1,
+              }}
+            >
+              Confirm Profile →
+            </button>
+          )}
         </div>
       </div>
     </>
@@ -1605,10 +1869,18 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
     value === "STRAIGHT_LINE" ||
     value === "MONTHLY" ||
     value === "GROWTH" ||
+    value === "MATURE" ||
+    value === "DECLINE" ||
+    value === "STARTUP" ||
     value === "B2B" ||
+    value === "B2C" ||
+    value === "B2B / B2C" ||
     value === "MODERATE" ||
     value === "ADEQUATE" ||
+    value === "STRONG" ||
+    value === "WEAK" ||
     value === "HIGH" ||
+    value === "LOW" ||
     value === "YES" ||
     value === "VALIDATED" ||
     value.startsWith("OBL_") ||
@@ -1684,6 +1956,159 @@ function ValidationBadge({ validated, label }: { validated: boolean; label: stri
     >
       {label}: {validated ? "Validated" : "Pending"}
     </span>
+  );
+}
+
+function ProfileStatusBadge({ assignment }: { assignment: any }) {
+  let label = "System-Assigned";
+  let bg = ds.satBg;
+  let color = ds.satColor;
+  let border = ds.satBorder;
+
+  if (assignment?.is_user_override) {
+    label = "User Override";
+    bg = ds.pwBg;
+    color = ds.pwColor;
+    border = ds.pwBorder;
+  } else if (assignment?.status === "CONFIRMED") {
+    label = "Confirmed";
+    bg = ds.satBg;
+    color = ds.satColor;
+    border = ds.satBorder;
+  } else if (assignment?.status === "FLAGGED") {
+    label = "Flagged";
+    bg = ds.wdwBg;
+    color = ds.wdwColor;
+    border = ds.wdwBorder;
+  }
+
+  return (
+    <span
+      style={{
+        fontFamily: ds.fontMono,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        padding: "3px 8px",
+        borderRadius: 3,
+        background: bg,
+        color,
+        border: `1px solid ${border}`,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function OverrideModal({
+  onClose,
+  onSubmit,
+}: {
+  onClose: () => void;
+  onSubmit: (profileId: string, justification: string) => void;
+}) {
+  const [profileId, setProfileId] = useState("");
+  const [justification, setJustification] = useState("");
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.6)",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        style={{
+          background: ds.surfaceRaised,
+          border: `1px solid ${ds.borderAccent}`,
+          borderRadius: ds.radiusLg,
+          padding: 24,
+          width: 420,
+          maxWidth: "90vw",
+        }}
+      >
+        <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim, marginBottom: 16 }}>
+          Override Profile Assignment
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textDim, display: "block", marginBottom: 4 }}>
+            Profile ID
+          </label>
+          <input
+            value={profileId}
+            onChange={(e) => setProfileId(e.target.value)}
+            placeholder="PRF_..."
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              fontFamily: ds.fontMono,
+              fontSize: 13,
+              background: ds.surface,
+              border: `1px solid ${ds.borderAccent}`,
+              borderRadius: ds.radius,
+              color: ds.text,
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textDim, display: "block", marginBottom: 4 }}>
+            Justification
+          </label>
+          <textarea
+            value={justification}
+            onChange={(e) => setJustification(e.target.value)}
+            rows={3}
+            placeholder="Reason for override..."
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              fontFamily: ds.fontSerif,
+              fontStyle: "italic",
+              fontSize: 14,
+              background: ds.surface,
+              border: `1px solid ${ds.borderAccent}`,
+              borderRadius: ds.radius,
+              color: ds.text,
+              outline: "none",
+              resize: "vertical",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <GhostButton label="Cancel" onClick={onClose} />
+          <button
+            onClick={() => { if (profileId.trim()) onSubmit(profileId.trim(), justification.trim()); }}
+            disabled={!profileId.trim()}
+            style={{
+              padding: "8px 16px",
+              borderRadius: ds.radius,
+              fontFamily: ds.fontBody,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: !profileId.trim() ? ds.textMuted : ds.gold,
+              color: "#18140a",
+              border: "none",
+              cursor: !profileId.trim() ? "not-allowed" : "pointer",
+            }}
+          >
+            Apply Override
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
