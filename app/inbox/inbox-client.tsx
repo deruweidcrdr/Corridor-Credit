@@ -94,34 +94,40 @@ function obligationMapping(att: Attachment): string {
 /*  Root component                                                     */
 /* ================================================================== */
 
-export default function InboxClient({ emails, notifications }: Props) {
+export default function InboxClient({ emails: initialEmails, notifications }: Props) {
+  const [emails, setEmails] = useState(initialEmails);
   const [selectedEmailId, setSelectedEmailId] = useState(emails[0]?.id ?? "");
   const [openAttachment, setOpenAttachment] = useState<Attachment | null>(null);
-  const [validatedWfvIds, setValidatedWfvIds] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    for (const e of emails) {
-      for (const att of e.attachments) {
-        if (att.workflow_for_validation_id && att.workflow_stage === "VALIDATED") {
-          initial.add(att.workflow_for_validation_id);
-        }
-      }
-    }
-    return initial;
-  });
 
   const selectedEmail = emails.find((e) => e.id === selectedEmailId) ?? null;
 
   const closeShelf = useCallback(() => setOpenAttachment(null), []);
 
-  const handleValidated = useCallback(() => {
-    if (openAttachment?.workflow_for_validation_id) {
-      setValidatedWfvIds((prev) => {
-        const next = new Set(prev);
-        next.add(openAttachment.workflow_for_validation_id!);
-        return next;
-      });
-    }
-  }, [openAttachment]);
+  // Remove a WFV from the local email list (used after archive)
+  const removeWfv = useCallback((wfvId: string) => {
+    setEmails((prev) =>
+      prev.map((e) => ({
+        ...e,
+        attachments: e.attachments.filter(
+          (a) => a.workflow_for_validation_id !== wfvId
+        ),
+      }))
+    );
+  }, []);
+
+  // Mark a WFV as reviewed in local state
+  const markReviewedLocal = useCallback((wfvId: string) => {
+    setEmails((prev) =>
+      prev.map((e) => ({
+        ...e,
+        attachments: e.attachments.map((a) =>
+          a.workflow_for_validation_id === wfvId
+            ? { ...a, wfv_reviewed_at: new Date().toISOString() }
+            : a
+        ),
+      }))
+    );
+  }, []);
 
   return (
     <>
@@ -188,14 +194,8 @@ export default function InboxClient({ emails, notifications }: Props) {
               email={selectedEmail}
               onOpenAttachment={setOpenAttachment}
               activeAttachmentId={openAttachment?.id ?? null}
-              validatedWfvIds={validatedWfvIds}
-              onValidatedWfvId={(id: string) =>
-                setValidatedWfvIds((prev) => {
-                  const next = new Set(prev);
-                  next.add(id);
-                  return next;
-                })
-              }
+              onArchive={removeWfv}
+              onMarkReviewed={markReviewedLocal}
             />
           </div>
       </div>
@@ -207,22 +207,19 @@ export default function InboxClient({ emails, notifications }: Props) {
           attachment={openAttachment}
           email={selectedEmail}
           onClose={closeShelf}
-          onValidated={handleValidated}
-          onReset={() => {
+          onArchived={() => {
             if (openAttachment?.workflow_for_validation_id) {
-              setValidatedWfvIds((prev) => {
-                const next = new Set(prev);
-                next.delete(openAttachment.workflow_for_validation_id!);
-                return next;
-              });
+              removeWfv(openAttachment.workflow_for_validation_id);
             }
           }}
-          initialValidated={
-            openAttachment.workflow_stage === "VALIDATED" ||
-            (openAttachment.workflow_for_validation_id
-              ? validatedWfvIds.has(openAttachment.workflow_for_validation_id)
-              : false)
-          }
+          onReviewed={() => {
+            if (openAttachment?.workflow_for_validation_id) {
+              markReviewedLocal(openAttachment.workflow_for_validation_id);
+            }
+          }}
+          onEdited={() => {
+            // Could refresh data from server; for now just close edit mode
+          }}
         />
       )}
     </>
@@ -764,46 +761,64 @@ function AttachmentColumn({
   email,
   onOpenAttachment,
   activeAttachmentId,
-  validatedWfvIds,
-  onValidatedWfvId,
+  onArchive,
+  onMarkReviewed,
 }: {
   email: Email | null;
   onOpenAttachment: (a: Attachment) => void;
   activeAttachmentId: string | null;
-  validatedWfvIds: Set<string>;
-  onValidatedWfvId: (id: string) => void;
+  onArchive: (wfvId: string) => void;
+  onMarkReviewed: (wfvId: string) => void;
 }) {
-  const [validating, setValidating] = useState(false);
-  const [validateError, setValidateError] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  // Find the first WFV id from this email's attachments
   const wfvId = email?.attachments.find((a) => a.workflow_for_validation_id)
     ?.workflow_for_validation_id;
-  const isValidated = wfvId ? validatedWfvIds.has(wfvId) : false;
+  const isReviewed = email?.attachments.some((a) => !!a.wfv_reviewed_at) ?? false;
 
-  const handleValidate = async () => {
+  const handleArchive = async () => {
     if (!wfvId) return;
-    setValidating(true);
-    setValidateError(null);
+    setArchiving(true);
+    setActionError(null);
     try {
-      const res = await fetch("/api/workflows/validate", {
+      const res = await fetch("/api/workflows/archive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workflowForValidationId: wfvId,
-          assignedToId: "SYSTEM",
-        }),
+        body: JSON.stringify({ workflowForValidationId: wfvId }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
       }
-      onValidatedWfvId(wfvId);
+      onArchive(wfvId);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setValidateError(msg);
+      setActionError(err instanceof Error ? err.message : String(err));
     } finally {
-      setValidating(false);
+      setArchiving(false);
+    }
+  };
+
+  const handleMarkReviewed = async () => {
+    if (!wfvId) return;
+    setReviewing(true);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/workflows/mark-reviewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workflowForValidationId: wfvId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      onMarkReviewed(wfvId);
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setReviewing(false);
     }
   };
   if (!email) {
@@ -885,23 +900,31 @@ function AttachmentColumn({
           </span>
         </div>
 
-        {isValidated ? (
-          <ActionButton variant="validated" disabled>
-            ✓ Workflow Validated
-          </ActionButton>
-        ) : (
-          <ActionButton
-            variant="primary"
-            onClick={handleValidate}
-            disabled={validating || !wfvId}
-          >
-            {validating ? "Validating…" : "Confirm & Advance Workflow"}
-            {!validating && <span style={{ fontSize: 14, opacity: 0.7 }}>→</span>}
-          </ActionButton>
-        )}
-        <ActionButton variant="secondary">Edit Workflow</ActionButton>
-        <ActionButton variant="warn">Archive or Reassign</ActionButton>
-        {validateError && (
+        <ActionButton
+          variant="primary"
+          onClick={() => {
+            const att = email?.attachments.find((a) => a.workflow_for_validation_id);
+            if (att) onOpenAttachment(att);
+          }}
+          disabled={!wfvId}
+        >
+          Edit Workflow
+        </ActionButton>
+        <ActionButton
+          variant="warn"
+          onClick={handleArchive}
+          disabled={archiving || !wfvId}
+        >
+          {archiving ? "Archiving…" : "Archive"}
+        </ActionButton>
+        <ActionButton
+          variant="secondary"
+          onClick={handleMarkReviewed}
+          disabled={reviewing || !wfvId || isReviewed}
+        >
+          {reviewing ? "Marking…" : isReviewed ? "✓ Reviewed" : "Mark Reviewed"}
+        </ActionButton>
+        {actionError && (
           <div
             style={{
               fontFamily: ds.fontMono,
@@ -910,7 +933,7 @@ function AttachmentColumn({
               padding: "4px 0",
             }}
           >
-            Error: {validateError}
+            Error: {actionError}
           </div>
         )}
       </div>

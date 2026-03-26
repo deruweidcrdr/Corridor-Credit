@@ -32,6 +32,9 @@ export interface Attachment {
   wfv_relationship_status?: string;
   wfv_document_type?: string;
   wfv_initial_extraction_stage?: string;
+  wfv_document_content_flags?: string;
+  wfv_counterparty_id?: string;
+  wfv_reviewed_at?: string;
 }
 
 export interface MockDocument {

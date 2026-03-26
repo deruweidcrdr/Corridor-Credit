@@ -14077,7 +14077,7 @@
           "displayName": "Capex One Time Amounts"
         },
         {
-          "id": "cogs_base_percentage_1",
+          "id": "cogs_base_percentage",
           "apiName": "cogsBasePercentage",
           "type": "DOUBLE",
           "displayName": "Cogs Base Percentage"
@@ -14383,7 +14383,7 @@
           "displayName": "Projection Profile Id"
         },
         {
-          "id": "projection_type_1",
+          "id": "projection_type",
           "apiName": "projectionType",
           "type": "STRING",
           "displayName": "Projection Type"
@@ -14467,7 +14467,7 @@
           "displayName": "Revenue Use Historical Base"
         },
         {
-          "id": "revenue_volatility_factor_1",
+          "id": "revenue_volatility_factor",
           "apiName": "revenueVolatilityFactor",
           "type": "INTEGER",
           "displayName": "Revenue Volatility Factor"

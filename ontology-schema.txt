@@ -3583,7 +3583,7 @@ OBJECT TYPE: ProjectionProfile
     capex_growth_percentage                      capexGrowthPercentage                   DOUBLE              Capex Growth Percentage
     capex_maintenance_percentage                 capexMaintenancePercentage              DOUBLE              Capex Maintenance Percentage
     capex_one_time_amounts                       capexOneTimeAmounts                     STRING              Capex One Time Amounts
-    cogs_base_percentage_1                       cogsBasePercentage                      DOUBLE              Cogs Base Percentage
+    cogs_base_percentage                       cogsBasePercentage                      DOUBLE              Cogs Base Percentage
     cogs_fixed_portion_amount                    cogsFixedPortionAmount                  INTEGER             Cogs Fixed Portion Amount
     cogs_improvement_annual                      cogsImprovementAnnual                   DOUBLE              Cogs Improvement Annual
     cogs_improvement_floor                       cogsImprovementFloor                    DOUBLE              Cogs Improvement Floor
@@ -3634,7 +3634,7 @@ OBJECT TYPE: ProjectionProfile
     optimization_count                           optimizationCount                       INTEGER             Optimization Count
     profile_name                                 profileName                             STRING              Profile Name
     projection_profile_id                        projectionProfileId                     STRING              Projection Profile Id
-    projection_type_1                            projectionType                          STRING              Projection Type
+    projection_type                            projectionType                          STRING              Projection Type
     revenue_base_growth_rate                     revenueBaseGrowthRate                   DOUBLE              Revenue Base Growth Rate
     revenue_base_value                           revenueBaseValue                        INTEGER             Revenue Base Value
     revenue_growth_annual                        revenueGrowthAnnual                     DOUBLE              Revenue Growth Annual
@@ -3648,7 +3648,7 @@ OBJECT TYPE: ProjectionProfile
     revenue_seasonal_q3_factor                   revenueSeasonalQ3Factor                 DOUBLE              Revenue Seasonal q3 Factor
     revenue_seasonal_q4_factor                   revenueSeasonalQ4Factor                 DOUBLE              Revenue Seasonal q4 Factor
     revenue_use_historical_base                  revenueUseHistoricalBase                STRING              Revenue Use Historical Base
-    revenue_volatility_factor_1                  revenueVolatilityFactor                 INTEGER             Revenue Volatility Factor
+    revenue_volatility_factor                  revenueVolatilityFactor                 INTEGER             Revenue Volatility Factor
     scenario_confidence_decay_rate               scenarioConfidenceDecayRate             STRING              Scenario Confidence Decay Rate
     scenario_stress_test_factor                  scenarioStressTestFactor                STRING              Scenario Stress Test Factor
     scenario_volatility_override                 scenarioVolatilityOverride              DOUBLE              Scenario Volatility Override

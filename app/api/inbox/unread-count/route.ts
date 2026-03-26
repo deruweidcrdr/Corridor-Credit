@@ -7,20 +7,29 @@ const supabase = createClient(
 );
 
 // GET /api/inbox/unread-count
-// Lightweight endpoint for the global header unread badge.
+// Unread = workflow_for_validation records that are NOT archived AND NOT reviewed.
+// Gracefully degrades if is_archived/reviewed_at columns don't exist yet.
 export async function GET() {
   try {
-    const { count, error } = await supabase
-      .from("emails")
-      .select("*", { count: "exact", head: true });
+    // Try to select triage columns
+    const { data, error } = await supabase
+      .from("workflow_for_validation")
+      .select("workflow_for_validation_id, is_archived, reviewed_at");
 
     if (error) {
-      console.error("Unread count error:", error);
-      return NextResponse.json({ count: 0 });
+      // Columns likely don't exist yet — fall back to counting all WFV rows
+      const { count, error: fallbackErr } = await supabase
+        .from("workflow_for_validation")
+        .select("*", { count: "exact", head: true });
+      if (fallbackErr) return NextResponse.json({ count: 0 });
+      return NextResponse.json({ count: count ?? 0 });
     }
 
-    // All emails are currently treated as unread (is_read is hardcoded false)
-    return NextResponse.json({ count: count ?? 0 });
+    const unread = (data ?? []).filter(
+      (row: Record<string, unknown>) => !row.is_archived && !row.reviewed_at
+    );
+
+    return NextResponse.json({ count: unread.length });
   } catch {
     return NextResponse.json({ count: 0 });
   }

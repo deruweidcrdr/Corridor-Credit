@@ -37,9 +37,9 @@ interface Props {
   attachment: Attachment;
   email: Email | null;
   onClose: () => void;
-  onValidated?: () => void;
-  onReset?: () => void;
-  initialValidated?: boolean;
+  onArchived?: () => void;
+  onReviewed?: () => void;
+  onEdited?: () => void;
 }
 
 /** Derive the classification badge */
@@ -61,15 +61,13 @@ interface BankerOption {
   title: string;
 }
 
-export default function DocumentShelf({ attachment, email, onClose, onValidated, onReset, initialValidated }: Props) {
+export default function DocumentShelf({ attachment, email, onClose, onArchived, onReviewed, onEdited }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const { signedUrl } = useSignedUrl(attachment.id);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [validating, setValidating] = useState(false);
-  const [validated, setValidated] = useState(
-    initialValidated ?? attachment.workflow_stage === "VALIDATED"
-  );
-  const [resetting, setResetting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -131,77 +129,87 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated,
     setTimeout(onClose, 280);
   };
 
-  // ── Validate workflow handler ──────────────────────────────────────
-  const handleValidate = useCallback(async () => {
-    if (!attachment.workflow_for_validation_id) {
-      setError("No workflow_for_validation linked to this document");
-      return;
-    }
-    setValidating(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/workflows/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workflowForValidationId: attachment.workflow_for_validation_id,
-          assignedToId: selectedBankerId || undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
-
-      setValidated(true);
-      onValidated?.();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-    } finally {
-      setValidating(false);
-    }
-  }, [attachment.workflow_for_validation_id, onValidated, selectedBankerId]);
-
-  // ── Reset workflow handler (dev/testing) ────────────────────────────
-  const handleReset = useCallback(async () => {
+  // ── Archive handler ──────────────────────────────────────────────
+  const handleArchive = useCallback(async () => {
     if (!attachment.workflow_for_validation_id) return;
-    if (!confirm("Reset this workflow to pre-validation state? This deletes the Workflow, Events, and Alerts created during validation.")) return;
+    if (!confirm("Archive this workflow? It will be hidden from the inbox and downstream analysis pages.")) return;
 
-    setResetting(true);
+    setArchiving(true);
     setError(null);
-
     try {
-      const res = await fetch("/api/workflows/reset", {
+      const res = await fetch("/api/workflows/archive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workflowForValidationId: attachment.workflow_for_validation_id,
-        }),
+        body: JSON.stringify({ workflowForValidationId: attachment.workflow_for_validation_id }),
       });
-
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
       }
-
-      setValidated(false);
-      onReset?.();
+      onArchived?.();
+      handleClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setResetting(false);
+      setArchiving(false);
     }
-  }, [attachment.workflow_for_validation_id, onReset]);
+  }, [attachment.workflow_for_validation_id, onArchived]);
 
-  const displayStage = validated
-    ? "VALIDATED"
-    : attachment.workflow_stage || "TERMS_EXTRACTED";
+  // ── Mark reviewed handler ──────────────────────────────────────────
+  const handleMarkReviewed = useCallback(async () => {
+    if (!attachment.workflow_for_validation_id) return;
 
-  const stageColor = validated ? ds.green : ds.amber;
+    setReviewing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/workflows/mark-reviewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workflowForValidationId: attachment.workflow_for_validation_id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      onReviewed?.();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setReviewing(false);
+    }
+  }, [attachment.workflow_for_validation_id, onReviewed]);
+
+  // ── Edit workflow handler ──────────────────────────────────────────
+  const handleEditWorkflow = useCallback(() => {
+    setEditing(true);
+  }, []);
+
+  const handleSaveEdit = useCallback(async (updates: Record<string, unknown>) => {
+    if (!attachment.workflow_for_validation_id) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/workflows/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowForValidationId: attachment.workflow_for_validation_id,
+          updates,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      setEditing(false);
+      onEdited?.();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [attachment.workflow_for_validation_id, onEdited]);
+
+  const displayStage = attachment.workflow_stage || "TERMS_EXTRACTED";
+  const stageColor = attachment.workflow_stage === "VALIDATED" ? ds.green : ds.amber;
+  const isReviewed = !!attachment.wfv_reviewed_at;
 
   return (
     <>
@@ -318,40 +326,35 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated,
             </button>
           </div>
 
-          {/* Action buttons row */}
+          {/* Action buttons */}
           <div
             style={{
               display: "flex",
+              flexDirection: "column",
               gap: 8,
               padding: "14px 20px",
-              alignItems: "center",
             }}
           >
-            {validated ? (
-              <>
-                <ShelfButton variant="green" disabled>
-                  ✓ Workflow Validated
-                </ShelfButton>
-                <ShelfButton
-                  variant="coral"
-                  onClick={handleReset}
-                  disabled={resetting}
-                >
-                  {resetting ? "Resetting…" : "Reset Workflow"}
-                </ShelfButton>
-              </>
-            ) : (
-              <ShelfButton
-                variant="gold"
-                onClick={handleValidate}
-                disabled={validating || !selectedBankerId}
-              >
-                {validating
-                  ? "Validating…"
-                  : "Confirm & Advance Workflow →"}
-              </ShelfButton>
-            )}
-            <ShelfButton variant="ghost">Edit Workflow</ShelfButton>
+            <ShelfButton
+              variant="gold"
+              onClick={handleEditWorkflow}
+            >
+              Edit Workflow
+            </ShelfButton>
+            <ShelfButton
+              variant="coral"
+              onClick={handleArchive}
+              disabled={archiving}
+            >
+              {archiving ? "Archiving…" : "Archive"}
+            </ShelfButton>
+            <ShelfButton
+              variant="ghost"
+              onClick={handleMarkReviewed}
+              disabled={reviewing || isReviewed}
+            >
+              {reviewing ? "Marking…" : isReviewed ? "✓ Reviewed" : "Mark Reviewed"}
+            </ShelfButton>
           </div>
 
           {/* Error banner */}
@@ -371,87 +374,96 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated,
           )}
         </div>
 
-        {/* ── Doc metadata strip ── */}
-        <div
-          style={{
-            padding: "16px 20px",
-            borderTop: `1px solid ${ds.border}`,
-            background: ds.surface,
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
-          }}
-        >
-          <MetaItem
-            label="Counterparty Type"
-            value={attachment.wfv_counterparty_type ?? "—"}
+        {/* ── Edit form (shown when editing) ── */}
+        {editing && (
+          <EditWorkflowForm
+            attachment={attachment}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditing(false)}
           />
-          <MetaItem
-            label="Relationship Status"
-            value={attachment.wfv_relationship_status ?? "—"}
-            valueColor={
-              attachment.wfv_relationship_status === "PROSPECT"
-                ? ds.amber
-                : attachment.wfv_relationship_status === "ACTIVE RELATIONSHIP"
-                  ? ds.green
-                  : undefined
-            }
-          />
-          <MetaItem
-            label="Document Type"
-            value={attachment.wfv_document_type ?? "—"}
-          />
-          <MetaItem
-            label="Extraction Stage"
-            value={attachment.wfv_initial_extraction_stage ?? "—"}
-          />
-          <MetaItem
-            label="Workflow Stage"
-            value={displayStage}
-            valueColor={stageColor}
-          />
+        )}
 
-          {/* Banker assignment dropdown */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <span
-              style={{
-                fontFamily: ds.fontMono,
-                fontSize: 10,
-                textTransform: "uppercase",
-                letterSpacing: "0.10em",
-                color: ds.textMuted,
-              }}
-            >
-              Assign Banker
-            </span>
-            <select
-              value={selectedBankerId}
-              onChange={(e) => setSelectedBankerId(e.target.value)}
-              disabled={validated}
-              style={{
-                fontFamily: ds.fontMono,
-                fontSize: 12,
-                color: ds.text,
-                background: ds.surfaceRaised,
-                border: `1px solid ${ds.borderAccent}`,
-                borderRadius: ds.radius,
-                padding: "4px 8px",
-                cursor: validated ? "default" : "pointer",
-                outline: "none",
-                opacity: validated ? 0.5 : 1,
-              }}
-            >
-              {bankers.length === 0 && (
-                <option value="">Loading…</option>
-              )}
-              {bankers.map((b) => (
-                <option key={b.banker_id} value={b.banker_id}>
-                  {b.full_name} — {b.title}
-                </option>
-              ))}
-            </select>
+        {/* ── Doc metadata strip ── */}
+        {!editing && (
+          <div
+            style={{
+              padding: "16px 20px",
+              borderTop: `1px solid ${ds.border}`,
+              background: ds.surface,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+            }}
+          >
+            <MetaItem
+              label="Counterparty Type"
+              value={attachment.wfv_counterparty_type ?? "—"}
+            />
+            <MetaItem
+              label="Relationship Status"
+              value={attachment.wfv_relationship_status ?? "—"}
+              valueColor={
+                attachment.wfv_relationship_status === "PROSPECT"
+                  ? ds.amber
+                  : attachment.wfv_relationship_status === "ACTIVE RELATIONSHIP"
+                    ? ds.green
+                    : undefined
+              }
+            />
+            <MetaItem
+              label="Document Type"
+              value={attachment.wfv_document_type ?? "—"}
+            />
+            <MetaItem
+              label="Extraction Stage"
+              value={attachment.wfv_initial_extraction_stage ?? "—"}
+            />
+            <MetaItem
+              label="Workflow Stage"
+              value={displayStage}
+              valueColor={stageColor}
+            />
+
+            {/* Banker assignment dropdown */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              <span
+                style={{
+                  fontFamily: ds.fontMono,
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.10em",
+                  color: ds.textMuted,
+                }}
+              >
+                Assign Banker
+              </span>
+              <select
+                value={selectedBankerId}
+                onChange={(e) => setSelectedBankerId(e.target.value)}
+                style={{
+                  fontFamily: ds.fontMono,
+                  fontSize: 12,
+                  color: ds.text,
+                  background: ds.surfaceRaised,
+                  border: `1px solid ${ds.borderAccent}`,
+                  borderRadius: ds.radius,
+                  padding: "4px 8px",
+                  cursor: "pointer",
+                  outline: "none",
+                }}
+              >
+                {bankers.length === 0 && (
+                  <option value="">Loading…</option>
+                )}
+                {bankers.map((b) => (
+                  <option key={b.banker_id} value={b.banker_id}>
+                    {b.full_name} — {b.title}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── PDF viewer ── */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
@@ -644,6 +656,153 @@ function MetaItem({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+/* ── Inline edit form for classification fields ── */
+const CONTENT_FLAGS_OPTIONS = ["TERMS", "FINANCIALS", "TERMS_AND_FINANCIALS"];
+const DOCUMENT_TYPE_OPTIONS = [
+  "CONTRACT",
+  "FINANCIAL_STATEMENT",
+  "SECURITY_AGREEMENT",
+  "INTERCREDITOR_AGREEMENT",
+  "TERM_SHEET",
+  "CIM",
+  "OTHER",
+];
+
+function EditWorkflowForm({
+  attachment,
+  onSave,
+  onCancel,
+}: {
+  attachment: Attachment;
+  onSave: (updates: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const [contentFlags, setContentFlags] = useState(
+    attachment.wfv_document_content_flags ?? ""
+  );
+  const [documentType, setDocumentType] = useState(
+    attachment.wfv_document_type ?? ""
+  );
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    const updates: Record<string, unknown> = {};
+    if (contentFlags !== (attachment.wfv_document_content_flags ?? "")) {
+      updates.document_content_flags = contentFlags;
+    }
+    if (documentType !== (attachment.wfv_document_type ?? "")) {
+      updates.document_type = documentType;
+    }
+    if (Object.keys(updates).length === 0) {
+      onCancel();
+      return;
+    }
+    await onSave(updates);
+    setSaving(false);
+  };
+
+  const selectStyle: React.CSSProperties = {
+    fontFamily: ds.fontMono,
+    fontSize: 12,
+    color: ds.text,
+    background: ds.surfaceRaised,
+    border: `1px solid ${ds.borderAccent}`,
+    borderRadius: ds.radius,
+    padding: "5px 8px",
+    cursor: "pointer",
+    outline: "none",
+    width: "100%",
+  };
+
+  return (
+    <div
+      style={{
+        padding: "16px 20px",
+        borderTop: `1px solid ${ds.border}`,
+        background: ds.surface,
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
+      <span
+        style={{
+          fontFamily: ds.fontMono,
+          fontSize: 10,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.14em",
+          color: ds.gold,
+        }}
+      >
+        Edit Classification
+      </span>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <span
+          style={{
+            fontFamily: ds.fontMono,
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.10em",
+            color: ds.textMuted,
+          }}
+        >
+          Content Flags
+        </span>
+        <select
+          value={contentFlags}
+          onChange={(e) => setContentFlags(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="">—</option>
+          {CONTENT_FLAGS_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <span
+          style={{
+            fontFamily: ds.fontMono,
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.10em",
+            color: ds.textMuted,
+          }}
+        >
+          Document Type
+        </span>
+        <select
+          value={documentType}
+          onChange={(e) => setDocumentType(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="">—</option>
+          {DOCUMENT_TYPE_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, paddingTop: 4 }}>
+        <ShelfButton variant="gold" onClick={handleSubmit} disabled={saving}>
+          {saving ? "Saving…" : "Save Changes"}
+        </ShelfButton>
+        <ShelfButton variant="ghost" onClick={onCancel}>
+          Cancel
+        </ShelfButton>
+      </div>
     </div>
   );
 }

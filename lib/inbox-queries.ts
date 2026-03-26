@@ -33,6 +33,10 @@ interface WfvRow {
   workflow_name: string | null;
   successor_workflow_id: string | null;
   workflow_id: string | null;
+  is_archived: boolean | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  extraction_status: string | null;
 }
 
 // Row types matching the pipeline tables (emails, documents, counterparties)
@@ -186,7 +190,10 @@ export async function fetchInboxData(): Promise<{
   if (wfErr) {
     console.error("Failed to fetch workflows:", wfErr);
   }
-  const wfRows = (rawWfs ?? []) as WfvRow[];
+  // Filter out archived records (client-side until migration adds is_archived column)
+  const wfRows = ((rawWfs ?? []) as WfvRow[]).filter(
+    (w) => !w.is_archived
+  );
 
   // 4. Collect counterparty IDs from workflows and fetch counterparties
   const counterpartyIds = [
@@ -267,6 +274,9 @@ export async function fetchInboxData(): Promise<{
         wfv_relationship_status: docWf?.relationship_status ?? wf?.relationship_status ?? undefined,
         wfv_document_type: docWf?.document_type ?? wf?.document_type ?? undefined,
         wfv_initial_extraction_stage: docWf?.initial_extraction_stage ?? wf?.initial_extraction_stage ?? undefined,
+        wfv_document_content_flags: docWf?.document_content_flags ?? wf?.document_content_flags ?? undefined,
+        wfv_counterparty_id: docWf?.counterparty_id ?? wf?.counterparty_id ?? undefined,
+        wfv_reviewed_at: docWf?.reviewed_at ?? wf?.reviewed_at ?? undefined,
         mock_doc: {
           title: (doc.document_name ?? "Document").replace(/[_-]/g, " ").replace(/\.\w+$/, ""),
           date: formatTimestamp(doc.timestamp ?? row.sent_timestamp),

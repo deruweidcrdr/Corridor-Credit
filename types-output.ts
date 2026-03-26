@@ -4569,7 +4569,7 @@ export interface ProjectionProfileRow {
   capex_growth_percentage: number | null;
   capex_maintenance_percentage: number | null;
   capex_one_time_amounts: string | null;
-  cogs_base_percentage_1: number | null;
+  cogs_base_percentage: number | null;
   cogs_fixed_portion_amount: number | null;
   cogs_improvement_annual: number | null;
   cogs_improvement_floor: number | null;
@@ -4620,7 +4620,7 @@ export interface ProjectionProfileRow {
   optimization_count: number | null;
   profile_name: string | null;
   projection_profile_id: string;
-  projection_type_1: string | null;
+  projection_type: string | null;
   revenue_base_growth_rate: number | null;
   revenue_base_value: number | null;
   revenue_growth_annual: number | null;
@@ -4634,7 +4634,7 @@ export interface ProjectionProfileRow {
   revenue_seasonal_q3_factor: number | null;
   revenue_seasonal_q4_factor: number | null;
   revenue_use_historical_base: string | null;
-  revenue_volatility_factor_1: number | null;
+  revenue_volatility_factor: number | null;
   scenario_confidence_decay_rate: string | null;
   scenario_stress_test_factor: string | null;
   scenario_volatility_override: number | null;
@@ -4678,7 +4678,7 @@ export interface ProjectionProfileInsert {
   capex_growth_percentage?: number | null;
   capex_maintenance_percentage?: number | null;
   capex_one_time_amounts?: string | null;
-  cogs_base_percentage_1?: number | null;
+  cogs_base_percentage?: number | null;
   cogs_fixed_portion_amount?: number | null;
   cogs_improvement_annual?: number | null;
   cogs_improvement_floor?: number | null;
@@ -4729,7 +4729,7 @@ export interface ProjectionProfileInsert {
   optimization_count?: number | null;
   profile_name?: string | null;
   projection_profile_id: string;
-  projection_type_1?: string | null;
+  projection_type?: string | null;
   revenue_base_growth_rate?: number | null;
   revenue_base_value?: number | null;
   revenue_growth_annual?: number | null;
@@ -4743,7 +4743,7 @@ export interface ProjectionProfileInsert {
   revenue_seasonal_q3_factor?: number | null;
   revenue_seasonal_q4_factor?: number | null;
   revenue_use_historical_base?: string | null;
-  revenue_volatility_factor_1?: number | null;
+  revenue_volatility_factor?: number | null;
   scenario_confidence_decay_rate?: string | null;
   scenario_stress_test_factor?: string | null;
   scenario_volatility_override?: number | null;
@@ -4787,7 +4787,7 @@ export interface ProjectionProfileUpdate {
   capex_growth_percentage?: number | null;
   capex_maintenance_percentage?: number | null;
   capex_one_time_amounts?: string | null;
-  cogs_base_percentage_1?: number | null;
+  cogs_base_percentage?: number | null;
   cogs_fixed_portion_amount?: number | null;
   cogs_improvement_annual?: number | null;
   cogs_improvement_floor?: number | null;
@@ -4838,7 +4838,7 @@ export interface ProjectionProfileUpdate {
   optimization_count?: number | null;
   profile_name?: string | null;
   projection_profile_id?: string | null;
-  projection_type_1?: string | null;
+  projection_type?: string | null;
   revenue_base_growth_rate?: number | null;
   revenue_base_value?: number | null;
   revenue_growth_annual?: number | null;
@@ -4852,7 +4852,7 @@ export interface ProjectionProfileUpdate {
   revenue_seasonal_q3_factor?: number | null;
   revenue_seasonal_q4_factor?: number | null;
   revenue_use_historical_base?: string | null;
-  revenue_volatility_factor_1?: number | null;
+  revenue_volatility_factor?: number | null;
   scenario_confidence_decay_rate?: string | null;
   scenario_stress_test_factor?: string | null;
   scenario_volatility_override?: number | null;
