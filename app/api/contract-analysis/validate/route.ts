@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
       contract_type: cfv.contract_type,
       contract_subtype: cfv.contract_subtype,
       contract_status: "ACTIVE",
+      obligation_extraction_status: "PENDING",
       counterparty_id: counterparty_id ?? cfv.counterparty_id,
       currency: cfv.currency,
       effective_date: cfv.effective_date,
@@ -120,38 +121,18 @@ export async function POST(req: NextRequest) {
       .eq("contract_for_validation_id", contract_for_validation_id)
       .neq("validation_status", "FLAGGED");
 
-    // 7. Auto-dispatch obligation extraction to Railway pipeline (non-fatal)
+    // 7. Wake Railway (fire-and-forget latency optimization)
+    // Railway discovers PENDING work by polling — this just nudges it.
     const pipelineUrl = process.env.PIPELINE_SERVICE_URL;
-    let obligationDispatchTriggered = false;
-
-    if (pipelineUrl && cfv.document_id) {
-      try {
-        const pipelineResp = await fetch(
-          `${pipelineUrl}/api/dispatch-obligations`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ document_id: cfv.document_id }),
-          }
-        );
-        obligationDispatchTriggered = pipelineResp.ok;
-        if (!pipelineResp.ok) {
-          console.warn(
-            `Obligation dispatch returned HTTP ${pipelineResp.status} — contract validated but obligations not dispatched`
-          );
-        }
-      } catch (err) {
-        console.warn("Obligation dispatch failed (non-fatal):", err);
-      }
-    } else if (!pipelineUrl) {
-      console.warn("PIPELINE_SERVICE_URL not set — skipping obligation dispatch");
+    if (pipelineUrl) {
+      fetch(`${pipelineUrl}/api/wake`, { method: "POST" }).catch(() => {});
     }
 
     return NextResponse.json({
       success: true,
       contract_id: contractId,
       termsPromoted,
-      obligationDispatchTriggered,
+      pipelineWaked: !!pipelineUrl,
     });
   } catch (err) {
     console.error("Contract validate error:", err);

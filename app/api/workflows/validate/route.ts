@@ -167,6 +167,7 @@ export async function POST(req: NextRequest) {
     assigned_to_id: assignedToId || null,
     workflow_stage: "VALIDATED",
     workflow_status: "SUCCESS",
+    extraction_status: "PENDING",
     workflow_type: wfv.workflow_type ?? null,
     workflow_subtype: wfv.workflow_subtype ?? null,
     priority: wfv.priority ?? null,
@@ -366,79 +367,13 @@ export async function POST(req: NextRequest) {
   }
 
   // =====================================================================
-  // STEP 8: TRIGGER PIPELINE CONTINUATION ON RAILWAY
+  // STEP 8: WAKE RAILWAY (fire-and-forget latency optimization)
+  // Railway discovers PENDING work by polling — this just nudges it.
   // =====================================================================
 
   const pipelineUrl = process.env.PIPELINE_SERVICE_URL;
-  let pipelineTriggered = false;
-
   if (pipelineUrl) {
-    const pipelineEvents: typeof events = [];
-    try {
-      const pipelineResp = await fetch(
-        `${pipelineUrl}/api/extract`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workflow_id: workflowId,
-            workflow_for_validation_id: workflowForValidationId,
-            document_id: wfv.document_id ?? null,
-            counterparty_id: wfv.counterparty_id,
-            document_content_flags: wfv.document_content_flags ?? null,
-            document_type: wfv.document_type ?? null,
-            requires_financial_extraction:
-              wfv.requires_financial_extraction ?? false,
-          }),
-        }
-      );
-
-      pipelineTriggered = pipelineResp.ok;
-
-      pipelineEvents.push({
-        workflow_event_id: `EVT_${workflowId}_PIPELINE_TRIGGERED`,
-        workflow_id: workflowId,
-        event_timestamp: new Date().toISOString(),
-        event_type: pipelineResp.ok
-          ? "PIPELINE_TRIGGERED"
-          : "PIPELINE_TRIGGER_FAILED",
-        old_value: "VALIDATED",
-        new_value: pipelineResp.ok
-          ? "PIPELINE_IN_PROGRESS"
-          : `HTTP_${pipelineResp.status}`,
-        changed_by_banker_id: assignedToId,
-        event_notes: pipelineResp.ok
-          ? `Pipeline continuation triggered at ${pipelineUrl}. Workflow ${workflowId} handed off for next stages.`
-          : `Pipeline trigger returned HTTP ${pipelineResp.status}. Workflow ${workflowId} validated but pipeline not started.`,
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("Pipeline trigger error:", msg);
-
-      pipelineEvents.push({
-        workflow_event_id: `EVT_${workflowId}_PIPELINE_ERROR`,
-        workflow_id: workflowId,
-        event_timestamp: new Date().toISOString(),
-        event_type: "PIPELINE_TRIGGER_ERROR",
-        old_value: "VALIDATED",
-        new_value: "ERROR",
-        changed_by_banker_id: assignedToId,
-        event_notes: `Failed to reach pipeline service at ${pipelineUrl}: ${msg}. Workflow ${workflowId} validated but pipeline not started.`,
-      });
-    }
-
-    if (pipelineEvents.length > 0) {
-      const { error: pipeEvtErr } = await supabase
-        .from("workflow_event")
-        .insert(pipelineEvents);
-      if (pipeEvtErr) {
-        console.error("Pipeline event insert error:", pipeEvtErr);
-      }
-    }
-  } else {
-    console.warn(
-      "PIPELINE_SERVICE_URL not set — skipping pipeline trigger"
-    );
+    fetch(`${pipelineUrl}/api/wake`, { method: "POST" }).catch(() => {});
   }
 
   return NextResponse.json({
@@ -447,6 +382,6 @@ export async function POST(req: NextRequest) {
     alertId,
     counterpartyCreated,
     eventsCreated: events.length,
-    pipelineTriggered,
+    pipelineWaked: !!pipelineUrl,
   });
 }

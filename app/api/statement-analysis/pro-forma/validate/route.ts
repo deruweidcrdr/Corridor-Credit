@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
       reporting_currency: fsv.reporting_currency,
       industry_code: fsv.industry_code,
       confidence: fsv.confidence,
+      profile_assignment_status: "PENDING",
     };
 
     for (const col of METRIC_COLUMN_NAMES) {
@@ -92,9 +93,16 @@ export async function POST(req: NextRequest) {
       .update({ validation_status: "VALIDATED" })
       .eq("id", id);
 
+    // Wake Railway (fire-and-forget latency optimization)
+    const pipelineUrl = process.env.PIPELINE_SERVICE_URL;
+    if (pipelineUrl) {
+      fetch(`${pipelineUrl}/api/wake`, { method: "POST" }).catch(() => {});
+    }
+
     return NextResponse.json({
       success: true,
       pro_forma_statement_id: statementId,
+      pipelineWaked: !!pipelineUrl,
     });
   } catch (err) {
     console.error("Pro forma validate error:", err);
