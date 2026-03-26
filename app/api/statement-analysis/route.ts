@@ -76,7 +76,7 @@ export async function GET() {
     }
     const proFormaStatements = Array.from(pfMap.values());
 
-    // 5. Fetch documents for signed URL generation
+    // 5. Fetch document names (signed URLs are now lazy-loaded on click)
     const allDocumentIds = [
       ...new Set([
         ...historicalStatements.map((s: any) => s.document_id),
@@ -84,26 +84,14 @@ export async function GET() {
       ].filter(Boolean)),
     ];
 
-    let signedUrlMap: Record<string, string> = {};
     let docNameMap: Record<string, string> = {};
     if (allDocumentIds.length > 0) {
       const { data: docs } = await supabase
         .from("documents")
-        .select("document_id, document_name, email_id")
+        .select("document_id, document_name")
         .in("document_id", allDocumentIds);
 
       if (docs?.length) {
-        const urlRequests = docs.map(async (doc: any) => {
-          if (!doc.email_id || !doc.document_name) return;
-          const storagePath = `${doc.email_id}/${doc.document_name}`;
-          const { data } = await supabase.storage
-            .from("attachments")
-            .createSignedUrl(storagePath, 3600);
-          if (data?.signedUrl) {
-            signedUrlMap[doc.document_id] = data.signedUrl;
-          }
-        });
-        await Promise.all(urlRequests);
         for (const doc of docs) {
           docNameMap[doc.document_id] = doc.document_name;
         }
@@ -141,7 +129,6 @@ export async function GET() {
         (historicalByDeal[dealId] ??= []).push({
           ...s,
           document_name: docNameMap[s.document_id] ?? null,
-          storage_url: signedUrlMap[s.document_id] ?? null,
         });
       }
     }
@@ -154,7 +141,6 @@ export async function GET() {
         (proFormaByDeal[dealId] ??= []).push({
           ...s,
           document_name: docNameMap[s.document_id] ?? null,
-          storage_url: signedUrlMap[s.document_id] ?? null,
         });
       }
     }

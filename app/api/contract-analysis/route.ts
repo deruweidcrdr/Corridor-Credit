@@ -84,29 +84,16 @@ export async function GET() {
       terms = data ?? [];
     }
 
-    // 6. Fetch documents for signed URL generation (all document IDs from contracts)
+    // 6. Fetch document names (signed URLs are now lazy-loaded on click)
     const allDocumentIds = [...new Set(contracts.map((c: any) => c.document_id).filter(Boolean))];
-    let signedUrlMap: Record<string, string> = {};
     let docNameMap: Record<string, string> = {};
     if (allDocumentIds.length > 0) {
       const { data: docs } = await supabase
         .from("documents")
-        .select("document_id, document_name, email_id")
+        .select("document_id, document_name")
         .in("document_id", allDocumentIds);
 
       if (docs?.length) {
-        const urlRequests = docs.map(async (doc: any) => {
-          if (!doc.email_id || !doc.document_name) return;
-          const storagePath = `${doc.email_id}/${doc.document_name}`;
-          const { data } = await supabase.storage
-            .from("attachments")
-            .createSignedUrl(storagePath, 3600);
-          if (data?.signedUrl) {
-            signedUrlMap[doc.document_id] = data.signedUrl;
-          }
-        });
-        await Promise.all(urlRequests);
-        // Also build doc name map (contract_for_validation.document_name is often empty)
         for (const doc of docs) {
           docNameMap[doc.document_id] = doc.document_name;
         }
@@ -161,7 +148,6 @@ export async function GET() {
           ...c,
           document_name: docNameMap[c.document_id] ?? c.document_name ?? null,
           terms: termsByContract[c.contract_for_validation_id] ?? [],
-          storage_url: signedUrlMap[c.document_id] ?? null,
         };
         (contractsByDeal[dealId] ??= []).push(contractWithTerms);
       }

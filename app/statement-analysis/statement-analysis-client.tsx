@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import Sidebar from "@/app/components/sidebar";
+import { useSignedUrl } from "@/lib/hooks/use-signed-url";
 import { METRIC_COLUMNS } from "./metric-columns";
 
 /* ================================================================== */
@@ -58,7 +58,6 @@ interface StatementForValidation {
   counterparty_name: string | null;
   validation_status: string | null;
   user_edited_columns: string[];
-  storage_url: string | null;
   confidence: number | null;
   [key: string]: any;
 }
@@ -75,7 +74,6 @@ interface ProFormaStatement {
   counterparty_id: string | null;
   validation_status: string | null;
   user_edited_columns: string[];
-  storage_url: string | null;
   [key: string]: any;
 }
 
@@ -454,20 +452,7 @@ export default function StatementAnalysisClient() {
   const metricsCount = metrics.length;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        overflow: "hidden",
-        background: ds.bg,
-        color: ds.text,
-        fontFamily: ds.fontBody,
-        fontSize: 13,
-      }}
-    >
-      <Sidebar />
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100%", background: ds.bg, color: ds.text, fontFamily: ds.fontBody, fontSize: 13 }}>
         {/* ── Topbar / stage tabs ── */}
         <div
           style={{
@@ -592,7 +577,6 @@ export default function StatementAnalysisClient() {
             {activeStep === 2 && <ComingSoon label="Approval" />}
           </>
         )}
-      </div>
     </div>
   );
 }
@@ -846,7 +830,7 @@ function DocumentStep({
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* LEFT: PDF Viewer */}
         <PdfPanel
-          storageUrl={selectedStatement?.storage_url ?? null}
+          documentId={selectedStatement?.document_id ?? null}
           documentName={documentName}
         />
 
@@ -1095,24 +1079,26 @@ function DocumentStep({
 /* ================================================================== */
 
 function PdfPanel({
-  storageUrl,
+  documentId,
   documentName,
 }: {
-  storageUrl: string | null;
+  documentId: string | null;
   documentName: string | null;
 }) {
+  const { signedUrl, loading: urlLoading } = useSignedUrl(documentId);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [blobLoading, setBlobLoading] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const pdfLoading = urlLoading || blobLoading;
 
   useEffect(() => {
-    if (!storageUrl) {
+    if (!signedUrl) {
       setPdfBlobUrl(null);
       return;
     }
     let revoked = false;
-    setPdfLoading(true);
-    fetch(storageUrl)
+    setBlobLoading(true);
+    fetch(signedUrl)
       .then((r) => r.blob())
       .then((blob) => {
         if (revoked) return;
@@ -1121,7 +1107,7 @@ function PdfPanel({
       })
       .catch(() => {})
       .finally(() => {
-        if (!revoked) setPdfLoading(false);
+        if (!revoked) setBlobLoading(false);
       });
     return () => {
       revoked = true;
@@ -1130,7 +1116,7 @@ function PdfPanel({
         return null;
       });
     };
-  }, [storageUrl]);
+  }, [signedUrl]);
 
   return (
     <div style={{ width: "45%", flexShrink: 0, display: "flex", flexDirection: "column", borderRight: `1px solid ${ds.border}` }}>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Attachment, Email } from "@/lib/inbox-data";
+import { useSignedUrl } from "@/lib/hooks/use-signed-url";
 
 /* ================================================================== */
 /*  Design-system tokens (from DESIGN_SYSTEM.md v3)                    */
@@ -62,6 +63,7 @@ interface BankerOption {
 
 export default function DocumentShelf({ attachment, email, onClose, onValidated, onReset, initialValidated }: Props) {
   const [isOpen, setIsOpen] = useState(false);
+  const { signedUrl } = useSignedUrl(attachment.id);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(
@@ -91,9 +93,9 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated,
   // Fetch the PDF as a blob so we can set the correct MIME type
   // (Supabase serves files as application/octet-stream)
   useEffect(() => {
-    if (!attachment.storage_url) return;
+    if (!signedUrl) return;
     let revoked = false;
-    fetch(attachment.storage_url)
+    fetch(signedUrl)
       .then((r) => r.blob())
       .then((blob) => {
         if (revoked) return;
@@ -108,7 +110,7 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated,
         return null;
       });
     };
-  }, [attachment.storage_url]);
+  }, [signedUrl]);
 
   // Animate in on mount
   useEffect(() => {
@@ -523,7 +525,7 @@ export default function DocumentShelf({ attachment, email, onClose, onValidated,
                 fontSize: 14,
               }}
             >
-              {attachment.storage_url ? "Loading PDF…" : "No PDF available in storage"}
+              {signedUrl ? "Loading PDF…" : "Loading document…"}
             </div>
           )}
         </div>

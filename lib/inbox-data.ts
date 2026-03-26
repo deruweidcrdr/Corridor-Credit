@@ -22,7 +22,6 @@ export interface Attachment {
   classification: string;
   classification_role: string;
   pages: number;
-  storage_url?: string;
   mock_doc: MockDocument;
   /** Linked WorkflowForValidation ID (from pipeline) */
   workflow_for_validation_id?: string;

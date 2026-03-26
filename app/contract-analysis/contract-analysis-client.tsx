@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import Sidebar from "@/app/components/sidebar";
+import { useSignedUrl } from "@/lib/hooks/use-signed-url";
 
 /* ================================================================== */
 /*  Design-system tokens (from DESIGN_SYSTEM.md v3)                    */
@@ -76,7 +76,6 @@ interface ContractForValidation {
   contract_status: string | null;
   maturity_date: string | null;
   counterparty_id: string | null;
-  storage_url: string | null;
   terms: TermForValidation[];
 }
 
@@ -509,20 +508,7 @@ export default function ContractAnalysisClient() {
   );
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        overflow: "hidden",
-        background: ds.bg,
-        color: ds.text,
-        fontFamily: ds.fontBody,
-        fontSize: 13,
-      }}
-    >
-      <Sidebar />
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "100%", background: ds.bg, color: ds.text, fontFamily: ds.fontBody, fontSize: 13 }}>
         {/* ── Row 1: Topbar — stage breadcrumb only ── */}
         <div
           style={{
@@ -652,7 +638,6 @@ export default function ContractAnalysisClient() {
             {activeStep === 3 && <ComingSoon label="Approval" />}
           </>
         )}
-      </div>
     </div>
   );
 }
@@ -662,26 +647,28 @@ export default function ContractAnalysisClient() {
 /* ================================================================== */
 
 function PdfPanel({
-  storageUrl,
+  documentId,
   documentName,
 }: {
-  storageUrl: string | null;
+  documentId: string | null;
   documentName: string | null;
 }) {
+  const { signedUrl, loading: urlLoading } = useSignedUrl(documentId);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [blobLoading, setBlobLoading] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const loading = urlLoading || blobLoading;
 
   // Fetch the PDF as a blob so we can set the correct MIME type
   // (Supabase serves files as application/octet-stream)
   useEffect(() => {
-    if (!storageUrl) {
+    if (!signedUrl) {
       setPdfBlobUrl(null);
       return;
     }
     let revoked = false;
-    setLoading(true);
-    fetch(storageUrl)
+    setBlobLoading(true);
+    fetch(signedUrl)
       .then((r) => r.blob())
       .then((blob) => {
         if (revoked) return;
@@ -690,7 +677,7 @@ function PdfPanel({
       })
       .catch(() => {})
       .finally(() => {
-        if (!revoked) setLoading(false);
+        if (!revoked) setBlobLoading(false);
       });
     return () => {
       revoked = true;
@@ -699,7 +686,7 @@ function PdfPanel({
         return null;
       });
     };
-  }, [storageUrl]);
+  }, [signedUrl]);
 
   const handleFullscreen = useCallback(() => {
     iframeRef.current?.requestFullscreen?.();
@@ -744,14 +731,14 @@ function PdfPanel({
 
       {/* PDF content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", background: ds.bg }}>
-        {!storageUrl && (
+        {!documentId && (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textMuted }}>
               No document available
             </span>
           </div>
         )}
-        {storageUrl && loading && (
+        {documentId && loading && (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textMuted }}>
               Loading PDF...
@@ -987,7 +974,7 @@ function DocumentStep({
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* LEFT: PDF Viewer */}
         <PdfPanel
-          storageUrl={selectedContract?.storage_url ?? null}
+          documentId={selectedContract?.document_id ?? null}
           documentName={selectedContract?.document_name ?? null}
         />
 
