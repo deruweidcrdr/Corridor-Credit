@@ -103,7 +103,7 @@ export default function InboxClient({ emails: initialEmails, notifications }: Pr
 
   const closeShelf = useCallback(() => setOpenAttachment(null), []);
 
-  // Remove a WFV from the local email list (used after archive)
+  // Remove a WFV from the local email list (used after attachment-level archive)
   const removeWfv = useCallback((wfvId: string) => {
     setEmails((prev) =>
       prev.map((e) => ({
@@ -114,6 +114,18 @@ export default function InboxClient({ emails: initialEmails, notifications }: Pr
       }))
     );
   }, []);
+
+  // Remove an entire email from the local list (used after email-level archive)
+  const removeEmail = useCallback((emailId: string) => {
+    setEmails((prev) => prev.filter((e) => e.id !== emailId));
+    setSelectedEmailId((prev) => {
+      if (prev !== emailId) return prev;
+      // Auto-select the next email in the list
+      const idx = emails.findIndex((e) => e.id === emailId);
+      const next = emails[idx + 1] ?? emails[idx - 1];
+      return next?.id ?? "";
+    });
+  }, [emails]);
 
   // Mark a WFV as reviewed in local state
   const markReviewedLocal = useCallback((wfvId: string) => {
@@ -194,7 +206,7 @@ export default function InboxClient({ emails: initialEmails, notifications }: Pr
               email={selectedEmail}
               onOpenAttachment={setOpenAttachment}
               activeAttachmentId={openAttachment?.id ?? null}
-              onArchive={removeWfv}
+              onArchive={removeEmail}
               onMarkReviewed={markReviewedLocal}
             />
           </div>
@@ -767,7 +779,7 @@ function AttachmentColumn({
   email: Email | null;
   onOpenAttachment: (a: Attachment) => void;
   activeAttachmentId: string | null;
-  onArchive: (wfvId: string) => void;
+  onArchive: (emailId: string) => void;
   onMarkReviewed: (wfvId: string) => void;
 }) {
   const [archiving, setArchiving] = useState(false);
@@ -779,20 +791,20 @@ function AttachmentColumn({
   const isReviewed = email?.attachments.some((a) => !!a.wfv_reviewed_at) ?? false;
 
   const handleArchive = async () => {
-    if (!wfvId) return;
+    if (!email) return;
     setArchiving(true);
     setActionError(null);
     try {
-      const res = await fetch("/api/workflows/archive", {
+      const res = await fetch("/api/emails/archive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workflowForValidationId: wfvId }),
+        body: JSON.stringify({ emailId: email.id }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
       }
-      onArchive(wfvId);
+      onArchive(email.id);
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -913,7 +925,7 @@ function AttachmentColumn({
         <ActionButton
           variant="warn"
           onClick={handleArchive}
-          disabled={archiving || !wfvId}
+          disabled={archiving || !email}
         >
           {archiving ? "Archiving…" : "Archive"}
         </ActionButton>

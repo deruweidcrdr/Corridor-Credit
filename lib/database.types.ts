@@ -2479,6 +2479,7 @@ export interface EmailRow {
   email_id: string;
   file_name: string | null;
   from: string | null;
+  is_archived: boolean;
   sent_timestamp: string | null;
   subject: string | null;
   to: string[] | null;
@@ -2494,6 +2495,7 @@ export interface EmailInsert {
   email_id: string;
   file_name?: string | null;
   from?: string | null;
+  is_archived?: boolean;
   sent_timestamp?: string | null;
   subject?: string | null;
   to?: string[] | null;
@@ -2509,6 +2511,7 @@ export interface EmailUpdate {
   email_id?: string | null;
   file_name?: string | null;
   from?: string | null;
+  is_archived?: boolean;
   sent_timestamp?: string | null;
   subject?: string | null;
   to?: string[] | null;

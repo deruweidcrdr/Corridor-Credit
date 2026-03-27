@@ -174,7 +174,8 @@ CREATE TABLE email (
   subject TEXT,
   "to" TEXT[],
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  is_archived BOOLEAN DEFAULT false
 );
 
 
@@ -239,6 +240,7 @@ CREATE TABLE contract (
   deal_id TEXT,
   effective_date DATE,
   maturity_date DATE,
+  obligation_extraction_status TEXT,
   origination_date DATE,
   source_contract_for_validation_id TEXT,
   source_document_id TEXT,
@@ -1730,6 +1732,7 @@ CREATE TABLE financial_statement (
   period_end_month TEXT,
   period_end_year INTEGER,
   ppe NUMERIC,
+  profile_assignment_status TEXT,
   projection_method TEXT,
   projection_profile TEXT,
   projection_profile_id TEXT,

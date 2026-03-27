@@ -51,6 +51,7 @@ interface PipelineEmailRow {
   body_html: string | null;
   sent_timestamp: string | null;
   file_name: string | null;
+  is_archived?: boolean;
 }
 
 interface PipelineDocumentRow {
@@ -153,10 +154,27 @@ export async function fetchInboxData(): Promise<{
   notifications: InboxNotification[];
 }> {
   // 1. Fetch emails ordered by most recent first
-  const { data: rawEmails, error: emailErr } = await supabase
+  // Try with is_archived filter; fall back to unfiltered if column doesn't exist yet
+  let rawEmails: Record<string, unknown>[] | null = null;
+  let emailErr: { message: string } | null = null;
+
+  const filtered = await supabase
     .from("emails")
     .select("*")
+    .eq("is_archived", false)
     .order("sent_timestamp", { ascending: false });
+
+  if (filtered.error) {
+    // Column may not exist yet — retry without the filter
+    const unfiltered = await supabase
+      .from("emails")
+      .select("*")
+      .order("sent_timestamp", { ascending: false });
+    rawEmails = unfiltered.data as Record<string, unknown>[] | null;
+    emailErr = unfiltered.error;
+  } else {
+    rawEmails = filtered.data as Record<string, unknown>[] | null;
+  }
 
   if (emailErr) {
     console.error("Failed to fetch emails:", emailErr);
