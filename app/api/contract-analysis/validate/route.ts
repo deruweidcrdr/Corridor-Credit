@@ -58,7 +58,6 @@ export async function POST(req: NextRequest) {
       contract_type: cfv.contract_type,
       contract_subtype: cfv.contract_subtype,
       contract_status: "ACTIVE",
-      obligation_extraction_status: "PENDING",
       counterparty_id: counterparty_id ?? cfv.counterparty_id,
       currency: cfv.currency,
       effective_date: cfv.effective_date,
@@ -108,10 +107,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6. Update contract_for_validation status
+    // 6. Update contract_for_validation status — set PENDING on the staging
+    //    record so Railway's obligation dispatch discovers it.
     await supabase
       .from("contract_for_validation")
-      .update({ contract_status: "VALIDATED" })
+      .update({
+        contract_status: "VALIDATED",
+        obligation_extraction_status: "PENDING",
+      })
       .eq("contract_for_validation_id", contract_for_validation_id);
 
     // 6b. Update term_for_validation.validation_status so the pipeline can find them

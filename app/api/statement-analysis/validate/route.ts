@@ -70,7 +70,6 @@ export async function POST(req: NextRequest) {
       reporting_currency: fsv.reporting_currency,
       industry_code: fsv.industry_code,
       confidence: fsv.confidence,
-      profile_assignment_status: "PENDING",
     };
 
     for (const col of METRIC_COLUMN_NAMES) {
@@ -96,10 +95,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Update pipeline record status
+    // 5. Update pipeline record status — set PENDING on the staging record
+    //    so Railway's profile assignment dispatch discovers it.
     await supabase
       .from("financial_statement_for_validation")
-      .update({ validation_status: "VALIDATED" })
+      .update({
+        validation_status: "VALIDATED",
+        profile_assignment_status: "PENDING",
+      })
       .eq("id", id);
 
     // 6. Wake Railway (fire-and-forget latency optimization)
