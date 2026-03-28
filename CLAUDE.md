@@ -42,28 +42,34 @@ Obligations have both temporal (schedulable) and conditional (tested at points) 
 
 ## Workflow Architecture
 
-Documents flow through a staged pipeline:
+### Pipeline Overview
+
+Documents flow through an automated pipeline. Extraction runs automatically — the user validates results after extraction, not before.
 
 ```
 Email Received
   → INTAKE (email parsed, attachments extracted)
   → CLASSIFIED (LLM identifies counterparty, content type, intent)
-  → VALIDATED (user confirms/corrects classification)
-  → TERMS_EXTRACTED (contract terms pulled from documents)
-  → FINANCIALS_EXTRACTED (financial statement data extracted)
-  → OBLIGATIONS_EXTRACTED (obligations generated from terms)
+  → EXTRACTED (contract terms and/or financial data extracted automatically)
+  → USER VALIDATION (analyst reviews extracted data, corrects errors, promotes to canonical tables)
+  → OBLIGATIONS_EXTRACTED (obligations generated from validated contract terms)
   → PROJECTIONS_COMPLETE (projection engine has run)
   → REVIEW_READY (credit assessment available for analyst review)
 ```
 
-Each stage has a status: SUCCESS, SUCCESS_WITH_EDITS, FAILED, IN_PROGRESS, SKIPPED.
+**Key design decision:** Extraction runs immediately after classification without waiting for user validation. The "ForValidation" staging tables (contract_for_validation, term_for_validation, statement_for_validation) protect canonical tables from bad data — extraction results sit in staging until the user explicitly promotes them. This means:
+
+- The inbox is a **triage and exception queue**, not a mandatory gate
+- Most documents flow through with no user action required before extraction
+- The user validates extracted data in Contract Analysis and Statement Analysis, not in the inbox
+- If the user disagrees with a classification, editing the workflow triggers re-extraction with corrected parameters
 
 ### Document Content Classification
 
 Documents receive orthogonal content flags that determine pipeline routing:
 - **TERMS**: Contains contractual terms (loan amounts, rates, covenants)
 - **FINANCIALS**: Contains financial data (statements, projections, ratios)
-- **TERMS_AND_FINANCIALS**: Contains both (e.g., CIMs, pitch decks) — these get routed through BOTH extraction pipelines sequentially
+- **TERMS_AND_FINANCIALS**: Contains both (e.g., CIMs, pitch decks) — these get routed through BOTH extraction pipelines
 
 ### Obligation Matching (for reporting workflows)
 
@@ -71,6 +77,78 @@ When documents arrive for existing relationships:
 - **HIGH confidence**: Document types match AND reporting period aligns with obligation due date
 - **MEDIUM confidence**: Document types match AND closest upcoming due date within window
 - **LOW confidence**: Only due date proximity match
+
+### Inbox Actions
+
+The inbox workflow_for_validation screen provides three actions:
+- **EDIT WORKFLOW** (gold, primary): Correct misclassifications, fix counterparty matches, reassign document type. If the edit changes content_flags or counterparty_id, this triggers re-extraction.
+- **ARCHIVE** (coral/warning): Soft-delete junk, duplicates, auto-replies. Archived items are excluded from all downstream queries.
+- **MARK REVIEWED** (ghost/muted): Lightweight acknowledgment for the audit trail. Clears the item from the unread count. Does not trigger any pipeline action.
+
+## Status-Driven Dispatch — Next.js / Railway Contract
+
+### The Core Pattern
+
+Next.js writes status flags to Supabase. Railway reads status flags and runs transforms. The frontend never tells Railway which transform to run.
+
+```
+User clicks "Validate" in Next.js
+  → Next.js promotes record to canonical table
+  → Next.js sets {stage}_status = 'PENDING' on the canonical record
+  → Next.js calls POST /api/wake on Railway (fire-and-forget)
+  → Railway polling loop discovers PENDING records
+  → Railway runs the appropriate transform
+  → Railway sets status = 'SUCCESS' or 'ERROR'
+```
+
+### Status Lifecycle
+
+Every dispatch-triggering column follows the same enum:
+`PENDING → IN_PROGRESS → SUCCESS → ERROR`
+
+Railway sets IN_PROGRESS before starting (prevents duplicate processing), SUCCESS on completion, ERROR with diagnostic info on failure.
+
+### Dispatch Columns (on canonical tables)
+
+| Table | Status Column | Set By | Triggers |
+|-------|--------------|--------|----------|
+| `workflow_for_validation` | `extraction_status` | Intake pipeline (auto) | TE, FE, PFE depending on content_flags |
+| `contract_for_validation` | `obligation_extraction_status` | Contract validation | Obligation extraction (EO) → Obligation term structure (EOTSV) |
+| `financial_statement_for_validation` | `profile_assignment_status` | Statement validation | Projection profile assignment (APP) |
+| `counterparty_profile_assignment` | `projection_status` | Profile assignment completion | GCP |
+
+### What Next.js Does (and doesn't)
+
+**Next.js validate routes DO:**
+- Promote ForValidation records to canonical tables
+- Set the appropriate status column to 'PENDING'
+- Call `POST {PIPELINE_SERVICE_URL}/api/wake` (fire-and-forget, wrapped in try/catch)
+- Return success to the UI
+
+**Next.js validate routes DO NOT:**
+- Call specific Railway transform endpoints (/api/extract, /api/dispatch-obligations, etc.)
+- Pass document_ids, content_flags, or other parameters to Railway
+- Run any computation, LLM calls, metric derivation, or profile matching
+- Know which Railway transform will run — that's Railway's job
+
+**Rule of thumb:** If a Next.js API route does anything more than read from Supabase, write a status flag to Supabase, and optionally call /api/wake, it's doing too much.
+
+### The /api/wake Endpoint
+
+A single POST endpoint on Railway that forces an immediate polling cycle. No parameters. This is a latency optimization only — the system works without it because the polling loop catches PENDING records on the next cycle regardless.
+
+### Railway Polling Loop Order
+
+The polling loop runs these dispatch checks sequentially on each cycle:
+1. **Intake pipeline** (A1→A3→A4→A5→CPC→LDC) — processes new emails
+2. **Extraction dispatch** — checks workflow.extraction_status = 'PENDING'
+3. **Obligation dispatch** — checks contract.obligation_extraction_status = 'PENDING', reads source_document_id from the contract record
+4. **Profile assignment dispatch** — checks financial_statement.profile_assignment_status = 'PENDING'
+5. **(Future) Projection dispatch** — checks counterparty.projection_status = 'PENDING'
+
+### Pipeline-Overwrite Protection
+
+Any stage that can re-process records must not overwrite validated/user-edited data. The promote-on-validate pattern (ForValidation → canonical table) provides this protection inherently — pipeline outputs write to staging tables, canonical tables only receive data through explicit user validation actions.
 
 ## Data Model — Core Object Types
 
@@ -111,10 +189,14 @@ Templates that define HOW projections are generated. These learn over time throu
 - Seeded from RMA (Risk Management Association) industry time series data
 
 ### Counterparty Projection
-The output of the projection engine. 36 monthly periods of projected financials.
-- Primary key: `CPJ_YYYYMMDD_###`
-- Contains: revenue projections, cost projections, CFADS (Cash Flow Available for Debt Service), DSCR at each period
+The output of the projection engine. Wide/pivoted format — one row per counterparty with all periods as columns.
+- Primary key: `counterparty_projection_id`
+- Column pattern: `{metric}_y{year}_q{quarter}` (e.g., `revenue_y1_q1`, `dscr_corridor_y2_q3`)
+- Granularity: Quarterly (3 years × 4 quarters = 12 periods)
+- Metrics per period: revenue, COGS, gross profit, operating expenses, EBITDA, CFADS, debt service, DSCR (corridor, pari passu, total), capex, working capital change, borrowing base
+- Non-periodic columns: `dscr_classification` (temporal minimum classification), `dscr_stress_driver` (what drives the minimum), `profile_id` (links to projection profile used), `projection_created_at`
 - The temporal minimum DSCR across the projection horizon is the key output
+- This is the Foundry-era wide schema. Do NOT normalize to one-row-per-period — the wide format matches the read access pattern (one row fetch for a full projection timeline).
 
 ### Counterparty Risk (Credit Assessment)
 The final analytical output. Produced by the `assessCreditRisk` function using `CRDR_PROMPT_16`.
@@ -125,21 +207,54 @@ The final analytical output. Produced by the `assessCreditRisk` function using `
 Tracks document processing state. WorkflowForValidation is the "staging" version that users review before promoting to canonical objects.
 - Fields: workflow_stage, workflow_status, counterparty_id, document_id, content_flags, apparent_counterparty, matched_obligation_id
 
+### Organization
+Represents Corridor Credit fund or a bank partner institution.
+- Primary key: `id` (UUID)
+- Key fields: name, org_type (CORRIDOR_FUND or BANK_PARTNER), config (JSONB for bank-specific settings)
+- Foundation for multi-tenancy: all deal-level tables include `bank_partner_id` referencing this table
+
+### User Profile
+Links Supabase auth users to organizations and roles.
+- Primary key: `id` (UUID, references auth.users)
+- Key fields: email, full_name, org_id (references organizations), role, is_corridor_staff
+- Roles: FUND_MANAGER, ANALYST, COMPLIANCE_OFFICER, BANK_ADMIN, BANK_CREDIT_OFFICER, BANK_ANALYST, BANK_VIEWER, SUPER_ADMIN
+- The global header displays organization name, user email, and role from this table
+
 ## Architecture — What Lives Where
 
 ### This Application (Next.js + Supabase)
-- Email ingestion and parsing
-- Document processing and chunking (using unstructured.io)
-- Entity extraction and counterparty matching (LLM-powered)
-- Document classification (TERMS / FINANCIALS / TERMS_AND_FINANCIALS)
-- Workflow routing and validation UI
-- Inbox interface and deal review screens
-- All user-facing application UI
-- Projection engine (multi-engine: revenue, costs, capital structure, working capital, CFADS, DSCR)
-- Obligation term structure generation
-- Credit risk assessment
-- Projection profile learning/feedback loop
-- Workshop-based analytical interfaces
+- All user-facing application UI (inbox, contract analysis, statement analysis, projections, credit analysis)
+- Validation workflows (promote ForValidation → canonical tables, set PENDING status flags)
+- Projection engine calculations (multi-engine: revenue, costs, capital structure, working capital, CFADS, DSCR)
+- Credit risk assessment (FUND/SYS scoring)
+- Supabase Auth for authentication
+- Organization and user profile management
+
+### Railway Service (Python/FastAPI)
+- Email ingestion and parsing (A1)
+- Document processing and chunking (A3)
+- LLM-powered entity extraction and counterparty matching (A4)
+- Deal orchestration (A5)
+- Counterparty consolidation (CPC)
+- Document chunk linking (LDC)
+- Contract term extraction — 6-pass parallel LLM (TE → ECV)
+- Financial statement extraction — 34 GAAP line items (FE → ESV)
+- Pro forma extraction (PFE → EPF)
+- Obligation extraction from validated terms (EO)
+- Obligation term structure / payment schedule generation (EOTSV)
+- Projection profile assignment (APP)
+- All LLM calls for data extraction
+- Polling loop as single pipeline orchestrator
+
+### Supabase
+- PostgreSQL database (all tables)
+- Auth (JWT, session management)
+- Storage (document PDFs, attachments)
+- Row-level security policies
+- Organizations and user_profiles tables (multi-tenancy foundation)
+
+### The Boundary Rule
+Next.js is the UI layer and status-flag writer. Railway is the computation and extraction engine. The boundary is Supabase — both services read and write to it, but only Railway runs transforms and only Next.js handles user interactions.
 
 ## Solar Valley — Primary Demo Scenario
 
@@ -183,11 +298,17 @@ The demo shows the full pipeline: email arrives with CIM and term sheet → docu
 
 ## What NOT to Do
 
-- Don't use complex / nested JSON for LLM output parsing in pipelines. Use pipe-delimited.
+- Don't use complex / nested JSON for LLM output parsing in pipelines. Use pipe-delimited for simple extractions, shallow JSON for structured extractions.
 - Don't build overly complex solutions when simple ones work. Brent consistently prefers clean, maintainable code over clever abstractions.
 - Don't create throwaway prototypes. Everything built here should be production-path code.
 - Don't use generic placeholder data when Solar Valley scenario data is available.
 - Don't spread related information across many small pages. Credit analysts need information density.
+- Don't have Next.js API routes call specific Railway transform endpoints. Use the status-driven dispatch pattern: write PENDING to Supabase, call /api/wake.
+- Don't run computation, LLM calls, or profile matching in Next.js API routes. That logic belongs in Railway.
+- Don't treat the inbox as a mandatory gate before extraction. Extraction runs automatically; the inbox is for triage and exceptions.
+- Don't create new imperative Railway endpoints for pipeline triggers. The polling loop discovers work via status columns.
+- Don't normalize the counterparty_projection table to one-row-per-period. Keep the wide/pivoted format (one row per counterparty, columns named {metric}_y{n}_q{n}).
+- Don't modify the global header or collapsible navigation layout without explicit direction. The current implementation (global header with polling/status indicators, collapsible nav with wordmark/monogram logo swap) is the intended design.
 
 
 ## Design System

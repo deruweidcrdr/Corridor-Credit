@@ -5,18 +5,28 @@
 
 ---
 
-## ⚠ SIDEBAR & LOGO — DO NOT CHANGE
+## ⚠ GLOBAL HEADER & NAVIGATION — DO NOT CHANGE
 
-The navigation sidebar and platform logo as currently implemented by Claude Code are
-**correct and final**. Do not alter the following:
+The global header bar and collapsible navigation panel as currently implemented
+are **correct and final**. Do not alter the following:
 
-- The "CR/DR ≡" logo treatment at the top of the sidebar
-- The "Workbench: [Section Name]" section header in gold
-- The nav item font, sizing, spacing, and left-border active state
-- The sidebar background color and border
+### Global Header (fixed, full-width, top of every page)
+- Height: 44px, background: `var(--surface-deep)` (#090c13)
+- Left: Hamburger toggle for nav collapse/expand
+- Center-right: Platform status indicators (POLLING toggle, LIVE indicator, UNREAD badge) — uppercase, letter-spaced, DM Mono
+- Far right: Organization name + user email from org context provider
+- The header is independent of nav state — always full viewport width
 
-If you need to add new nav items or change the active item, do so while keeping
-the existing visual style exactly intact.
+### Collapsible Navigation Panel
+- **Expanded (240px, default on load):** Full "CORRIDOR CREDIT" wordmark (CRDR_Logo_20.png) at top, nav items with lucide-react icons + text labels, "Workbench: [Section]" header in gold
+- **Collapsed (60px):** CR/DR monogram (CRDR_Logo_21.png or SVG equivalent) at top, icons only with hover tooltips
+- Toggle via hamburger icon in global header
+- Logo PNGs have black backgrounds — use `mix-blend-mode: lighten` or SVG with CSS gradient
+- Active item: left-border highlight (preserve current treatment)
+- Nav item font, sizing, spacing, and background color: preserve as-is
+
+If you need to add new nav items, do so while keeping the existing visual style intact.
+Do not move status indicators out of the global header or back into individual pages.
 
 ---
 
@@ -143,9 +153,10 @@ There is no other legitimate use of `font-style: italic` in the platform.
 
 ## Layout Chrome
 
-### Topbar (stage breadcrumb)
-- Height: `48px`, fixed top (left offset = sidebar width), `background: var(--surface-deep)`
-- `border-bottom: 1px solid var(--border)`
+### Topbar (stage breadcrumb — page-specific, below global header)
+- Height: `48px`, positioned below the 44px global header, left offset = current nav width (responds to collapse state)
+- `background: var(--surface-deep)`, `border-bottom: 1px solid var(--border)`
+- Not all pages have a topbar — it appears on pages with multi-step workflows (e.g., Contract Analysis: Document → Counterparty → Approval)
 - Stage tabs: `font-family: var(--font-body)`, `font-size: 12px`, `font-weight: 700`, `text-transform: uppercase`, `letter-spacing: 0.07em`
 - **Active stage:** `color: var(--text)`, `background: var(--bg)`, `border-bottom: 2px solid var(--gold)`
 - **Done stage:** numbered circle `background: var(--green-dim)`, `color: var(--green)`, checkmark replaces number
@@ -158,7 +169,7 @@ There is no other legitimate use of `font-style: italic` in the platform.
 - Max content width: `1440px`
 
 ### Footer action bar
-- Position: fixed bottom, left offset = sidebar width
+- Position: fixed bottom, left offset = current nav width (responds to collapse state)
 - `background: var(--surface-deep)`, `border-top: 1px solid var(--border)`, `padding: 14px 32px`
 - **Left side:** metadata strip — `font-family: var(--font-mono)`, `font-size: 12px`, `color: var(--text-muted)`, values in `var(--text-dim)`
 - **Right side:** Decline (coral), secondary (ghost), primary advance (gold)
@@ -367,6 +378,8 @@ fixed footer (left metadata | Decline coral | Advance gold).
 | Use > 4px border-radius on chips | Keep chips crisp at `3–4px` |
 | Dim the values in deal subheader | Sub-values at full `var(--text)` `#e4e8f0` brightness |
 | Use `box-shadow` for layout depth | Border + surface-layer stacking instead |
+| Put platform-level status indicators (polling, connection, unread) on individual pages | These belong in the global header — visible on every page |
+| Use the gold button treatment for non-consequential actions | Gold = the single most important action on the screen. Triage/acknowledgment actions use ghost style |
 
 ---
 
@@ -375,7 +388,7 @@ fixed footer (left metadata | Decline coral | Advance gold).
 Prepend this to any Claude Code prompt where design alignment is needed:
 
 > Apply the Corridor Credit Platform design system (DESIGN_SYSTEM_v3.md).
-> **Preserve the existing sidebar and CR/DR logo exactly — do not modify navigation.**
+> **Preserve the global header, collapsible nav panel, and CR/DR logo system exactly — do not modify layout chrome.**
 >
 > Fonts: Syne for all UI text and all prose/narrative body text · DM Mono for all data values,
 > codes, and metadata · Instrument Serif italic for page-level screen titles ONLY.
