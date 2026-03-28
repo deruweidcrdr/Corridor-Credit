@@ -12,6 +12,15 @@ interface Props {
   unreadCount: number;
 }
 
+interface PipelineStatus {
+  pending: number;
+  in_progress: number;
+  error: number;
+  complete: number;
+  total: number;
+  untracked: number;
+}
+
 export default function GlobalHeader({ navExpanded, onToggleNav, unreadCount }: Props) {
   // ── Polling state ──
   const [pollingOn, setPollingOn] = useState<boolean | null>(null);
@@ -19,8 +28,22 @@ export default function GlobalHeader({ navExpanded, onToggleNav, unreadCount }: 
   useEffect(() => {
     fetch(`${RAILWAY_URL}/api/polling/status`)
       .then((r) => r.json())
-      .then((d) => setPollingOn(d.polling_active ?? d.active ?? false))
+      .then((d) => setPollingOn(d.polling === "enabled" || d.polling_active === true || d.active === true))
       .catch(() => setPollingOn(false));
+  }, []);
+
+  // ── Pipeline status (LIVE indicator) ──
+  const [pipeline, setPipeline] = useState<PipelineStatus | null>(null);
+
+  useEffect(() => {
+    const fetchStatus = () =>
+      fetch("/api/pipeline/status")
+        .then((r) => r.json())
+        .then((d: PipelineStatus) => setPipeline(d))
+        .catch(() => {});
+    fetchStatus();
+    const id = setInterval(fetchStatus, 15_000);
+    return () => clearInterval(id);
   }, []);
 
   const togglePolling = useCallback(async () => {
@@ -126,20 +149,86 @@ export default function GlobalHeader({ navExpanded, onToggleNav, unreadCount }: 
           {pollingOn === null ? "POLLING: …" : pollingOn ? "POLLING: ON" : "POLLING: OFF"}
         </button>
 
-        {/* Live indicator */}
-        <div style={{ display: "flex", alignItems: "center", gap: 5, color: ds.textMuted }}>
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: ds.green,
-              boxShadow: `0 0 0 2px ${ds.greenDim}`,
-              display: "inline-block",
-            }}
-          />
-          <span>LIVE</span>
-        </div>
+        {/* Pipeline status indicator */}
+        {(() => {
+          const state = !pipeline
+            ? "loading"
+            : pipeline.in_progress > 0
+              ? "processing"
+              : pipeline.pending > 0
+                ? "queued"
+                : pipeline.error > 0
+                  ? "error"
+                  : "idle";
+
+          const dotColor = {
+            loading: ds.textMuted,
+            processing: ds.amber,
+            queued: ds.gold,
+            error: ds.coral,
+            idle: ds.green,
+          }[state];
+
+          const dotGlow = {
+            loading: "transparent",
+            processing: ds.amberDim,
+            queued: ds.goldDim,
+            error: ds.coralDim,
+            idle: ds.greenDim,
+          }[state];
+
+          const labelColor = state === "idle" ? ds.textMuted : dotColor;
+
+          const label = state === "loading"
+            ? "\u2026"
+            : state === "processing"
+              ? `${pipeline!.in_progress} PROCESSING`
+              : state === "queued"
+                ? `${pipeline!.pending} QUEUED`
+                : state === "error"
+                  ? `${pipeline!.error} ERROR`
+                  : pipeline!.complete > 0
+                    ? `${pipeline!.complete} COMPLETE`
+                    : pipeline!.total > 0
+                      ? `${pipeline!.total} STAGED`
+                      : "IDLE";
+
+          const tooltip = pipeline
+            ? [
+                `${pipeline.total} staged records`,
+                `${pipeline.complete} complete`,
+                `${pipeline.pending} pending`,
+                `${pipeline.in_progress} in progress`,
+                `${pipeline.error} errors`,
+                pipeline.untracked > 0 ? `${pipeline.untracked} awaiting dispatch` : "",
+              ].filter(Boolean).join(" \u00b7 ")
+            : "Loading pipeline status\u2026";
+
+          return (
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 5, color: labelColor }}
+              title={tooltip}
+            >
+              {state === "processing" && (
+                <style>{`@keyframes liveIndicatorPulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+              )}
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: dotColor,
+                  boxShadow: `0 0 0 2px ${dotGlow}`,
+                  display: "inline-block",
+                  ...(state === "processing"
+                    ? { animation: "liveIndicatorPulse 1.5s ease-in-out infinite" }
+                    : {}),
+                }}
+              />
+              <span>{label}</span>
+            </div>
+          );
+        })()}
 
         {/* Unread badge */}
         {unreadCount > 0 && (
