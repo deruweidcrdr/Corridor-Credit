@@ -1,3 +1,5 @@
+<!-- Source of truth: Corridor Credit Claude Chat project. Do not edit unilaterally — update via project context first, then push to both repos. -->
+
 # Corridor Credit — Railway Pipeline Service Reference
 
 ## What This Service Does

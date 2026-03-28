@@ -1,3 +1,5 @@
+<!-- Source of truth: Corridor Credit Claude Chat project. Do not edit unilaterally — update via project context first, then push to both repos. -->
+
 # Next.js Application — Contract with Railway Service
 
 This document describes how the Next.js frontend interacts with Supabase
