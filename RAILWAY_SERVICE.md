@@ -134,6 +134,54 @@ the frontend — it reads the data and determines the appropriate action.
 | `financial_statement_for_validation.profile_assignment_status` | Next.js statement validation                          |
 | `counterparty_profile_assignment.projection_status`            | APP stage on completion                               |
 
+### Implicit Schema Requirements (`_set_status` helper)
+
+Railway's `db.py` uses a `_set_status` helper to write status transitions on every
+dispatch table. This helper writes **three columns** on each transition:
+
+| Column | Type | Written When |
+|--------|------|-------------|
+| `{status_column}` | TEXT | Every transition (`IN_PROGRESS`, `COMPLETE`, `ERROR`) |
+| `completed_at` | TIMESTAMPTZ | On `COMPLETE` — marks when processing finished |
+| `error_details` | TEXT | On `ERROR` — diagnostic info; cleared to NULL on success |
+
+**Every table that has a dispatch status column MUST also have `completed_at` and
+`error_details` columns.** If either is missing, PostgREST returns PGRST204 and the
+entire status update fails — the record stays stuck at its previous status and gets
+re-dispatched indefinitely.
+
+Tables that require these columns:
+
+| Table | Status Column | `completed_at` | `error_details` |
+|-------|--------------|-----------------|-----------------|
+| `workflow_for_validation` | `extraction_status` | Required | Required |
+| `contract_for_validation` | `obligation_extraction_status` | Required | Required |
+| `financial_statement_for_validation` | `profile_assignment_status` | Required | Required |
+| `counterparty_profile_assignment` | `projection_status` | Required | Required |
+| `enriched_workflow` | *(A5 stage)* | Required | Required |
+
+**PostgREST schema cache:** After adding columns via `ALTER TABLE`, PostgREST won't
+see them until you run `NOTIFY pgrst, 'reload schema'` in the SQL Editor. Without
+this, Railway continues to get PGRST204 even though the column exists.
+
+### APP Stage Profile Metadata Columns
+
+Railway's APP stage (`assign_projection_profile.py`) copies 7 metadata fields from
+`projection_profile` into `counterparty_profile_assignment` via `_join_profile_metadata()`.
+These columns are not in the original `schema.sql` and were added via migration
+`20260328_add_missing_pipeline_columns.sql`:
+
+- `profile_capex_intensity` (NUMERIC)
+- `profile_description` (TEXT)
+- `profile_display_name` (TEXT)
+- `profile_key_assumptions` (TEXT)
+- `profile_typical_industries` (TEXT)
+- `profile_revenue_growth_assumption` (TEXT)
+- `profile_margin_assumption` (TEXT)
+
+If any of these are missing, APP fails with PGRST204 and `profile_assignment_status`
+gets stuck at `ERROR` on the corresponding `financial_statement_for_validation` records.
+
 ### Pipeline-Overwrite Protection
 
 This service writes to `_for_validation` staging tables only.
