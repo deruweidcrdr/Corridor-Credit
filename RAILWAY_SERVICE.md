@@ -30,8 +30,9 @@ via `_run_all_status_dispatches()`:
 1. **INTAKE** (`_poll_intake`, `server.py`)
    - Scans `raw-emails` storage bucket for new files
    - Runs: A1 → A3 → A4 → A5 → CPC → LDC
-   - No status column — tracks seen files in memory (`_intake_known_files`)
-   - On first startup, runs the full intake regardless of bucket contents
+   - No status column — tracks seen files via `_intake_known_files` in memory,
+     seeded on first poll from the `emails` table (`file_name` column) so that
+     server restarts do not re-process every file in the bucket
 
 2. **EXTRACTION DISPATCH** (`_dispatch_pending_extractions`, `server.py`)
    - Table: `workflow_for_validation`
@@ -181,6 +182,27 @@ These columns are not in the original `schema.sql` and were added via migration
 
 If any of these are missing, APP fails with PGRST204 and `profile_assignment_status`
 gets stuck at `ERROR` on the corresponding `financial_statement_for_validation` records.
+
+### Idempotency Guards (Validated Data Protection)
+
+Three layers prevent intake re-runs from destroying user-validated data:
+
+**Root cause fix — Persistent intake tracking (`server.py`):** On first poll,
+`_intake_known_files` is seeded from the `emails` table's `file_name` column
+(written by A1). Server restarts no longer treat all bucket files as new.
+
+**Guard A — A4 (`workflow_validation.py`):** Before upserting workflow records, reads
+existing `workflow_for_validation` rows. If `extraction_status` is already `COMPLETE`,
+`IN_PROGRESS`, or `SUCCESS`, the workflow is **skipped entirely** — same EML produces
+same A4 output, so a partial metadata update would make the workflow inconsistent
+with its extraction output. The inbox edit route handles the legitimate re-extraction
+case by explicitly resetting `extraction_status` to `PENDING`.
+
+**Guard B — ECV (`establish_contract_validation.py`):** Before upserting contract and
+term records, reads existing `contract_for_validation` and `term_for_validation` rows.
+If `contract_status` or `validation_status` is `VALIDATED`, the existing status is
+preserved. This is defense-in-depth — even if extraction somehow re-runs, user
+validation decisions are not lost.
 
 ### Pipeline-Overwrite Protection
 

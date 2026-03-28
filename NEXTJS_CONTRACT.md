@@ -28,15 +28,20 @@ Next.js validate routes NEVER specify which transform to run.
 ### Contract Validation (Contract Analysis)
 - Route: `POST /api/contract-analysis/validate`
 - Reads from: `contract_for_validation` + `term_for_validation`
-- Writes to: `contract` + `term` (canonical)
-- Status effect: Sets `contract_for_validation.obligation_extraction_status = 'PENDING'`
+- Writes to: `contract` (canonical, status `ACTIVE`) + `term` (canonical, status `CONFIRMED`)
+- Status effects on staging tables:
+  - `contract_for_validation.contract_status = 'VALIDATED'`
+  - `contract_for_validation.obligation_extraction_status = 'PENDING'`
+  - `term_for_validation.validation_status = 'VALIDATED'` (except `FLAGGED` terms, which are skipped)
 - Calls: `POST /api/wake`
 
 ### Statement Validation (Statement Analysis)
 - Route: `POST /api/statement-analysis/validate`
 - Reads from: `financial_statement_for_validation`
 - Writes to: `financial_statement` (canonical)
-- Status effect: Sets `financial_statement_for_validation.profile_assignment_status = 'PENDING'`
+- Status effects on staging tables:
+  - `financial_statement_for_validation.validation_status = 'VALIDATED'`
+  - `financial_statement_for_validation.profile_assignment_status = 'PENDING'`
 - Calls: `POST /api/wake`
 
 ## Tables Railway Reads (written by Next.js or by Railway intake)
