@@ -95,12 +95,12 @@ Next.js writes status flags to Supabase. Railway reads status flags and runs tra
 
 ```
 User clicks "Validate" in Next.js
-  → Next.js promotes record to canonical table
-  → Next.js sets {stage}_status = 'PENDING' on the canonical record
+  → Next.js promotes _for_validation record to canonical table
+  → Next.js sets {stage}_status = 'PENDING' on the _for_validation record
   → Next.js calls POST /api/wake on Railway (fire-and-forget)
-  → Railway polling loop discovers PENDING records
+  → Railway polling loop discovers PENDING records on _for_validation tables
   → Railway runs the appropriate transform
-  → Railway sets status = 'SUCCESS' or 'ERROR'
+  → Railway sets status = 'COMPLETE' or 'ERROR'
 ```
 
 ### Status Lifecycle
@@ -108,9 +108,9 @@ User clicks "Validate" in Next.js
 Every dispatch-triggering column follows the same enum:
 `PENDING → IN_PROGRESS → COMPLETE → ERROR`
 
-Railway sets IN_PROGRESS before starting (prevents duplicate processing), COMPLETE on completion, ERROR with diagnostic info on failure.
+Railway sets IN_PROGRESS before starting (prevents duplicate processing), COMPLETE on success, ERROR with diagnostic info on failure.
 
-### Dispatch Columns (on canonical tables)
+### Dispatch Columns (on staging / dispatch tables)
 
 | Table | Status Column | Set By | Triggers |
 |-------|--------------|--------|----------|
@@ -123,7 +123,7 @@ Railway sets IN_PROGRESS before starting (prevents duplicate processing), COMPLE
 
 **Next.js validate routes DO:**
 - Promote ForValidation records to canonical tables
-- Set the appropriate status column to 'PENDING'
+- Set the appropriate status column to 'PENDING' on the _for_validation record (NOT on the canonical table)
 - Call `POST {PIPELINE_SERVICE_URL}/api/wake` (fire-and-forget, wrapped in try/catch)
 - Return success to the UI
 
@@ -143,10 +143,10 @@ A single POST endpoint on Railway that forces an immediate polling cycle. No par
 
 The polling loop runs these dispatch checks sequentially on each cycle:
 1. **Intake pipeline** (A1→A3→A4→A5→CPC→LDC) — processes new emails
-2. **Extraction dispatch** — checks workflow.extraction_status = 'PENDING'
-3. **Obligation dispatch** — checks contract.obligation_extraction_status = 'PENDING', reads source_document_id from the contract record
-4. **Profile assignment dispatch** — checks financial_statement.profile_assignment_status = 'PENDING'
-5. **(Future) Projection dispatch** — checks counterparty.projection_status = 'PENDING'
+2. **Extraction dispatch** — checks workflow_for_validation.extraction_status = 'PENDING'
+3. **Obligation dispatch** — checks contract_for_validation.obligation_extraction_status = 'PENDING', reads source_document_id from the contract row
+4. **Profile assignment dispatch** — checks financial_statement_for_validation.profile_assignment_status = 'PENDING'
+5. **Projection dispatch** — checks counterparty_profile_assignment.projection_status = 'PENDING'
 
 ### Pipeline-Overwrite Protection
 
@@ -226,7 +226,7 @@ Links Supabase auth users to organizations and roles.
 
 ### This Application (Next.js + Supabase)
 - All user-facing application UI (inbox, contract analysis, statement analysis, projections, credit analysis)
-- Validation workflows (promote ForValidation → canonical tables, set PENDING status flags)
+- Validation workflows (promote ForValidation → canonical tables, set PENDING status flags on _for_validation records)
 - Projection engine calculations (multi-engine: revenue, costs, capital structure, working capital, CFADS, DSCR)
 - Credit risk assessment (FUND/SYS scoring)
 - Supabase Auth for authentication
@@ -305,14 +305,15 @@ The demo shows the full pipeline: email arrives with CIM and term sheet → docu
 - Don't create throwaway prototypes. Everything built here should be production-path code.
 - Don't use generic placeholder data when Solar Valley scenario data is available.
 - Don't spread related information across many small pages. Credit analysts need information density.
-- Don't have Next.js API routes call specific Railway transform endpoints. Use the status-driven dispatch pattern: write PENDING to Supabase, call /api/wake.
+- Don't have Next.js API routes call specific Railway transform endpoints. Use the status-driven dispatch pattern: write PENDING to the _for_validation record in Supabase, call /api/wake.
 - Don't run computation, LLM calls, or profile matching in Next.js API routes. That logic belongs in Railway.
 - Don't treat the inbox as a mandatory gate before extraction. Extraction runs automatically; the inbox is for triage and exceptions.
 - Don't create new imperative Railway endpoints for pipeline triggers. The polling loop discovers work via status columns.
 - Don't normalize the counterparty_projection table to one-row-per-period. Keep the wide/pivoted format (one row per counterparty, columns named {metric}_y{n}_q{n}).
 - Don't modify the global header or collapsible navigation layout without explicit direction. The current implementation (global header with polling/status indicators, collapsible nav with wordmark/monogram logo swap) is the intended design.
+- Don't write PENDING status flags to canonical tables. PENDING is always set on the _for_validation (staging) record. Railway polls staging tables, not canonical tables.
 
 
 ## Design System
 
-Apply the design system defined in DESIGN_SYSTEM.md. Use Syne for body/UI text, DM Mono for all data values and codes, and Instrument Serif italic for narrative/LLM-generated text only. Background #1e2128, surfaces #252930 / #2c3038. SAT = #4caf82, PW = #e8a040, WDW = #e07060. Gold #c8a84b for primary actions. Match panel, chip, button, and section divider patterns exactly as specified.
+Apply the design system defined in DESIGN_SYSTEM.md. Use Syne for body/UI text, DM Mono for all data values and codes, and Instrument Serif italic for page-level screen titles only (never for narrative or prose text). Background #0d1017, surfaces #131920 / #1a2130. SAT = #4caf82, PW = #e8a040, WDW = #e07060. Gold #c8a84b for primary actions. Match panel, chip, button, and section divider patterns exactly as specified.
