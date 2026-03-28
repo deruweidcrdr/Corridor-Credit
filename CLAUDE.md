@@ -106,9 +106,9 @@ User clicks "Validate" in Next.js
 ### Status Lifecycle
 
 Every dispatch-triggering column follows the same enum:
-`PENDING → IN_PROGRESS → SUCCESS → ERROR`
+`PENDING → IN_PROGRESS → COMPLETE → ERROR`
 
-Railway sets IN_PROGRESS before starting (prevents duplicate processing), SUCCESS on completion, ERROR with diagnostic info on failure.
+Railway sets IN_PROGRESS before starting (prevents duplicate processing), COMPLETE on completion, ERROR with diagnostic info on failure.
 
 ### Dispatch Columns (on canonical tables)
 
