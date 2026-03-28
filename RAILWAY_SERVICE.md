@@ -105,7 +105,7 @@ which causes the extraction dispatch step to pick them up on the same or next cy
 | GET    | `/health`             | Health check                                               |
 | POST   | `/api/polling/start`  | Enable continuous polling                                  |
 | POST   | `/api/polling/stop`   | Disable continuous polling                                 |
-| GET    | `/api/polling/status` | Check polling state (`enabled` / `disabled`)               |
+| GET    | `/api/polling/status` | Check polling state — returns `{"polling":"enabled"}` or `{"polling":"disabled"}` |
 | POST   | `/api/wake`           | Force one immediate poll cycle (works even when polling off)|
 | POST   | `/api/process`        | Run arbitrary stages for a document (used by tests/admin)  |
 | GET    | `/api/debug/query`    | Query safe-listed Supabase tables (temporary debug tool)   |

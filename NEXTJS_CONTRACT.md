@@ -71,5 +71,17 @@ The inbox provides three actions that do NOT trigger Railway processing:
 
 ## Global Header Status Display
 
-The Next.js global header calls `GET /api/polling/status` to display the
-current polling state. It does NOT control which transforms run.
+The Next.js global header has two status indicators:
+
+1. **Polling toggle** — Calls Railway `GET /api/polling/status` to display the
+   current polling state. Response shape: `{"polling":"enabled"}` or
+   `{"polling":"disabled"}`. The toggle calls `POST /api/polling/start` or
+   `POST /api/polling/stop` to change state. It does NOT control which
+   transforms run.
+
+2. **Pipeline status indicator** — Calls Next.js `GET /api/pipeline/status`
+   (15-second interval) to show aggregate counts across the four staging tables
+   Railway polls. This route queries Supabase directly — it does not call Railway.
+   Response shape: `{"pending":0,"in_progress":0,"error":0,"complete":0,"total":0,"untracked":0}`.
+   Visual states: IDLE (green), N STAGED (green), N COMPLETE (green),
+   N QUEUED (gold), N PROCESSING (amber, pulsing), N ERROR (coral).
