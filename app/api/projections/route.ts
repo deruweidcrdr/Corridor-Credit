@@ -150,6 +150,43 @@ export async function GET() {
       }
     }
 
+    // 10. Fetch ALL projection profiles for the override dropdown
+    const { data: allProfilesRaw } = await supabase
+      .from("projection_profile")
+      .select("projection_profile_id, profile_name, industry, size, maturity")
+      .order("profile_name");
+    const allProfiles = (allProfilesRaw ?? []).map((p: any) => ({
+      projection_profile_id: p.projection_profile_id,
+      profile_name: p.profile_name,
+      industry: p.industry,
+      size: p.size,
+      maturity: p.maturity,
+    }));
+
+    // 11. Fetch counterparty_projection (wide-format, one row per counterparty)
+    let projectionDataMap: Record<string, any> = {};
+    if (counterpartyIds.length > 0) {
+      const { data } = await supabase
+        .from("counterparty_projection")
+        .select("*")
+        .in("counterparty_id", counterpartyIds);
+      for (const p of data ?? []) {
+        projectionDataMap[p.counterparty_id] = p;
+      }
+    }
+
+    // 12. Fetch counterparty_projection_summary
+    let projectionSummaryMap: Record<string, any> = {};
+    if (counterpartyIds.length > 0) {
+      const { data } = await supabase
+        .from("counterparty_projection_summary")
+        .select("*")
+        .in("counterparty_id", counterpartyIds);
+      for (const s of data ?? []) {
+        projectionSummaryMap[s.counterparty_id] = s;
+      }
+    }
+
     // -- Build lookup maps --
 
     // Map document_id → deal_id from deal_documents
@@ -243,6 +280,9 @@ export async function GET() {
       counterparties: counterpartiesMap,
       profileAssignments: profileAssignmentsMap,
       profileDetails: profileDetailsMap,
+      allProfiles,
+      projectionData: projectionDataMap,
+      projectionSummary: projectionSummaryMap,
     });
   } catch (err) {
     console.error("Projections GET error:", err);

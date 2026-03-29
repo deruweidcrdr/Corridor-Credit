@@ -91,16 +91,25 @@ The inbox workflow_for_validation screen provides three actions:
 
 ### The Core Pattern
 
-Next.js writes status flags to Supabase. Railway reads status flags and runs transforms. The frontend never tells Railway which transform to run.
+The pipeline runs end-to-end without human gates. Status columns on staging tables
+default to `'PENDING'` at the database level, so Railway picks up new records
+automatically. Next.js validate routes reset status to `'PENDING'` when users
+correct extraction results, causing re-processing with corrected data.
 
 ```
-User clicks "Validate" in Next.js
-  → Next.js promotes _for_validation record to canonical table
-  → Next.js sets {stage}_status = 'PENDING' on the _for_validation record
-  → Next.js calls POST /api/wake on Railway (fire-and-forget)
-  → Railway polling loop discovers PENDING records on _for_validation tables
+AUTO-FIRE (initial pipeline run — no human action):
+  Railway stage creates _for_validation record
+  → DB default sets {stage}_status = 'PENDING'
+  → Next polling cycle picks up PENDING record
   → Railway runs the appropriate transform
   → Railway sets status = 'COMPLETE' or 'ERROR'
+
+RE-TRIGGER (user corrects extraction results):
+  User clicks "Validate" in Next.js
+  → Next.js promotes _for_validation record to canonical table
+  → Next.js resets {stage}_status = 'PENDING' on the _for_validation record
+  → Next.js calls POST /api/wake on Railway (fire-and-forget)
+  → Railway re-processes with corrected data
 ```
 
 ### Status Lifecycle
@@ -112,18 +121,18 @@ Railway sets IN_PROGRESS before starting (prevents duplicate processing), COMPLE
 
 ### Dispatch Columns (on staging / dispatch tables)
 
-| Table | Status Column | Set By | Triggers |
-|-------|--------------|--------|----------|
-| `workflow_for_validation` | `extraction_status` | Intake pipeline (auto) | TE, FE, PFE depending on content_flags |
-| `contract_for_validation` | `obligation_extraction_status` | Contract validation | Obligation extraction (EO) → Obligation term structure (EOTSV) |
-| `financial_statement_for_validation` | `profile_assignment_status` | Statement validation | Projection profile assignment (APP) |
-| `counterparty_profile_assignment` | `projection_status` | Profile assignment completion | GCP |
+| Table | Status Column | Initial Trigger | Re-trigger | Dispatches |
+|-------|--------------|-----------------|------------|------------|
+| `workflow_for_validation` | `extraction_status` | DB default `PENDING` (A4 creates row) | Inbox edit (content_flags change) | TE, FE, PFE depending on content_flags |
+| `contract_for_validation` | `obligation_extraction_status` | DB default `PENDING` (ECV creates row) | Contract validate route | EO → EOTSV |
+| `financial_statement_for_validation` | `profile_assignment_status` | DB default `PENDING` (ESV creates row) | Statement validate route | APP |
+| `counterparty_profile_assignment` | `projection_status` | APP sets explicitly | — | GCP |
 
 ### What Next.js Does (and doesn't)
 
 **Next.js validate routes DO:**
 - Promote ForValidation records to canonical tables
-- Set the appropriate status column to 'PENDING' on the _for_validation record (NOT on the canonical table)
+- Reset the status column to 'PENDING' on the _for_validation record (re-triggering downstream processing with corrected data — NOT the initial dispatch trigger)
 - Call `POST {PIPELINE_SERVICE_URL}/api/wake` (fire-and-forget, wrapped in try/catch)
 - Return success to the UI
 

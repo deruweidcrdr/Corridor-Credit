@@ -291,6 +291,55 @@ const TEMPORAL_MIN = CORRIDOR_DATA.reduce(
   CORRIDOR_DATA[0]
 );
 
+// ---------------------------------------------------------------------------
+// Build chart data from real projection output (wide-format row)
+// ---------------------------------------------------------------------------
+const QUARTER_LABELS = [
+  "Y1 Q1", "Y1 Q2", "Y1 Q3", "Y1 Q4",
+  "Y2 Q1", "Y2 Q2", "Y2 Q3", "Y2 Q4",
+  "Y3 Q1", "Y3 Q2", "Y3 Q3", "Y3 Q4",
+];
+
+interface ProjectionChartPoint {
+  period: string;
+  dscrCorridor: number | null;
+  dscrTotal: number | null;
+  dscrPariPassu: number | null;
+}
+
+function buildProjectionChartData(projData: any): ProjectionChartPoint[] {
+  const points: ProjectionChartPoint[] = [];
+  for (let y = 1; y <= 3; y++) {
+    for (let q = 1; q <= 4; q++) {
+      const corridor = projData?.[`dscr_corridor_y${y}_q${q}`] ?? null;
+      const total = projData?.[`dscr_total_y${y}_q${q}`] ?? null;
+      const pariPassu = projData?.[`dscr_pari_passu_y${y}_q${q}`] ?? null;
+      points.push({
+        period: `Y${y} Q${q}`,
+        dscrCorridor: corridor != null ? +corridor : null,
+        dscrTotal: total != null ? +total : null,
+        dscrPariPassu: pariPassu != null ? +pariPassu : null,
+      });
+    }
+  }
+  return points;
+}
+
+function getClassificationChip(classification: string | null | undefined) {
+  if (!classification) return null;
+  const c = classification.toUpperCase();
+  if (c.includes("PASS") || c.includes("SAT") || c === "INVESTMENT_GRADE" || c === "STRONG" || c === "ADEQUATE") {
+    return { label: classification, bg: ds.satBg, color: ds.satColor, border: ds.satBorder };
+  }
+  if (c.includes("WATCH") || c.includes("WARN") || c === "MARGINAL" || c === "NEAR_COVENANT") {
+    return { label: classification, bg: ds.pwBg, color: ds.pwColor, border: ds.pwBorder };
+  }
+  if (c.includes("FAIL") || c.includes("BREACH") || c === "SUBSTANDARD" || c === "CRITICAL") {
+    return { label: classification, bg: ds.wdwBg, color: ds.wdwColor, border: ds.wdwBorder };
+  }
+  return { label: classification, bg: ds.pwBg, color: ds.pwColor, border: ds.pwBorder };
+}
+
 /* ================================================================== */
 /*  Root component                                                     */
 /* ================================================================== */
@@ -308,6 +357,11 @@ export default function ProjectionsClient() {
   // Profile assignment state
   const [profileAssignments, setProfileAssignments] = useState<Record<string, any>>({});
   const [profileDetails, setProfileDetails] = useState<Record<string, any>>({});
+  const [allProfiles, setAllProfiles] = useState<any[]>([]);
+
+  // Projection output state
+  const [projectionData, setProjectionData] = useState<Record<string, any>>({});
+  const [projectionSummary, setProjectionSummary] = useState<Record<string, any>>({});
 
   const fetchData = useCallback(async () => {
     try {
@@ -317,6 +371,9 @@ export default function ProjectionsClient() {
       setDeals(fetchedDeals);
       setProfileAssignments(json.profileAssignments ?? {});
       setProfileDetails(json.profileDetails ?? {});
+      setAllProfiles(json.allProfiles ?? []);
+      setProjectionData(json.projectionData ?? {});
+      setProjectionSummary(json.projectionSummary ?? {});
 
       // Auto-select first deal with contracts
       if (fetchedDeals.length > 0 && !selectedDealId) {
@@ -622,6 +679,9 @@ export default function ProjectionsClient() {
             dealId={selectedDeal?.deal_id}
             profileAssignments={profileAssignments}
             profileDetails={profileDetails}
+            allProfiles={allProfiles}
+            projectionData={selectedDeal?.counterparty_id ? projectionData[selectedDeal.counterparty_id] ?? null : null}
+            projectionSummary={selectedDeal?.counterparty_id ? projectionSummary[selectedDeal.counterparty_id] ?? null : null}
             onProfileUpdate={(updatedAssignment: any) => {
               setProfileAssignments((prev) => ({
                 ...prev,
@@ -1083,6 +1143,9 @@ function ProjectionsStep({
   dealId,
   profileAssignments,
   profileDetails,
+  allProfiles,
+  projectionData,
+  projectionSummary,
   onProfileUpdate,
   onProfileDetailUpdate,
 }: {
@@ -1091,6 +1154,9 @@ function ProjectionsStep({
   dealId?: string;
   profileAssignments: Record<string, any>;
   profileDetails: Record<string, any>;
+  allProfiles: any[];
+  projectionData: any | null;
+  projectionSummary: any | null;
   onProfileUpdate: (updatedAssignment: any) => void;
   onProfileDetailUpdate?: (profile: any) => void;
 }) {
@@ -1101,6 +1167,7 @@ function ProjectionsStep({
     "DSCR" | "LLCR" | "GDSCR" | "All"
   >("DSCR");
   const [profileActionLoading, setProfileActionLoading] = useState(false);
+  const [revertingProfile, setRevertingProfile] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
   const [showOverrideModal, setShowOverrideModal] = useState(false);
 
@@ -1163,6 +1230,26 @@ function ProjectionsStep({
     }
   };
 
+  const handleRevertProfile = async () => {
+    if (!counterpartyId || revertingProfile) return;
+    setRevertingProfile(true);
+    try {
+      const res = await fetch("/api/projections/profile-assignment", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ counterparty_id: counterpartyId, action: "REVERT" }),
+      });
+      const json = await res.json();
+      if (json.success && json.assignment) {
+        onProfileUpdate(json.assignment);
+      }
+    } catch (err) {
+      console.error("Profile revert failed:", err);
+    } finally {
+      setRevertingProfile(false);
+    }
+  };
+
   const scenarioTabs = [
     { key: "base" as const, label: "Base Case" },
     { key: "stress" as const, label: "Stress Case" },
@@ -1176,8 +1263,31 @@ function ProjectionsStep({
     { key: "All" as const, label: "All Ratios" },
   ];
 
+  const projStatus = assignment?.projection_status ?? null;
+
+  const handleRetryProjection = async () => {
+    if (!counterpartyId) return;
+    setProfileActionLoading(true);
+    try {
+      const res = await fetch("/api/projections/profile-assignment", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ counterparty_id: counterpartyId, action: "RETRY_PROJECTION" }),
+      });
+      const json = await res.json();
+      if (json.success && json.assignment) {
+        onProfileUpdate(json.assignment);
+      }
+    } catch (err) {
+      console.error("Retry projection failed:", err);
+    } finally {
+      setProfileActionLoading(false);
+    }
+  };
+
   return (
     <>
+      <style>{`@keyframes pulse-opacity{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px 80px" }}>
         {/* Page header */}
@@ -1226,296 +1336,105 @@ function ProjectionsStep({
         {/* ── Coverage Corridor Chart ── */}
         <SectionDivider label="Coverage Ratio Projection Corridors" />
 
-        {/* Temporal minimum + covenant callout */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: ds.wdwBg,
-                border: `1px solid ${ds.wdwBorder}`,
-                borderRadius: 4,
-                padding: "5px 12px",
-              }}
-            >
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: ds.wdwColor }} />
-              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.wdwColor }}>
-                Temporal Min: {TEMPORAL_MIN.dscrBase.toFixed(2)}x at {TEMPORAL_MIN.period}
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: ds.goldDim,
-                border: `1px solid rgba(200,168,75,0.30)`,
-                borderRadius: 4,
-                padding: "5px 12px",
-              }}
-            >
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: ds.gold }} />
-              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.gold }}>
-                Covenant: 1.25x
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Scenario tabs + ratio selector */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 2 }}>
-            {scenarioTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveScenario(tab.key)}
-                style={{
-                  padding: "7px 16px",
-                  fontFamily: ds.fontBody,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  borderRadius: `${ds.radius}px ${ds.radius}px 0 0`,
-                  border: activeScenario === tab.key ? `1px solid ${ds.border}` : "1px solid transparent",
-                  borderBottom: activeScenario === tab.key ? `1px solid ${ds.bg}` : `1px solid ${ds.border}`,
-                  background: activeScenario === tab.key ? ds.surface : "transparent",
-                  color: activeScenario === tab.key ? ds.gold : ds.textMuted,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            {ratioButtons.map((btn) => (
-              <button
-                key={btn.key}
-                onClick={() => setActiveRatio(btn.key)}
-                style={{
-                  padding: "5px 12px",
-                  fontFamily: ds.fontMono,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  borderRadius: 4,
-                  border: activeRatio === btn.key
-                    ? `1px solid ${ds.gold}`
-                    : `1px solid ${ds.border}`,
-                  background: activeRatio === btn.key ? ds.goldDim : "transparent",
-                  color: activeRatio === btn.key ? ds.gold : ds.textMuted,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
-                {btn.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Chart panel */}
-        <div
-          style={{
-            background: ds.surface,
-            border: `1px solid ${ds.border}`,
-            borderRadius: ds.radiusLg,
-            padding: 20,
-            marginBottom: 20,
-          }}
-        >
-          <div style={{ width: "100%", height: 420 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={CORRIDOR_DATA}
-                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke={ds.border}
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="period"
-                  tick={{ fill: ds.textMuted, fontSize: 11, fontFamily: ds.fontMono }}
-                  tickLine={{ stroke: ds.border }}
-                  axisLine={{ stroke: ds.border }}
-                  interval={2}
-                  angle={-30}
-                  textAnchor="end"
-                  height={50}
-                />
-                <YAxis
-                  domain={[0.6, 2.0]}
-                  tick={{ fill: ds.textMuted, fontSize: 11, fontFamily: ds.fontMono }}
-                  tickLine={{ stroke: ds.border }}
-                  axisLine={{ stroke: ds.border }}
-                  tickFormatter={(v: number) => `${v.toFixed(1)}x`}
-                  width={50}
-                />
-                <Tooltip content={<CorridorTooltip />} />
-
-                {/* Corridor band */}
-                <Area
-                  dataKey="corridor"
-                  fill={ds.blue}
-                  fillOpacity={0.12}
-                  stroke="none"
-                />
-
-                {/* Covenant threshold */}
-                <ReferenceLine
-                  y={1.25}
-                  stroke={ds.gold}
-                  strokeDasharray="8 4"
-                  strokeWidth={1.5}
-                  label={{
-                    value: "Covenant 1.25x",
-                    position: "right",
-                    fill: ds.gold,
-                    fontSize: 11,
-                  }}
-                />
-
-                {/* Breakeven line */}
-                <ReferenceLine
-                  y={1.0}
-                  stroke={ds.coral}
-                  strokeWidth={1.5}
-                  label={{
-                    value: "B/E 1.0x",
-                    position: "right",
-                    fill: ds.coral,
-                    fontSize: 11,
-                  }}
-                />
-
-                {/* Stress zone highlight */}
-                <ReferenceArea
-                  x1="May 2027"
-                  x2="Nov 2027"
-                  fill={ds.coral}
-                  fillOpacity={0.06}
-                  strokeOpacity={0}
-                />
-
-                {/* Upper corridor boundary */}
-                <Line
-                  dataKey="dscrUpper"
-                  stroke={ds.blue}
-                  strokeWidth={1}
-                  strokeDasharray="4 3"
-                  dot={false}
-                  opacity={0.5}
-                />
-
-                {/* Lower corridor boundary */}
-                <Line
-                  dataKey="dscrLower"
-                  stroke={ds.blue}
-                  strokeWidth={1}
-                  strokeDasharray="4 3"
-                  dot={false}
-                  opacity={0.5}
-                />
-
-                {/* Base case DSCR line */}
-                <Line
-                  dataKey="dscrBase"
-                  stroke={ds.blue}
-                  strokeWidth={2.5}
-                  dot={(props: DotProps) => {
-                    const { cx, cy, payload } = props;
-                    if (
-                      payload &&
-                      payload.dscrBase === TEMPORAL_MIN.dscrBase &&
-                      payload.period === TEMPORAL_MIN.period
-                    ) {
-                      return (
-                        <circle
-                          key={`min-${payload.period}`}
-                          cx={cx}
-                          cy={cy}
-                          r={6}
-                          fill={ds.coral}
-                          stroke="#fff"
-                          strokeWidth={2}
-                        />
-                      );
-                    }
-                    return (
-                      <circle
-                        key={`dot-${payload?.period}`}
-                        cx={cx}
-                        cy={cy}
-                        r={0}
-                        fill="transparent"
-                      />
-                    );
-                  }}
-                  activeDot={{
-                    r: 5,
-                    fill: ds.blue,
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Chart legend */}
+        {projStatus === "ERROR" ? (
           <div
             style={{
+              background: ds.wdwBg,
+              border: `1px solid ${ds.wdwBorder}`,
+              borderRadius: ds.radiusLg,
+              padding: "40px 20px",
+              marginBottom: 24,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 16,
+            }}
+          >
+            <span style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 700, color: ds.wdwColor, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Projection Failed
+            </span>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 12, color: ds.textDim, textAlign: "center", maxWidth: 500 }}>
+              {assignment?.projection_error ?? "Unknown error"}
+            </span>
+            <button
+              onClick={handleRetryProjection}
+              disabled={profileActionLoading}
+              style={{
+                padding: "8px 16px",
+                borderRadius: ds.radius,
+                fontFamily: ds.fontBody,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: ds.gold,
+                color: "#18140a",
+                border: "none",
+                cursor: profileActionLoading ? "not-allowed" : "pointer",
+                opacity: profileActionLoading ? 0.6 : 1,
+              }}
+            >
+              {profileActionLoading ? "Retrying..." : "Retry Projection"}
+            </button>
+          </div>
+        ) : projStatus === "PENDING" || projStatus === "IN_PROGRESS" ? (
+          <div
+            style={{
+              background: ds.surface,
+              border: `1px solid ${ds.border}`,
+              borderRadius: ds.radiusLg,
+              padding: "60px 20px",
+              marginBottom: 24,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: ds.fontMono,
+                fontSize: 13,
+                fontWeight: 500,
+                color: ds.gold,
+                animation: "pulse-opacity 1.5s ease-in-out infinite",
+              }}
+            >
+              Generating projections...
+            </span>
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>
+              The projection engine is running. Results will appear when complete.
+            </span>
+          </div>
+        ) : projStatus !== "COMPLETE" && !projStatus ? (
+          <div
+            style={{
+              background: ds.surface,
+              border: `1px solid ${ds.border}`,
+              borderRadius: ds.radiusLg,
+              padding: "60px 20px",
+              marginBottom: 24,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 24,
-              marginTop: 8,
-              paddingTop: 12,
-              borderTop: `1px solid ${ds.border}`,
             }}
           >
-            <LegendItem color={ds.blue} label="DSCR (Base Case)" type="line" />
-            <LegendItem color={ds.blue} label="Projection Corridor" type="area" />
-            <LegendItem color={ds.gold} label="Covenant Threshold" type="dashed" />
-            <LegendItem color={ds.coral} label="Breakeven" type="line" />
-            <LegendItem color={ds.coral} label="Temporal Minimum" type="dot" />
+            <span style={{ fontFamily: ds.fontMono, fontSize: 12, color: ds.textMuted }}>
+              Confirm profile to generate projections
+            </span>
           </div>
-        </div>
-
-        {/* Key metrics summary */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
-          <MetricCard
-            label="Temporal Min DSCR"
-            value={`${TEMPORAL_MIN.dscrBase.toFixed(2)}x`}
-            sub={TEMPORAL_MIN.period}
-            accent={ds.wdwColor}
-          />
-          <MetricCard
-            label="Covenant Cushion"
-            value={`${(((TEMPORAL_MIN.dscrBase - 1.25) / 1.25) * 100).toFixed(1)}%`}
-            sub="At temporal minimum"
-            accent={TEMPORAL_MIN.dscrBase < 1.25 ? ds.wdwColor : ds.gold}
-          />
-          <MetricCard
-            label="Average DSCR"
-            value={`${(CORRIDOR_DATA.reduce((s, d) => s + d.dscrBase, 0) / CORRIDOR_DATA.length).toFixed(2)}x`}
-            sub="36-month projection"
-            accent={ds.blue}
-          />
-          <MetricCard
-            label="Max Corridor Width"
-            value={`${(Math.max(...CORRIDOR_DATA.map((d) => d.dscrUpper - d.dscrLower))).toFixed(2)}x`}
-            sub="Peak uncertainty spread"
-            accent={ds.amber}
-          />
-        </div>
+        ) : (
+        <CoverageCorridorChart
+          projectionData={projectionData}
+          projectionSummary={projectionSummary}
+          scenarioTabs={scenarioTabs}
+          activeScenario={activeScenario}
+          setActiveScenario={setActiveScenario}
+          ratioButtons={ratioButtons}
+          activeRatio={activeRatio}
+          setActiveRatio={setActiveRatio}
+        />
+        )}
 
         {/* ── Profile Properties ── */}
         <SectionDivider label="Projection Profile Properties" />
@@ -1541,7 +1460,10 @@ function ProjectionsStep({
             <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textDim }}>
               Profile Assignment
             </span>
-            <ProfileStatusBadge assignment={assignment} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ProfileStatusBadge assignment={assignment} />
+              <ProjectionStatusBadge assignment={assignment} />
+            </div>
           </div>
           {!assignment ? (
             <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
@@ -1594,6 +1516,7 @@ function ProjectionsStep({
       {/* Override modal */}
       {showOverrideModal && (
         <OverrideModal
+          allProfiles={allProfiles}
           onClose={() => setShowOverrideModal(false)}
           onSubmit={(profileId, justification) => {
             setShowOverrideModal(false);
@@ -1623,7 +1546,7 @@ function ProjectionsStep({
           <FooterMeta label="Temporal Min" value={`${TEMPORAL_MIN.dscrBase.toFixed(2)}x`} valueColor={ds.wdwColor} />
           <FooterMeta label="Covenant Cushion" value={`${(((TEMPORAL_MIN.dscrBase - 1.25) / 1.25) * 100).toFixed(1)}%`} valueColor={TEMPORAL_MIN.dscrBase < 1.25 ? ds.wdwColor : ds.green} />
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {!assignment ? (
             <button
               onClick={handleAssignProfile}
@@ -1645,6 +1568,92 @@ function ProjectionsStep({
             >
               {assignLoading ? "Assigning..." : "Assign Profile"}
             </button>
+          ) : assignment.status === "CONFIRMED" ? (
+            <>
+              <button
+                disabled
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: ds.green,
+                  color: "#0d1017",
+                  border: "none",
+                  cursor: "default",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ✓ Profile Confirmed
+              </button>
+              <button
+                onClick={handleRevertProfile}
+                disabled={revertingProfile}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "transparent",
+                  color: ds.coral,
+                  border: `1px solid ${ds.coral}`,
+                  cursor: revertingProfile ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  opacity: revertingProfile ? 0.6 : 1,
+                }}
+              >
+                {revertingProfile ? "Reverting..." : "Revert"}
+              </button>
+            </>
+          ) : assignment.status === "FLAGGED" ? (
+            <>
+              <button
+                disabled
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: ds.coral,
+                  color: "#fff",
+                  border: "none",
+                  cursor: "default",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Flagged for Review
+              </button>
+              <button
+                onClick={handleRevertProfile}
+                disabled={revertingProfile}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "transparent",
+                  color: ds.coral,
+                  border: `1px solid ${ds.coral}`,
+                  cursor: revertingProfile ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  opacity: revertingProfile ? 0.6 : 1,
+                }}
+              >
+                {revertingProfile ? "Reverting..." : "Revert"}
+              </button>
+            </>
           ) : (
             <>
               <GhostButton label="Override Profile" onClick={() => setShowOverrideModal(true)} />
@@ -1666,31 +1675,29 @@ function ProjectionsStep({
                   opacity: profileActionLoading ? 0.6 : 1,
                 }}
               >
-                Flag for Review
+                {profileActionLoading ? "Flagging..." : "Flag for Review"}
+              </button>
+              <button
+                onClick={() => handleProfileAction("CONFIRMED")}
+                disabled={profileActionLoading}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: ds.radius,
+                  fontFamily: ds.fontBody,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: ds.gold,
+                  color: "#18140a",
+                  border: "none",
+                  cursor: profileActionLoading ? "not-allowed" : "pointer",
+                  opacity: profileActionLoading ? 0.6 : 1,
+                }}
+              >
+                {profileActionLoading ? "Confirming..." : "Confirm Profile →"}
               </button>
             </>
-          )}
-          {assignment && (
-            <button
-              onClick={() => handleProfileAction("CONFIRMED")}
-              disabled={profileActionLoading}
-              style={{
-                padding: "8px 16px",
-                borderRadius: ds.radius,
-                fontFamily: ds.fontBody,
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                background: ds.gold,
-                color: "#18140a",
-                border: "none",
-                cursor: profileActionLoading ? "not-allowed" : "pointer",
-                opacity: profileActionLoading ? 0.6 : 1,
-              }}
-            >
-              Confirm Profile →
-            </button>
           )}
         </div>
       </div>
@@ -1706,6 +1713,338 @@ interface DotProps {
   cx?: number;
   cy?: number;
   payload?: CorridorDataPoint;
+}
+
+/* ================================================================== */
+/*  Coverage Corridor Chart — real projection data                      */
+/* ================================================================== */
+function CoverageCorridorChart({
+  projectionData,
+  projectionSummary,
+  scenarioTabs,
+  activeScenario,
+  setActiveScenario,
+  ratioButtons,
+  activeRatio,
+  setActiveRatio,
+}: {
+  projectionData: any | null;
+  projectionSummary: any | null;
+  scenarioTabs: { key: string; label: string }[];
+  activeScenario: string;
+  setActiveScenario: (s: any) => void;
+  ratioButtons: { key: string; label: string }[];
+  activeRatio: string;
+  setActiveRatio: (s: any) => void;
+}) {
+  // Build chart data from wide-format projection row
+  const chartData = projectionData ? buildProjectionChartData(projectionData) : [];
+  const hasData = chartData.length > 0 && chartData.some((d) => d.dscrCorridor != null);
+
+  // Summary values
+  const minDscr = projectionSummary?.min_dscr_value ?? null;
+  const minPeriod = projectionSummary?.min_dscr_period ?? null;
+  const avgDscr = projectionSummary?.avg_dscr ?? null;
+  const llcr = projectionSummary?.llcr ?? null;
+  const dscrBuffer = projectionSummary?.dscr_buffer ?? null;
+  const dscrClassification = projectionSummary?.dscr_classification ?? null;
+  const classChip = getClassificationChip(dscrClassification);
+
+  // Covenant threshold (default 1.25x)
+  const covenantThreshold = 1.25;
+
+  // Determine Y-axis domain from data
+  const allVals = chartData
+    .flatMap((d) => [d.dscrCorridor, d.dscrTotal, d.dscrPariPassu])
+    .filter((v): v is number => v != null);
+  const yMin = allVals.length > 0 ? Math.floor((Math.min(...allVals) - 0.2) * 10) / 10 : 0.6;
+  const yMax = allVals.length > 0 ? Math.ceil((Math.max(...allVals) + 0.2) * 10) / 10 : 2.0;
+
+  // Color function for DSCR segments
+  const getDscrColor = (val: number | null) => {
+    if (val == null) return ds.textMuted;
+    if (val < covenantThreshold) return ds.wdwColor;
+    if (val < covenantThreshold + (dscrBuffer ?? 0.1)) return ds.pwColor;
+    return ds.satColor;
+  };
+
+  // Format min period label
+  const minPeriodLabel = minPeriod
+    ? minPeriod.replace(/_/g, " ").replace(/y(\d)/i, "Y$1").replace(/q(\d)/i, " Q$1")
+    : "—";
+
+  if (!hasData) {
+    // Fallback: use mock data if no real projection data
+    return (
+      <>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: ds.wdwBg, border: `1px solid ${ds.wdwBorder}`, borderRadius: 4, padding: "5px 12px" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: ds.wdwColor }} />
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.wdwColor }}>
+                Temporal Min: {TEMPORAL_MIN.dscrBase.toFixed(2)}x at {TEMPORAL_MIN.period}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: ds.goldDim, border: "1px solid rgba(200,168,75,0.30)", borderRadius: 4, padding: "5px 12px" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: ds.gold }} />
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.gold }}>Covenant: {covenantThreshold}x</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 20, marginBottom: 20 }}>
+          <div style={{ width: "100%", height: 420 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={CORRIDOR_DATA} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={ds.border} vertical={false} />
+                <XAxis dataKey="period" tick={{ fill: ds.textMuted, fontSize: 11, fontFamily: ds.fontMono }} tickLine={{ stroke: ds.border }} axisLine={{ stroke: ds.border }} interval={2} angle={-30} textAnchor="end" height={50} />
+                <YAxis domain={[0.6, 2.0]} tick={{ fill: ds.textMuted, fontSize: 11, fontFamily: ds.fontMono }} tickLine={{ stroke: ds.border }} axisLine={{ stroke: ds.border }} tickFormatter={(v: number) => `${v.toFixed(1)}x`} width={50} />
+                <Tooltip content={<CorridorTooltip />} />
+                <Area dataKey="corridor" fill={ds.blue} fillOpacity={0.12} stroke="none" />
+                <ReferenceLine y={covenantThreshold} stroke={ds.gold} strokeDasharray="8 4" strokeWidth={1.5} label={{ value: `Covenant ${covenantThreshold}x`, position: "right", fill: ds.gold, fontSize: 11 }} />
+                <ReferenceLine y={1.0} stroke={ds.coral} strokeWidth={1.5} label={{ value: "B/E 1.0x", position: "right", fill: ds.coral, fontSize: 11 }} />
+                <Line dataKey="dscrUpper" stroke={ds.blue} strokeWidth={1} strokeDasharray="4 3" dot={false} opacity={0.5} />
+                <Line dataKey="dscrLower" stroke={ds.blue} strokeWidth={1} strokeDasharray="4 3" dot={false} opacity={0.5} />
+                <Line dataKey="dscrBase" stroke={ds.blue} strokeWidth={2.5} dot={(props: DotProps) => {
+                  const { cx, cy, payload } = props;
+                  if (payload && payload.dscrBase === TEMPORAL_MIN.dscrBase && payload.period === TEMPORAL_MIN.period) {
+                    return <circle key={`min-${payload.period}`} cx={cx} cy={cy} r={6} fill={ds.coral} stroke="#fff" strokeWidth={2} />;
+                  }
+                  return <circle key={`dot-${payload?.period}`} cx={cx} cy={cy} r={0} fill="transparent" />;
+                }} activeDot={{ r: 5, fill: ds.blue, stroke: "#fff", strokeWidth: 2 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, marginTop: 8, paddingTop: 12, borderTop: `1px solid ${ds.border}` }}>
+            <LegendItem color={ds.blue} label="DSCR (Base Case)" type="line" />
+            <LegendItem color={ds.blue} label="Projection Corridor" type="area" />
+            <LegendItem color={ds.gold} label="Covenant Threshold" type="dashed" />
+            <LegendItem color={ds.coral} label="Breakeven" type="line" />
+            <LegendItem color={ds.coral} label="Temporal Minimum" type="dot" />
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
+          <MetricCard label="Temporal Min DSCR" value={`${TEMPORAL_MIN.dscrBase.toFixed(2)}x`} sub={TEMPORAL_MIN.period} accent={ds.wdwColor} />
+          <MetricCard label="Covenant Cushion" value={`${(((TEMPORAL_MIN.dscrBase - covenantThreshold) / covenantThreshold) * 100).toFixed(1)}%`} sub="At temporal minimum" accent={TEMPORAL_MIN.dscrBase < covenantThreshold ? ds.wdwColor : ds.gold} />
+          <MetricCard label="Average DSCR" value={`${(CORRIDOR_DATA.reduce((s, d) => s + d.dscrBase, 0) / CORRIDOR_DATA.length).toFixed(2)}x`} sub="36-month projection" accent={ds.blue} />
+          <MetricCard label="Max Corridor Width" value={`${(Math.max(...CORRIDOR_DATA.map((d) => d.dscrUpper - d.dscrLower))).toFixed(2)}x`} sub="Peak uncertainty spread" accent={ds.amber} />
+        </div>
+      </>
+    );
+  }
+
+  // ─── Real projection data chart ───
+  return (
+    <>
+      {/* Temporal minimum + covenant callout */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {minDscr != null && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: minDscr < covenantThreshold ? ds.wdwBg : ds.satBg, border: `1px solid ${minDscr < covenantThreshold ? ds.wdwBorder : ds.satBorder}`, borderRadius: 4, padding: "5px 12px" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: minDscr < covenantThreshold ? ds.wdwColor : ds.satColor }} />
+              <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: minDscr < covenantThreshold ? ds.wdwColor : ds.satColor }}>
+                Temporal Min: {(+minDscr).toFixed(2)}x at {minPeriodLabel}
+              </span>
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: ds.goldDim, border: "1px solid rgba(200,168,75,0.30)", borderRadius: 4, padding: "5px 12px" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: ds.gold }} />
+            <span style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.gold }}>Covenant: {covenantThreshold}x</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Ratio selector */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[
+            { key: "corridor", label: "DSCR Corridor" },
+            { key: "total", label: "DSCR Total" },
+            { key: "pariPassu", label: "Pari Passu" },
+          ].map((btn) => (
+            <button
+              key={btn.key}
+              onClick={() => setActiveRatio(btn.key as any)}
+              style={{
+                padding: "5px 12px",
+                fontFamily: ds.fontMono,
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                borderRadius: 4,
+                border: activeRatio === btn.key ? `1px solid ${ds.gold}` : `1px solid ${ds.border}`,
+                background: activeRatio === btn.key ? ds.goldDim : "transparent",
+                color: activeRatio === btn.key ? ds.gold : ds.textMuted,
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart panel */}
+      <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 20, marginBottom: 20 }}>
+        <div style={{ width: "100%", height: 420 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={ds.border} vertical={false} />
+              <XAxis
+                dataKey="period"
+                tick={{ fill: ds.textMuted, fontSize: 11, fontFamily: ds.fontMono }}
+                tickLine={{ stroke: ds.border }}
+                axisLine={{ stroke: ds.border }}
+                height={40}
+              />
+              <YAxis
+                domain={[Math.max(yMin, 0), yMax]}
+                tick={{ fill: ds.textMuted, fontSize: 11, fontFamily: ds.fontMono }}
+                tickLine={{ stroke: ds.border }}
+                axisLine={{ stroke: ds.border }}
+                tickFormatter={(v: number) => `${v.toFixed(1)}x`}
+                width={50}
+              />
+              <Tooltip
+                content={({ active, payload, label }: any) => {
+                  if (!active || !payload?.length) return null;
+                  const corridor = payload.find((p: any) => p.dataKey === "dscrCorridor");
+                  const total = payload.find((p: any) => p.dataKey === "dscrTotal");
+                  const pp = payload.find((p: any) => p.dataKey === "dscrPariPassu");
+                  const isMin = label === minPeriodLabel || label === minPeriod;
+                  return (
+                    <div style={{ borderRadius: ds.radiusLg, padding: "12px 16px", background: ds.surfaceRaised, border: `1px solid ${ds.borderAccent}` }}>
+                      <p style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 500, color: ds.text, marginBottom: 8 }}>{label}</p>
+                      {corridor?.value != null && (
+                        <p style={{ fontSize: 13, marginBottom: 4 }}>
+                          <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>DSCR Corridor: </span>
+                          <span style={{ fontFamily: ds.fontMono, fontSize: 15, fontWeight: 500, color: getDscrColor(corridor.value) }}>{(+corridor.value).toFixed(2)}x</span>
+                          {isMin && <span style={{ marginLeft: 8, fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, color: ds.wdwColor }}>TEMPORAL MIN</span>}
+                        </p>
+                      )}
+                      {total?.value != null && (
+                        <p style={{ fontSize: 13, marginBottom: 4 }}>
+                          <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>DSCR Total: </span>
+                          <span style={{ fontFamily: ds.fontMono, fontSize: 13, color: ds.textDim }}>{(+total.value).toFixed(2)}x</span>
+                        </p>
+                      )}
+                      {pp?.value != null && (
+                        <p style={{ fontSize: 13, marginBottom: 4 }}>
+                          <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Pari Passu: </span>
+                          <span style={{ fontFamily: ds.fontMono, fontSize: 13, color: ds.textDim }}>{(+pp.value).toFixed(2)}x</span>
+                        </p>
+                      )}
+                      {corridor?.value != null && (
+                        <p style={{ fontSize: 13 }}>
+                          <span style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted }}>Covenant Cushion: </span>
+                          <span style={{ fontFamily: ds.fontMono, fontSize: 13, fontWeight: 500, color: corridor.value < covenantThreshold ? ds.wdwColor : ds.green }}>
+                            {(((corridor.value - covenantThreshold) / covenantThreshold) * 100).toFixed(1)}%
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  );
+                }}
+              />
+
+              {/* Covenant threshold */}
+              <ReferenceLine y={covenantThreshold} stroke={ds.gold} strokeDasharray="8 4" strokeWidth={1.5} label={{ value: `Covenant ${covenantThreshold}x`, position: "right", fill: ds.gold, fontSize: 11 }} />
+
+              {/* Breakeven line */}
+              <ReferenceLine y={1.0} stroke={ds.coral} strokeWidth={1} label={{ value: "B/E 1.0x", position: "right", fill: ds.coral, fontSize: 11 }} />
+
+              {/* DSCR Total line (dimmer) */}
+              <Line dataKey="dscrTotal" stroke={ds.textMuted} strokeWidth={1} strokeDasharray="4 3" dot={false} connectNulls />
+
+              {/* Pari Passu line (dimmer) */}
+              <Line dataKey="dscrPariPassu" stroke={ds.blue} strokeWidth={1} strokeDasharray="4 3" dot={false} opacity={0.4} connectNulls />
+
+              {/* Primary DSCR Corridor line — color-coded segments */}
+              <Line
+                dataKey="dscrCorridor"
+                stroke={ds.satColor}
+                strokeWidth={2.5}
+                connectNulls
+                dot={(props: any) => {
+                  const { cx, cy, payload } = props;
+                  if (!payload || payload.dscrCorridor == null) return <circle key={`e-${payload?.period}`} cx={cx} cy={cy} r={0} fill="transparent" />;
+                  const val = payload.dscrCorridor;
+                  const isMinPoint = payload.period === minPeriodLabel || payload.period === minPeriod;
+                  const dotColor = getDscrColor(val);
+                  if (isMinPoint) {
+                    return (
+                      <g key={`min-${payload.period}`}>
+                        <circle cx={cx} cy={cy} r={7} fill={ds.wdwColor} stroke="#fff" strokeWidth={2} />
+                        <text x={cx} y={(cy ?? 0) - 14} textAnchor="middle" fill={ds.wdwColor} fontSize={11} fontFamily={ds.fontMono} fontWeight={700}>
+                          {(+val).toFixed(2)}x
+                        </text>
+                      </g>
+                    );
+                  }
+                  return <circle key={`dot-${payload.period}`} cx={cx} cy={cy} r={3} fill={dotColor} stroke={ds.surface} strokeWidth={1.5} />;
+                }}
+                activeDot={{ r: 5, fill: ds.satColor, stroke: "#fff", strokeWidth: 2 }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Chart legend */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, marginTop: 8, paddingTop: 12, borderTop: `1px solid ${ds.border}` }}>
+          <LegendItem color={ds.satColor} label="DSCR Corridor" type="line" />
+          <LegendItem color={ds.textMuted} label="DSCR Total" type="dashed" />
+          <LegendItem color={ds.gold} label="Covenant Threshold" type="dashed" />
+          <LegendItem color={ds.coral} label="Temporal Minimum" type="dot" />
+        </div>
+      </div>
+
+      {/* Key metrics summary */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 24 }}>
+        <MetricCard
+          label="Temporal Min DSCR"
+          value={minDscr != null ? `${(+minDscr).toFixed(2)}x` : "—"}
+          sub={minPeriodLabel}
+          accent={minDscr != null && minDscr < covenantThreshold ? ds.wdwColor : ds.satColor}
+        />
+        <MetricCard
+          label="Average DSCR"
+          value={avgDscr != null ? `${(+avgDscr).toFixed(2)}x` : "—"}
+          sub="12-quarter projection"
+          accent={ds.blue}
+        />
+        <MetricCard
+          label="LLCR"
+          value={llcr != null ? `${(+llcr).toFixed(2)}x` : "—"}
+          sub="Loan life coverage"
+          accent={ds.blue}
+        />
+        <MetricCard
+          label="Buffer"
+          value={dscrBuffer != null ? `${((+dscrBuffer) * 100).toFixed(1)}%` : "—"}
+          sub="Above covenant threshold"
+          accent={dscrBuffer != null && dscrBuffer < 0 ? ds.wdwColor : ds.gold}
+        />
+        <div style={{ background: ds.surface, border: `1px solid ${ds.border}`, borderRadius: ds.radiusLg, padding: 16 }}>
+          <div style={{ fontFamily: ds.fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: ds.textMuted, marginBottom: 4 }}>
+            Classification
+          </div>
+          {classChip ? (
+            <span style={{
+              fontFamily: ds.fontMono, fontSize: 13, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+              padding: "4px 10px", borderRadius: 3,
+              background: classChip.bg, color: classChip.color, border: `1px solid ${classChip.border}`,
+            }}>
+              {classChip.label}
+            </span>
+          ) : (
+            <div style={{ fontFamily: ds.fontMono, fontSize: 22, fontWeight: 500, color: ds.textMuted }}>—</div>
+          )}
+          <div style={{ fontFamily: ds.fontMono, fontSize: 11, color: ds.textMuted, marginTop: 2 }}>DSCR band</div>
+        </div>
+      </div>
+    </>
+  );
 }
 
 function CorridorTooltip({
@@ -2002,10 +2341,86 @@ function ProfileStatusBadge({ assignment }: { assignment: any }) {
   );
 }
 
+function ProjectionStatusBadge({ assignment }: { assignment: any }) {
+  const projStatus = assignment?.projection_status;
+  if (!projStatus) return null;
+
+  let label = "";
+  let bg = "";
+  let color = "";
+  let border = "";
+  let pulse = false;
+
+  if (projStatus === "PENDING") {
+    label = "Projection Queued";
+    bg = ds.goldDim;
+    color = ds.gold;
+    border = "rgba(200,168,75,0.30)";
+  } else if (projStatus === "IN_PROGRESS") {
+    label = "Projecting...";
+    bg = ds.pwBg;
+    color = ds.pwColor;
+    border = ds.pwBorder;
+    pulse = true;
+  } else if (projStatus === "COMPLETE") {
+    label = "Projected";
+    bg = ds.satBg;
+    color = ds.satColor;
+    border = ds.satBorder;
+  } else if (projStatus === "ERROR") {
+    label = "Projection Error";
+    bg = ds.wdwBg;
+    color = ds.wdwColor;
+    border = ds.wdwBorder;
+  } else {
+    return null;
+  }
+
+  const completedAt = assignment?.projection_completed_at;
+  let relativeTime = "";
+  if (projStatus === "COMPLETE" && completedAt) {
+    const diff = Date.now() - new Date(completedAt).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) relativeTime = "just now";
+    else if (mins < 60) relativeTime = `${mins} min ago`;
+    else if (mins < 1440) relativeTime = `${Math.floor(mins / 60)}h ago`;
+    else relativeTime = `${Math.floor(mins / 1440)}d ago`;
+  }
+
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span
+        style={{
+          fontFamily: ds.fontMono,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          padding: "3px 8px",
+          borderRadius: 3,
+          background: bg,
+          color,
+          border: `1px solid ${border}`,
+          animation: pulse ? "pulse-opacity 1.5s ease-in-out infinite" : undefined,
+        }}
+      >
+        {label}
+      </span>
+      {relativeTime && (
+        <span style={{ fontFamily: ds.fontMono, fontSize: 10, color: ds.textMuted }}>
+          {relativeTime}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function OverrideModal({
+  allProfiles,
   onClose,
   onSubmit,
 }: {
+  allProfiles: any[];
   onClose: () => void;
   onSubmit: (profileId: string, justification: string) => void;
 }) {
@@ -2042,23 +2457,30 @@ function OverrideModal({
           <label style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textDim, display: "block", marginBottom: 4 }}>
             Profile ID
           </label>
-          <input
+          <select
             value={profileId}
             onChange={(e) => setProfileId(e.target.value)}
-            placeholder="PRF_..."
             style={{
               width: "100%",
               padding: "8px 12px",
               fontFamily: ds.fontMono,
-              fontSize: 13,
+              fontSize: 12,
               background: ds.surface,
               border: `1px solid ${ds.borderAccent}`,
               borderRadius: ds.radius,
               color: ds.text,
               outline: "none",
               boxSizing: "border-box",
+              cursor: "pointer",
             }}
-          />
+          >
+            <option value="" disabled>— Select a profile —</option>
+            {allProfiles.map((p) => (
+              <option key={p.projection_profile_id} value={p.projection_profile_id}>
+                {p.profile_name}{p.size && p.maturity ? ` · ${p.size} · ${p.maturity}` : ""}
+              </option>
+            ))}
+          </select>
         </div>
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontFamily: ds.fontBody, fontSize: 13, color: ds.textDim, display: "block", marginBottom: 4 }}>

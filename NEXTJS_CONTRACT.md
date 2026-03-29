@@ -7,11 +7,43 @@ tables that this service reads from. It exists so that Railway service
 sessions understand what triggers their dispatch steps without needing
 access to the Next.js codebase.
 
+## Auto-Fire Pipeline and the Dual-Trigger Model
+
+The pipeline runs end-to-end from email ingestion to projections without
+human gates. All three dispatch status columns on staging tables default
+to `'PENDING'` at the database level:
+
+| Table | Status Column | DB Default |
+|-------|--------------|------------|
+| `workflow_for_validation` | `extraction_status` | `'PENDING'` |
+| `contract_for_validation` | `obligation_extraction_status` | `'PENDING'` |
+| `financial_statement_for_validation` | `profile_assignment_status` | `'PENDING'` |
+
+This means Railway picks up newly created staging records automatically —
+no human action is required for the initial pipeline run.
+
+**Two triggers set PENDING on each status column:**
+
+1. **Initial trigger (DB default):** When a Railway stage creates a staging
+   record, the default value fires the next dispatch stage automatically.
+   A4 creates `workflow_for_validation` → extraction auto-fires.
+   ECV creates `contract_for_validation` → obligation extraction auto-fires.
+   ESV creates `financial_statement_for_validation` → profile assignment auto-fires.
+
+2. **Re-trigger (validate route):** When a user reviews extracted data, corrects
+   errors, and clicks Validate, the Next.js route promotes the record to a
+   canonical table and resets the status column to `'PENDING'`. This causes
+   Railway to re-process with the corrected data.
+
+The validate routes are a **correction and promotion mechanism**, not the
+initial dispatch trigger.
+
 ## What Next.js Validate Routes Do
 
-Each validate route follows the same three-step pattern:
+Each validate route follows the same pattern:
 1. Promote a `_for_validation` record to a canonical/ontology table
-2. Set a status column to `PENDING` on the `_for_validation` record (or related table)
+2. Reset the status column to `'PENDING'` on the `_for_validation` record
+   (re-triggering downstream processing with corrected data)
 3. Call `POST /api/wake` on this Railway service (fire-and-forget)
 
 Next.js validate routes NEVER specify which transform to run.
@@ -22,10 +54,10 @@ Next.js validate routes NEVER specify which transform to run.
 - Route: `POST /api/workflows/validate`
 - Reads from: `workflow_for_validation`
 - Writes to: `workflow` (canonical)
-- Status effect: `extraction_status` is set to `PENDING` by A4 during intake,
-  NOT by this validate route. The validate route confirms/corrects
-  classification. If the user changes `content_flags`, `extraction_status`
-  is reset to `PENDING` to trigger re-extraction.
+- Status effect: `extraction_status` is set to `PENDING` by DB default during
+  intake (auto-fire), NOT by this validate route. The validate route
+  confirms/corrects classification. If the user changes `content_flags`,
+  `extraction_status` is reset to `PENDING` to re-trigger extraction.
 
 ### Contract Validation (Contract Analysis)
 - Route: `POST /api/contract-analysis/validate`
@@ -34,6 +66,8 @@ Next.js validate routes NEVER specify which transform to run.
 - Status effects on staging tables:
   - `contract_for_validation.contract_status = 'VALIDATED'`
   - `contract_for_validation.obligation_extraction_status = 'PENDING'`
+    (re-trigger — obligation extraction already ran via DB default auto-fire;
+    this reset causes re-processing with user-corrected terms)
   - `term_for_validation.validation_status = 'VALIDATED'` (except `FLAGGED` terms, which are skipped)
 - Calls: `POST /api/wake`
 
@@ -44,16 +78,18 @@ Next.js validate routes NEVER specify which transform to run.
 - Status effects on staging tables:
   - `financial_statement_for_validation.validation_status = 'VALIDATED'`
   - `financial_statement_for_validation.profile_assignment_status = 'PENDING'`
+    (re-trigger — profile assignment already ran via DB default auto-fire;
+    this reset causes re-processing with user-corrected financials)
 - Calls: `POST /api/wake`
 
 ## Tables Railway Reads (written by Next.js or by Railway intake)
 
-| Table                                | Who Creates Rows              | Status Column Railway Watches   |
-|--------------------------------------|-------------------------------|---------------------------------|
-| `workflow_for_validation`            | Railway intake (A4)           | `extraction_status`             |
-| `contract_for_validation`            | Railway extraction (TE → ECV) | `obligation_extraction_status`  |
-| `financial_statement_for_validation` | Railway extraction (FE → ESV) | `profile_assignment_status`     |
-| `counterparty_profile_assignment`    | Railway (APP)                 | `projection_status`             |
+| Table                                | Who Creates Rows              | Status Column Railway Watches   | Initial Trigger       | Re-trigger                    |
+|--------------------------------------|-------------------------------|---------------------------------|-----------------------|-------------------------------|
+| `workflow_for_validation`            | Railway intake (A4)           | `extraction_status`             | DB default `PENDING`  | Inbox edit (content_flags change) |
+| `contract_for_validation`            | Railway extraction (TE → ECV) | `obligation_extraction_status`  | DB default `PENDING`  | Contract validate route       |
+| `financial_statement_for_validation` | Railway extraction (FE → ESV) | `profile_assignment_status`     | DB default `PENDING`  | Statement validate route      |
+| `counterparty_profile_assignment`    | Railway (APP)                 | `projection_status`             | APP sets explicitly   | —                             |
 
 **Filter:** Extraction dispatch must exclude `workflow_for_validation` records
 where `is_archived = true`. Archived workflows are user-dismissed items that

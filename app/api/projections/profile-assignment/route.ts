@@ -343,7 +343,7 @@ export async function PATCH(req: NextRequest) {
     let updatePayload: Record<string, any> = {};
 
     if (action === "CONFIRMED") {
-      updatePayload = { status: "CONFIRMED" };
+      updatePayload = { status: "CONFIRMED", projection_status: "PENDING" };
     } else if (action === "FLAGGED") {
       updatePayload = { status: "FLAGGED" };
     } else if (action === "OVERRIDE") {
@@ -356,6 +356,17 @@ export async function PATCH(req: NextRequest) {
         user_selected_profile,
         override_justification: override_justification || null,
         effective_profile_id: user_selected_profile,
+        projection_status: "PENDING",
+      };
+    } else if (action === "RETRY_PROJECTION") {
+      updatePayload = { projection_status: "PENDING", projection_error: null };
+    } else if (action === "REVERT") {
+      updatePayload = {
+        status: "SYSTEM_ASSIGNED",
+        is_user_override: false,
+        user_selected_profile: null,
+        override_justification: null,
+        projection_status: null,
       };
     } else {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
@@ -371,6 +382,14 @@ export async function PATCH(req: NextRequest) {
     if (error) {
       console.error("Profile assignment update error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Fire-and-forget wake call for actions that set projection_status = PENDING
+    if (action === "CONFIRMED" || action === "OVERRIDE" || action === "RETRY_PROJECTION") {
+      const pipelineUrl = process.env.PIPELINE_SERVICE_URL;
+      if (pipelineUrl) {
+        fetch(`${pipelineUrl}/api/wake`, { method: "POST" }).catch(() => {});
+      }
     }
 
     return NextResponse.json({ success: true, assignment: data });

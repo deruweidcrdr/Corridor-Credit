@@ -194,8 +194,8 @@ Three layers prevent intake re-runs from destroying user-validated data:
 (written by A1). Server restarts no longer treat all bucket files as new.
 
 **Guard A — A4 (`workflow_validation.py`):** Before upserting workflow records, reads
-existing `workflow_for_validation` rows. If `extraction_status` is already `COMPLETE`,
-`IN_PROGRESS`, or `SUCCESS`, the workflow is **skipped entirely** — same EML produces
+existing `workflow_for_validation` rows. If `extraction_status` is already `COMPLETE`
+or `IN_PROGRESS`, the workflow is **skipped entirely** — same EML produces
 same A4 output, so a partial metadata update would make the workflow inconsistent
 with its extraction output. The inbox edit route handles the legitimate re-extraction
 case by explicitly resetting `extraction_status` to `PENDING`.
