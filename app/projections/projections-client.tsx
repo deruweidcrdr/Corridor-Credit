@@ -1171,6 +1171,11 @@ function ProjectionsStep({
   const [assignLoading, setAssignLoading] = useState(false);
   const [showOverrideModal, setShowOverrideModal] = useState(false);
 
+  // Detail panel collapse state
+  const [incomeExpanded, setIncomeExpanded] = useState(true);
+  const [balanceExpanded, setBalanceExpanded] = useState(false);
+  const [debtServiceExpanded, setDebtServiceExpanded] = useState(false);
+
   // Look up assignment and profile for the selected counterparty
   const assignment = counterpartyId ? profileAssignments[counterpartyId] : null;
   const profile = assignment?.effective_profile_id
@@ -1434,6 +1439,70 @@ function ProjectionsStep({
           activeRatio={activeRatio}
           setActiveRatio={setActiveRatio}
         />
+        )}
+
+        {/* ── Financial Detail Panels (only when projections are complete) ── */}
+        {projStatus === "COMPLETE" && projectionData && (
+          <>
+            {/* Panel 1 — Income Statement Waterfall */}
+            <SectionDivider label="Income Statement Waterfall" />
+            <ProjectionDetailTable
+              title="Income Statement — 12-Period Projection"
+              expanded={incomeExpanded}
+              onToggle={() => setIncomeExpanded((p) => !p)}
+              projData={projectionData}
+              rows={[
+                { label: "Revenue", prefix: "revenue_", format: "currency" },
+                { label: "COGS", prefix: "cogs_", format: "currency", negative: true },
+                { label: "Gross Profit", prefix: "gross_profit_", format: "currency" },
+                { label: "Operating Expenses", prefix: "operating_expenses_", format: "currency", negative: true },
+                { label: "Operating Income", prefix: "operating_income_", format: "currency" },
+                { label: "Interest Expense", prefix: "interest_expense_", format: "currency", negative: true },
+                { label: "Income Before Taxes", prefix: "income_before_taxes_", format: "currency" },
+                { label: "Tax Expense", prefix: "income_tax_expense_", format: "currency", negative: true },
+                { label: "Net Income", prefix: "net_income_", format: "currency" },
+                { label: "EBITDA", prefix: "ebitda_", format: "currency" },
+                { label: "CFADS", prefix: "cfads_", format: "currency", highlight: true },
+              ]}
+            />
+
+            {/* Panel 2 — Balance Sheet Summary */}
+            <SectionDivider label="Balance Sheet Summary" />
+            <ProjectionDetailTable
+              title="Balance Sheet — 12-Period Projection"
+              expanded={balanceExpanded}
+              onToggle={() => setBalanceExpanded((p) => !p)}
+              projData={projectionData}
+              rows={[
+                { label: "Total Assets", prefix: "total_assets_", format: "currency" },
+                { label: "Total Current Assets", prefix: "total_current_assets_", format: "currency" },
+                { label: "Total Current Liabilities", prefix: "total_current_liabilities_", format: "currency" },
+                { label: "Total Liabilities", prefix: "total_liabilities_", format: "currency" },
+                { label: "Total Equity", prefix: "total_equity_", format: "currency" },
+                { label: "Short-Term Debt", prefix: "short_term_debt_", format: "currency" },
+                { label: "Long-Term Debt", prefix: "long_term_debt_", format: "currency" },
+                { label: "Total Debt", prefix: "total_debt_", format: "currency" },
+              ]}
+            />
+
+            {/* Panel 3 — Debt Service Schedule */}
+            <SectionDivider label="Debt Service Schedule" />
+            <ProjectionDetailTable
+              title="Debt Service & Coverage — 12-Period Projection"
+              expanded={debtServiceExpanded}
+              onToggle={() => setDebtServiceExpanded((p) => !p)}
+              projData={projectionData}
+              covenantThreshold={1.25}
+              rows={[
+                { label: "Corridor Debt Service", prefix: "corridor_debt_service_", format: "currency" },
+                { label: "Third-Party Debt Service", prefix: "third_party_debt_service_", format: "currency" },
+                { label: "Total Debt Service", prefix: "total_debt_service_", format: "currency" },
+                { label: "CFADS", prefix: "cfads_", format: "currency", highlight: true },
+                { label: "DSCR (Corridor)", prefix: "dscr_corridor_", format: "dscr" },
+                { label: "DSCR (Total)", prefix: "dscr_total_", format: "dscr" },
+              ]}
+            />
+          </>
         )}
 
         {/* ── Profile Properties ── */}
@@ -2174,6 +2243,269 @@ function ComingSoon({ label }: { label: string }) {
 
 /* ================================================================== */
 /*  Shared components                                                  */
+/* ================================================================== */
+
+/* ================================================================== */
+/*  Projection detail panel helpers                                    */
+/* ================================================================== */
+
+const PERIOD_KEYS = [
+  "y1_q1", "y1_q2", "y1_q3", "y1_q4",
+  "y2_q1", "y2_q2", "y2_q3", "y2_q4",
+  "y3_q1", "y3_q2", "y3_q3", "y3_q4",
+];
+const PERIOD_HEADERS = [
+  "Y1 Q1", "Y1 Q2", "Y1 Q3", "Y1 Q4",
+  "Y2 Q1", "Y2 Q2", "Y2 Q3", "Y2 Q4",
+  "Y3 Q1", "Y3 Q2", "Y3 Q3", "Y3 Q4",
+];
+
+/** Format a numeric value as currency, auto-scaling to $K or $M */
+function formatScaledCurrency(val: number | null | undefined): string {
+  if (val == null) return "—";
+  const v = Number(val);
+  if (isNaN(v)) return "—";
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
+  return `$${v.toFixed(0)}`;
+}
+
+/** Format DSCR as ratio (e.g. "1.37x") */
+function formatDscr(val: number | null | undefined): string {
+  if (val == null) return "—";
+  const v = Number(val);
+  if (isNaN(v)) return "—";
+  return `${v.toFixed(2)}x`;
+}
+
+/** Return SAT/PW/WDW color for a DSCR value relative to a covenant threshold */
+function dscrColor(val: number | null | undefined, threshold: number = 1.25): string {
+  if (val == null) return ds.textMuted;
+  const v = Number(val);
+  if (isNaN(v)) return ds.textMuted;
+  if (v >= threshold * 1.15) return ds.satColor;
+  if (v >= threshold) return ds.pwColor;
+  return ds.wdwColor;
+}
+
+/** Return SAT/PW/WDW background for a DSCR cell */
+function dscrCellBg(val: number | null | undefined, threshold: number = 1.25): string {
+  if (val == null) return "transparent";
+  const v = Number(val);
+  if (isNaN(v)) return "transparent";
+  if (v >= threshold * 1.15) return ds.satBg;
+  if (v >= threshold) return ds.pwBg;
+  return ds.wdwBg;
+}
+
+interface DetailRow {
+  label: string;
+  prefix: string;
+  format: "currency" | "dscr";
+  highlight?: boolean;
+  negative?: boolean;
+}
+
+function ProjectionDetailTable({
+  title,
+  expanded,
+  onToggle,
+  rows,
+  projData,
+  covenantThreshold,
+}: {
+  title: string;
+  expanded: boolean;
+  onToggle: () => void;
+  rows: DetailRow[];
+  projData: any;
+  covenantThreshold?: number;
+}) {
+  return (
+    <div
+      style={{
+        background: ds.surface,
+        border: `1px solid ${ds.border}`,
+        borderRadius: ds.radiusLg,
+        overflow: "hidden",
+        marginBottom: 24,
+      }}
+    >
+      {/* Collapsible header */}
+      <button
+        onClick={onToggle}
+        style={{
+          width: "100%",
+          padding: "12px 20px",
+          background: ds.surfaceRaised,
+          borderBottom: expanded ? `1px solid ${ds.border}` : "none",
+          border: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+          transition: "background 0.15s",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: ds.fontMono,
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            color: ds.textDim,
+          }}
+        >
+          {title}
+        </span>
+        <span
+          style={{
+            fontFamily: ds.fontMono,
+            fontSize: 11,
+            color: ds.textMuted,
+            transition: "transform 0.2s",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        >
+          ▾
+        </span>
+      </button>
+
+      {/* Table content */}
+      {expanded && (
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              minWidth: 900,
+            }}
+          >
+            <thead>
+              <tr>
+                <th
+                  style={{
+                    textAlign: "left",
+                    padding: "10px 16px",
+                    fontFamily: ds.fontMono,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    color: ds.textMuted,
+                    borderBottom: `1px solid ${ds.border}`,
+                    position: "sticky",
+                    left: 0,
+                    background: ds.surface,
+                    zIndex: 1,
+                    minWidth: 160,
+                  }}
+                >
+                  Metric
+                </th>
+                {PERIOD_HEADERS.map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      textAlign: "right",
+                      padding: "10px 12px",
+                      fontFamily: ds.fontMono,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      letterSpacing: "0.06em",
+                      color: ds.textMuted,
+                      borderBottom: `1px solid ${ds.border}`,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const isDscr = row.format === "dscr";
+                return (
+                  <tr
+                    key={row.prefix}
+                    style={{
+                      background: row.highlight
+                        ? "rgba(200,168,75,0.06)"
+                        : "transparent",
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: "8px 16px",
+                        fontFamily: ds.fontBody,
+                        fontSize: 13,
+                        fontWeight: row.highlight ? 600 : 400,
+                        color: row.highlight ? ds.gold : ds.textDim,
+                        borderBottom: `1px solid ${ds.border}`,
+                        position: "sticky",
+                        left: 0,
+                        background: row.highlight
+                          ? "rgba(200,168,75,0.06)"
+                          : ds.surface,
+                        zIndex: 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {row.label}
+                    </td>
+                    {PERIOD_KEYS.map((pk) => {
+                      const rawVal = projData?.[`${row.prefix}${pk}`];
+                      const numVal = rawVal != null ? Number(rawVal) : null;
+                      const displayVal = row.negative && numVal != null
+                        ? -Math.abs(numVal)
+                        : numVal;
+                      const formatted = isDscr
+                        ? formatDscr(displayVal)
+                        : formatScaledCurrency(displayVal);
+                      const cellColor = isDscr
+                        ? dscrColor(numVal, covenantThreshold)
+                        : row.highlight
+                          ? ds.gold
+                          : ds.text;
+                      const cellBg = isDscr
+                        ? dscrCellBg(numVal, covenantThreshold)
+                        : "transparent";
+
+                      return (
+                        <td
+                          key={pk}
+                          style={{
+                            padding: "8px 12px",
+                            fontFamily: ds.fontMono,
+                            fontSize: 13,
+                            fontWeight: 500,
+                            color: cellColor,
+                            textAlign: "right",
+                            borderBottom: `1px solid ${ds.border}`,
+                            background: cellBg,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {formatted}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  Shared UI components                                               */
 /* ================================================================== */
 
 function SectionDivider({ label }: { label: string }) {
