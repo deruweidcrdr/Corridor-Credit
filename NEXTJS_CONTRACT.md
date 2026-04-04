@@ -59,6 +59,32 @@ Next.js validate routes NEVER specify which transform to run.
   confirms/corrects classification. If the user changes `content_flags`,
   `extraction_status` is reset to `PENDING` to re-trigger extraction.
 
+#### Boolean Content Flags
+
+Railway dispatch routes extraction stages using three independent boolean
+columns on `workflow_for_validation`, not the `document_content_flags` enum:
+
+| Column | Controls | Stages |
+|--------|----------|--------|
+| `has_contract_terms` | Whether TE runs | `[te, ecv]` |
+| `has_historical_financials` | Whether FE runs | `[fe, esv]` |
+| `has_pro_forma_financials` | Whether PFE runs | `[pfe, epf]` |
+
+When a user edits `content_flags` via the inbox, the application must also
+update the three booleans to match:
+
+| content_flags | has_contract_terms | has_historical_financials | has_pro_forma_financials |
+|---------------|-------------------|--------------------------|------------------------|
+| `TERMS` | `true` | `false` | `false` |
+| `FINANCIALS` | `false` | `true` | `false` |
+| `TERMS_AND_FINANCIALS` | `true` | `true` | `true` |
+
+**Future UI enhancement:** Expose the three booleans as checkboxes in the
+inbox edit modal, allowing more precise routing than the enum alone. This
+enables combinations the enum cannot express (e.g., terms + pro forma but
+no historicals for a CIM, or historicals + pro forma but no terms for a
+compliance package with forward projections).
+
 ### Contract Validation (Contract Analysis)
 - Route: `POST /api/contract-analysis/validate`
 - Reads from: `contract_for_validation` + `term_for_validation`

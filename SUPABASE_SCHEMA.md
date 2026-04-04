@@ -240,7 +240,7 @@ PK: `workflow_for_validation_id` (text). FKs: counterparty_id → counterparties
 | `completed_at` | timestamptz |
 | `error_details` | text |
 
-Key columns: apparent_counterparty, counterparty_name, relationship_status, workflow_type/subtype, document_content_flags, document_type, initial_extraction_stage, requires_financial_extraction, reporting_period, extracted_document_types, match_confidence, match_reason, workflow_stage (default `'CLASSIFIED'`), workflow_status (default `'SUCCESS'`), priority (default `'Medium'`), is_archived (default `false`), reviewed_at, reviewed_by.
+Key columns: apparent_counterparty, counterparty_name, relationship_status, workflow_type/subtype, document_content_flags, document_type, initial_extraction_stage, requires_financial_extraction, has_contract_terms (bool, default `false`), has_historical_financials (bool, default `false`), has_pro_forma_financials (bool, default `false`), reporting_period, extracted_document_types, match_confidence, match_reason, workflow_stage (default `'CLASSIFIED'`), workflow_status (default `'SUCCESS'`), priority (default `'Medium'`), is_archived (default `false`), reviewed_at, reviewed_by.
 
 ### `contract_for_validation`
 **Promotes to:** `contract` + `term` (via terms). **Dispatch column:** `obligation_extraction_status`.

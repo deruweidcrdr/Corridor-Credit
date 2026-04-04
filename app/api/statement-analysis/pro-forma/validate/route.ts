@@ -89,13 +89,21 @@ export async function POST(req: NextRequest) {
 
     // Set PENDING on the staging record so Railway's profile assignment
     // dispatch discovers it.
-    await supabase
+    const { error: updateErr } = await supabase
       .from("pro_forma_statement_for_validation")
       .update({
         validation_status: "VALIDATED",
         profile_assignment_status: "PENDING",
       })
       .eq("id", id);
+
+    if (updateErr) {
+      console.error("Failed to update pro forma staging record:", updateErr);
+      return NextResponse.json(
+        { error: `Failed to update staging record: ${updateErr.message}` },
+        { status: 500 }
+      );
+    }
 
     // Wake Railway (fire-and-forget latency optimization)
     const pipelineUrl = process.env.PIPELINE_SERVICE_URL;

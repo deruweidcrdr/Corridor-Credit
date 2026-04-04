@@ -40,10 +40,14 @@ via `_run_all_status_dispatches()`:
    - Table: `workflow_for_validation`
    - Status column: `extraction_status`
    - Trigger: `PENDING`
-   - Routes by `document_content_flags`:
-     - `TERMS` → `[te, ecv]`
-     - `FINANCIALS` → `[fe, esv]`
-     - `TERMS_AND_FINANCIALS` → `[te, fe, pfe, ecv, esv, epf]`
+   - Routes by three independent boolean columns (`_stages_from_booleans`):
+     - `has_contract_terms = true` → `[te, ecv]`
+     - `has_historical_financials = true` → `[fe, esv]`
+     - `has_pro_forma_financials = true` → `[pfe, epf]`
+   - Booleans are additive — a CIM with terms + pro forma but no historicals
+     dispatches `[te, ecv, pfe, epf]` (FE/ESV are skipped)
+   - **Fallback:** If all three booleans are `NULL` (pre-migration rows),
+     falls back to `document_content_flags` enum routing via `CONTENT_FLAG_STAGES`
    - Lifecycle: `PENDING → IN_PROGRESS → COMPLETE` (or `ERROR`)
 
 3. **OBLIGATION DISPATCH** (`_dispatch_pending_obligations`, `server.py`)
@@ -194,7 +198,7 @@ Three layers prevent intake re-runs from destroying user-validated data:
 (written by A1). Server restarts no longer treat all bucket files as new.
 
 **Guard A — A4 (`workflow_validation.py`):** Before upserting workflow records, reads
-existing `workflow_for_validation` rows. If `extraction_status` is already `COMPLETE`
+existing `workflow_for_validation` rows. If `extraction_status` is already `COMPLETE`,
 or `IN_PROGRESS`, the workflow is **skipped entirely** — same EML produces
 same A4 output, so a partial metadata update would make the workflow inconsistent
 with its extraction output. The inbox edit route handles the legitimate re-extraction
