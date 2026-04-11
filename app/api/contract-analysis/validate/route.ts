@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
 
     // 6. Update contract_for_validation status — set PENDING on the staging
     //    record so Railway's obligation dispatch discovers it.
-    await supabase
+    const { error: statusErr } = await supabase
       .from("contract_for_validation")
       .update({
         contract_status: "VALIDATED",
@@ -117,12 +117,28 @@ export async function POST(req: NextRequest) {
       })
       .eq("contract_for_validation_id", contract_for_validation_id);
 
+    if (statusErr) {
+      console.error("Failed to update contract staging record:", statusErr);
+      return NextResponse.json(
+        { error: `Failed to update staging record: ${statusErr.message}` },
+        { status: 500 }
+      );
+    }
+
     // 6b. Update term_for_validation.validation_status so the pipeline can find them
-    await supabase
+    const { error: termStatusErr } = await supabase
       .from("term_for_validation")
       .update({ validation_status: "VALIDATED" })
       .eq("contract_for_validation_id", contract_for_validation_id)
       .neq("validation_status", "FLAGGED");
+
+    if (termStatusErr) {
+      console.error("Failed to update term validation statuses:", termStatusErr);
+      return NextResponse.json(
+        { error: `Failed to update term statuses: ${termStatusErr.message}` },
+        { status: 500 }
+      );
+    }
 
     // 7. Wake Railway (fire-and-forget latency optimization)
     // Railway discovers PENDING work by polling — this just nudges it.
