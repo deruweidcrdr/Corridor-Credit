@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Fetch the counterparty
     const { data: counterparty, error: cpErr } = await supabase
-      .from("counterparties")
+      .from("counterparty")
       .select("*")
       .eq("counterparty_id", counterparty_id)
       .single();
@@ -296,7 +296,7 @@ export async function POST(req: NextRequest) {
 
     // 8. Also update the counterparty's projection_profile_id
     await supabase
-      .from("counterparties")
+      .from("counterparty")
       .update({ projection_profile_id: bestProfile.projection_profile_id })
       .eq("counterparty_id", counterparty_id);
 

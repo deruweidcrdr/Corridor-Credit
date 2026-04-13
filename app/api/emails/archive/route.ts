@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     // Archive the email itself
     const { error: emailError } = await supabase
-      .from("emails")
+      .from("email")
       .update({ is_archived: true })
       .eq("email_id", emailId);
 

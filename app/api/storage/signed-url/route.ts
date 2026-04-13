@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: doc, error: docErr } = await supabase
-      .from("documents")
+      .from("document")
       .select("document_id, document_name, email_id")
       .eq("document_id", document_id)
       .maybeSingle();

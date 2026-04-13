@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Fetch the counterparty record
     const { data: cpty, error: cptyErr } = await supabase
-      .from("counterparties")
+      .from("counterparty")
       .select("*")
       .eq("counterparty_id", counterparty_id)
       .single();
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Update counterparty status: PROSPECT → ACTIVE
     const { error: updateErr } = await supabase
-      .from("counterparties")
+      .from("counterparty")
       .update({
         status: "ACTIVE",
         relationship_status: "ACTIVE",

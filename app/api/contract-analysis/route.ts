@@ -24,7 +24,7 @@ export async function GET() {
   try {
     // 1. Fetch all deals
     const { data: deals, error: dealsErr } = await supabase
-      .from("deals")
+      .from("deal")
       .select("*")
       .order("created_date", { ascending: false });
 
@@ -41,7 +41,7 @@ export async function GET() {
 
     // 2. Fetch facilities for these deals
     const { data: facilities } = await supabase
-      .from("facilities")
+      .from("facility")
       .select("*")
       .in("deal_id", dealIds);
 
@@ -89,7 +89,7 @@ export async function GET() {
     let docNameMap: Record<string, string> = {};
     if (allDocumentIds.length > 0) {
       const { data: docs } = await supabase
-        .from("documents")
+        .from("document")
         .select("document_id, document_name")
         .in("document_id", allDocumentIds);
 
@@ -107,7 +107,7 @@ export async function GET() {
     let counterpartiesMap: Record<string, any> = {};
     if (counterpartyIds.length > 0) {
       const { data } = await supabase
-        .from("counterparties")
+        .from("counterparty")
         .select("*")
         .in("counterparty_id", counterpartyIds);
       for (const cp of data ?? []) {

@@ -99,14 +99,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const { data: existing } = await supabase
-      .from("counterparties")
+      .from("counterparty")
       .select("counterparty_id")
       .eq("counterparty_id", wfv.counterparty_id)
       .maybeSingle();
 
     if (!existing) {
       const { error: cpInsertErr } = await supabase
-        .from("counterparties")
+        .from("counterparty")
         .insert({
           counterparty_id: wfv.counterparty_id,
           counterparty_name: counterpartyName,
@@ -273,14 +273,14 @@ export async function POST(req: NextRequest) {
       } else {
         // Also try the pipeline documents table
         const { data: pipelineDoc } = await supabase
-          .from("documents")
+          .from("document")
           .select("document_id")
           .eq("document_id", wfv.document_id)
           .maybeSingle();
 
         if (pipelineDoc) {
           await supabase
-            .from("documents")
+            .from("document")
             .update({ workflow_id: workflowId })
             .eq("document_id", wfv.document_id);
 

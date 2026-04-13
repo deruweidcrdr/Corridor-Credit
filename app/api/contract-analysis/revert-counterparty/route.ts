@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     // 5. Revert counterparty status back to PROSPECT
     await supabase
-      .from("counterparties")
+      .from("counterparty")
       .update({
         status: "PROSPECT",
         relationship_status: "PROSPECT",

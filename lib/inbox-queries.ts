@@ -159,7 +159,7 @@ export async function fetchInboxData(): Promise<{
   let emailErr: { message: string } | null = null;
 
   const filtered = await supabase
-    .from("emails")
+    .from("email")
     .select("*")
     .eq("is_archived", false)
     .order("sent_timestamp", { ascending: false });
@@ -167,7 +167,7 @@ export async function fetchInboxData(): Promise<{
   if (filtered.error) {
     // Column may not exist yet — retry without the filter
     const unfiltered = await supabase
-      .from("emails")
+      .from("email")
       .select("*")
       .order("sent_timestamp", { ascending: false });
     rawEmails = unfiltered.data as Record<string, unknown>[] | null;
@@ -190,7 +190,7 @@ export async function fetchInboxData(): Promise<{
 
   // 2. Fetch documents (attachments) for these emails
   const { data: rawDocs, error: docErr } = await supabase
-    .from("documents")
+    .from("document")
     .select("*")
     .in("email_id", emailIds);
 
@@ -226,7 +226,7 @@ export async function fetchInboxData(): Promise<{
 
   if (counterpartyIds.length > 0) {
     const { data: cpRows, error: cpErr } = await supabase
-      .from("counterparties")
+      .from("counterparty")
       .select("counterparty_id, counterparty_name, counterparty_type")
       .in("counterparty_id", counterpartyIds);
 
