@@ -33,7 +33,7 @@ via `_run_all_status_dispatches()`:
    - Scans `raw-emails` storage bucket for new files
    - Runs: A1 → A3 → A4 → A5 → CPC → LDC
    - No status column — tracks seen files via `_intake_known_files` in memory,
-     seeded on first poll from the `emails` table (`file_name` column) so that
+     seeded on first poll from the `email` table (`file_name` column) so that
      server restarts do not re-process every file in the bucket
 
 2. **EXTRACTION DISPATCH** (`_dispatch_pending_extractions`, `server.py`)
@@ -194,7 +194,7 @@ gets stuck at `ERROR` on the corresponding `financial_statement_for_validation` 
 Three layers prevent intake re-runs from destroying user-validated data:
 
 **Root cause fix — Persistent intake tracking (`server.py`):** On first poll,
-`_intake_known_files` is seeded from the `emails` table's `file_name` column
+`_intake_known_files` is seeded from the `email` table's `file_name` column
 (written by A1). Server restarts no longer treat all bucket files as new.
 
 **Guard A — A4 (`workflow_validation.py`):** Before upserting workflow records, reads

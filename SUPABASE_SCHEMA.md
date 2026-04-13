@@ -6,7 +6,7 @@
 
 ## Schema Overview
 
-**78 tables** in the `public` schema. No views. No RLS enabled on any table. Three private storage buckets.
+**75 tables** in the `public` schema. No views. No RLS enabled on any table. Three private storage buckets. All user-defined tables follow a singular-noun naming convention (migration `20260413_singular_naming_convention.sql`).
 
 **Table categories:**
 - **Canonical tables (14):** Validated/promoted data — the system of record
@@ -14,10 +14,10 @@
 - **Pipeline / diagnostic tables (7):** Written by Railway stages during extraction
 - **Credit assessment tables (8):** CRDR policy dimensions and assessment findings
 - **Projection system tables (8):** Profile management, performance tracking, optimization
-- **Deal / facility tables (5):** Deal structure and document tracking
+- **Deal / facility tables (3):** Deal structure and document tracking (`deal`, `facility`, `deal_document`)
 - **Enterprise tables (15):** Foundry-era canonical objects (banker, committee, KYC, alerts, etc.)
 - **Request tables (7):** Foundry-era document extraction framework
-- **Reference / configuration tables (7):** Seeded or admin-managed
+- **Reference / configuration tables (6):** Seeded or admin-managed
 
 ---
 
@@ -25,7 +25,7 @@
 
 These hold validated/promoted data. Populated when a user validates a `_for_validation` record in the Next.js UI.
 
-### `counterparties`
+### `counterparty`
 The entity being analyzed. PK: `counterparty_id` (text, format `CTR_YYYYMMDD_###`).
 
 | Column | Type | Notes |
@@ -42,7 +42,7 @@ The entity being analyzed. PK: `counterparty_id` (text, format `CTR_YYYYMMDD_###
 | risk_rating | text | |
 | total_exposure | numeric | |
 | watchlist_status | bool | Default `false` |
-| parent_company_id | text | FK → counterparties.counterparty_id (self-ref) |
+| parent_company_id | text | FK → counterparty.counterparty_id (self-ref) |
 | is_parent_company | bool | Default `false` |
 | primary_banker_id | text | FK → corridor_banker.banker_id |
 | projection_profile_id | text | |
@@ -59,9 +59,9 @@ The lending agreement. PK: `contract_id` (text, format `CNT_YYYYMMDD_###`).
 | Column | Type | Notes |
 |--------|------|-------|
 | contract_id | text | PK, NOT NULL |
-| counterparty_id | text | FK → counterparties |
+| counterparty_id | text | FK → counterparty |
 | deal_id | text | FK → deal |
-| source_document_id | text | FK → documents |
+| source_document_id | text | FK → document |
 | workflow_id | text | FK → workflow |
 | contract_title, contract_type, contract_subtype, contract_status | text | |
 | currency | text | |
@@ -77,7 +77,7 @@ Validated contract terms. PK: `term_id` (text). Promotes from `term_for_validati
 |--------|------|-------|
 | term_id | text | PK, NOT NULL |
 | contract_id | text | FK → contract |
-| source_document_id | text | FK → documents |
+| source_document_id | text | FK → document |
 | term_name | text | |
 | term_value | text | Stored as text by design |
 | term_unit | text | USD, PERCENT, DAYS, etc. |
@@ -96,7 +96,7 @@ Unified abstraction for contractual requirements. PK: `obligation_id` (text, for
 |--------|------|-------|
 | obligation_id | text | PK, NOT NULL |
 | contract_id | text | FK → contract |
-| counterparty_id | text | FK → counterparties |
+| counterparty_id | text | FK → counterparty |
 | source_term_id | text | FK → term |
 | obligation_name | text | |
 | obligation_type | text | FINANCIAL_COVENANT, REPORTING_REQUIREMENT, COLLATERAL_MONITORING, NEGATIVE_COVENANT, PAYMENT_OBLIGATION |
@@ -130,7 +130,7 @@ Payment schedule generated from obligations. PK: `obligation_event_id` (text, fo
 |--------|------|-------|
 | obligation_event_id | text | PK, NOT NULL |
 | contract_id | text | FK → contract |
-| counterparty_id | text | FK → counterparties |
+| counterparty_id | text | FK → counterparty |
 | facility_amount | numeric | |
 | base_rate_index | text | e.g. SOFR, PRIME |
 | applicable_margin_spread | numeric | |
@@ -155,8 +155,8 @@ GAAP financial data. PK: `statement_id` (text, format `FIN_YYYYMMDD_###`). Promo
 | Column | Type | Notes |
 |--------|------|-------|
 | statement_id | text | PK, NOT NULL |
-| counterparty_id | text | FK → counterparties |
-| document_id | text | FK → documents |
+| counterparty_id | text | FK → counterparty |
+| document_id | text | FK → document |
 | obligation_id | text | FK → obligation |
 | projection_profile_id | text | FK → projection_profile |
 | workflow_id | text | FK → workflow |
@@ -184,7 +184,7 @@ Pro forma projections extracted from CIMs. PK: `pro_forma_statement_id` (text). 
 
 Same GAAP line items as `financial_statement`, plus: `as_of_date`, `assumption_notes`, `period_sequence`, `period_type`, `projection_period_start`, `projection_period_end`, `scenario_type`, `source_type`, `extraction_timestamp`, `validation_status`.
 
-FKs: counterparty_id → counterparties, document_id → documents, obligation_id → obligation, workflow_id → workflow.
+FKs: counterparty_id → counterparty, document_id → document, obligation_id → obligation, workflow_id → workflow.
 
 ### `workflow`
 Canonical workflow records. PK: `workflow_id` (text). Promotes from `workflow_for_validation`.
@@ -192,9 +192,9 @@ Canonical workflow records. PK: `workflow_id` (text). Promotes from `workflow_fo
 | Column | Type | Notes |
 |--------|------|-------|
 | workflow_id | text | PK, NOT NULL |
-| counterparty_id | text | FK → counterparties |
+| counterparty_id | text | FK → counterparty |
 | deal_id | text | FK → deal |
-| source_email_id | text | FK → emails |
+| source_email_id | text | FK → email |
 | obligation_id | text | FK → obligation |
 | assigned_to_id | text | FK → corridor_banker |
 | initiated_by_id | text | FK → corridor_banker |
@@ -209,19 +209,19 @@ Canonical workflow records. PK: `workflow_id` (text). Promotes from `workflow_fo
 | created_at, updated_at | timestamptz | NOT NULL |
 
 ### `collateral`
-PK: `collateral_id`. FKs: contract_id → contract, counterparty_id → counterparties, source_document_id → documents, workflow_id → workflow. Tracks collateral type, value, lien position, perfection status, filing info, valuation.
+PK: `collateral_id`. FKs: contract_id → contract, counterparty_id → counterparty, source_document_id → document, workflow_id → workflow. Tracks collateral type, value, lien position, perfection status, filing info, valuation.
 
 ### `counterparty_risk`
-Credit assessment output. PK: `counterparty_risk_id`. FKs: counterparty_id → counterparties, counterparty_projection_id → counterparty_projection. Contains DSCR summary metrics (min, avg, median, volatility, trajectory), LLCR, classification, period counts, model_version.
+Credit assessment output. PK: `counterparty_risk_id`. FKs: counterparty_id → counterparty, counterparty_projection_id → counterparty_projection. Contains DSCR summary metrics (min, avg, median, volatility, trajectory), LLCR, classification, period counts, model_version.
 
 ### `covenant_test_result`
-PK: `test_result_id`. FKs: obligation_id → obligation, source_document_id → documents. Tracks measured_value vs threshold_value, test_result, test_date, test_period, compliance_notes.
+PK: `test_result_id`. FKs: obligation_id → obligation, source_document_id → document. Tracks measured_value vs threshold_value, test_result, test_date, test_period, compliance_notes.
 
 ### `deal`
-PK: `deal_id`. FKs: counterparty_id → counterparties, banker_id → corridor_banker. Tracks deal_name, deal_status, approval_stage, execution_status, facility/document counts. Note: distinct from Foundry-era `deals` table (see below).
+PK: `deal_id`. FKs: counterparty_id → counterparty, banker_id → corridor_banker. Tracks deal_name, deal_status, approval_stage, execution_status, facility/document counts, deal_group_id, counterparty_name. The legacy plural `deals` table was merged into this canonical table by migration `20260413_singular_naming_convention.sql`.
 
 ### `facility`
-PK: `facility_id`. FKs: deal_id → deal, counterparty_id → counterparties. Tracks facility_name, facility_type, facility_status, project_name.
+PK: `facility_id`. FKs: deal_id → deal, counterparty_id → counterparty. Tracks facility_name, facility_type, facility_status, project_name, deal_group_id, counterparty_name, facility_documents (int4). The legacy plural `facilities` table was merged into this canonical table by migration `20260413_singular_naming_convention.sql`, which also added `deal_group_id` and `counterparty_name` columns to align with the `deal` table.
 
 ---
 
@@ -232,7 +232,7 @@ Pipeline output awaiting user validation. Each has a companion canonical table t
 ### `workflow_for_validation`
 **Promotes to:** `workflow`. **Dispatch column:** `extraction_status`.
 
-PK: `workflow_for_validation_id` (text). FKs: counterparty_id → counterparties, source_email_id → emails, document_id → documents.
+PK: `workflow_for_validation_id` (text). FKs: counterparty_id → counterparty, source_email_id → email, document_id → document.
 
 | Dispatch columns | |
 |---|---|
@@ -300,31 +300,31 @@ Same payment event structure as canonical table. All monetary fields are float8.
 
 Written by Railway stages during processing. Not directly user-facing.
 
-### `emails`
+### `email`
 Parsed email metadata. PK: `email_id` (text). Written by A1 stage.
 
 Columns: subject, from_address (NOT NULL), to_addresses/cc_addresses/bcc_addresses (text[]), body_plain/body_html (NOT NULL, default `''`), sent_timestamp, file_name, is_archived (default `false`).
 
-### `attachments`
-PK: `id` (int8, auto). FK: email_id → emails. Written by A1 stage. Columns: attachment_name, file_name, sent_timestamp, file_type, content_transfer_encoding.
+### `attachment`
+PK: `id` (int8, auto). FK: email_id → email. Written by A1 stage. Columns: attachment_name, file_name, sent_timestamp, file_type, content_transfer_encoding.
 
-### `documents`
-PK: `document_id` (text). FKs: email_id → emails (dual FK), workflow_for_validation_id → workflow_for_validation, workflow_id → workflow, deal_id → deal. Written by A3 stage.
+### `document`
+PK: `document_id` (text). FKs: email_id → email (dual FK), workflow_for_validation_id → workflow_for_validation, workflow_id → workflow, deal_id → deal. Written by A3 stage.
 
 Columns: document_name, file_type, complete_document_text, storage_path, pdf_storage_path, document_type, status, timestamp.
 
-### `document_chunks`
-PK: `contract_chunk_id` (text). FK: document_id → documents. Written by A3 stage.
+### `document_chunk`
+PK: `contract_chunk_id` (text). FK: document_id → document. Written by A3 stage.
 
 Columns: chunk_id, section_name, section_title, chunk_text, character_count, token_estimate, is_sub_chunk, sub_chunk_index, page_range (default `'full_document'`), document_name, email_id, workflow_id/counterparty_id/obligation_id/workflow_for_validation_id (text, default `''`).
 
-### `linked_document_chunks`
-PK: `contract_chunk_id` (text). Written by LDC stage. Same columns as `document_chunks`, plus workflow_type, workflow_subtype (default `''`).
+### `linked_document_chunk`
+PK: `contract_chunk_id` (text). Written by LDC stage. Same columns as `document_chunk`, plus workflow_type, workflow_subtype (default `''`).
 
 ### `enriched_workflow`
 PK: `workflow_for_validation_id` (text). Written by A5/CPC stages. Denormalized view of workflow + counterparty data. Includes all workflow_for_validation fields plus deal_id, facility_id, document_status, document_version, is_execution_ready, error_details, completed_at.
 
-### `contract_extraction_passes`
+### `contract_extraction_pass`
 Diagnostic/audit layer for 6-pass term extraction. PK: `id` (text). Written by TE stage.
 
 Columns: document_id (NOT NULL), workflow_for_validation_id (NOT NULL), pass_number (int4, NOT NULL; 1-6 for individual, 0 for MERGED), pass_name (NOT NULL), input_summary, raw_output, extracted_entities (jsonb, default `'{}'`), confidence_score (float8).
@@ -336,7 +336,7 @@ Diagnostic layer for financial extraction. PK: `id` (text). Written by FE stage.
 Diagnostic layer for pro forma extraction. PK: `id` (text). Written by PFE stage. Same structure as `reporting_entity_extraction`.
 
 ### `counterparty_profile_assignment`
-Profile assignment + projection dispatch. PK: `counterparty_id` (text). FK: counterparty_id → counterparties. Written by APP stage.
+Profile assignment + projection dispatch. PK: `counterparty_id` (text). FK: counterparty_id → counterparty. Written by APP stage.
 
 **Dispatch column for projections:**
 
@@ -351,7 +351,7 @@ Profile assignment + projection dispatch. PK: `counterparty_id` (text). FK: coun
 Key columns: counterparty_name, effective_profile_id, projection_method, status, assigned_profile_id, logical_profile_category, is_fallback_profile/fallback_reason. Factual drivers: resolved_industry_code, naics_prefix, industry_sector_label, revenue_size_bucket, annual_revenue, historical_period_count, data_quality_score/label, revenue_growth_rate/display, revenue_volatility/display/label, source_statement_date. Confidence decomposition: confidence_score, confidence_score_adjusted, confidence_{industry,size,volatility,growth}_contribution. Rationale: assignment_rationale_short/detailed. Profile metadata: profile_display_name, profile_description, profile_key_assumptions, profile_typical_industries, profile_revenue_growth_assumption, profile_margin_assumption, profile_capex_intensity. Override tracking: is_user_override, user_selected_profile, override_justification. semantic_version (int4).
 
 ### `counterparty_projection`
-Wide-format projection output. PK: `counterparty_projection_id` (text). FK: counterparty_id → counterparties. Written by GCP stage.
+Wide-format projection output. PK: `counterparty_projection_id` (text). FK: counterparty_id → counterparty. Written by GCP stage.
 
 **Non-periodic columns:** counterparty_name, profile_id, projection_created_at, min_dscr_value, min_dscr_period, dscr_classification, dscr_stress_driver.
 
@@ -400,7 +400,7 @@ Columns: profile_id, min_dscr_value/period/date/driver/classification, dscr_buff
 ## Credit Assessment Tables
 
 ### `crdr_assessment_finding`
-FUND/SYS credit assessment findings. PK: `finding_id` (text). FKs: counterparty_id → counterparties, deal_id → deal, policy_id → crdr_policy, skill_id → crdr_prompt, prior_finding_id → crdr_assessment_finding (self-ref).
+FUND/SYS credit assessment findings. PK: `finding_id` (text). FKs: counterparty_id → counterparty, deal_id → deal, policy_id → crdr_policy, skill_id → crdr_prompt, prior_finding_id → crdr_assessment_finding (self-ref).
 
 Contains dimension scores in pattern `{dim}_{x|y|z}_{rating|value}` and `{dim}_composite_rating`, `{dim}_narrative` for dimensions: pc, pv, pb, pq, pm, iq, rm, sc, sd, so, sr, tc, tq, tr. Plus: composite_continuous_score, composite_rating, override_composite_rating/rationale, regulatory_classification, risk_factors, routing_recommendation, approval_path, synthesis_narrative, status, validated_by/date/notes, projection_date.
 
@@ -433,7 +433,7 @@ Major column groups: profile_name, projection_type, industry, size, maturity. Re
 ~105 columns total.
 
 ### `projection_profile_performance`
-PK: `performance_id` (text). FKs: profile_id → projection_profile, counterparty_id → counterparties, statement_id → financial_statement. Tracks revenue/cogs MAE and variance, overall_accuracy_score, meets_threshold, needs_profile_review.
+PK: `performance_id` (text). FKs: profile_id → projection_profile, counterparty_id → counterparty, statement_id → financial_statement. Tracks revenue/cogs MAE and variance, overall_accuracy_score, meets_threshold, needs_profile_review.
 
 ### `profile_performance_aggregation`
 PK: `performance_agg_id` (text). FK: profile_id → projection_profile. Aggregated accuracy metrics: avg_accuracy_score, revenue/cogs MAE avg, success_rate, usage_count, performance_tier, recommendation.
@@ -466,7 +466,7 @@ Foundry-era canonical objects. These support the full lending workflow UI (appro
 PK: `banker_id` (text). Internal users. Columns: full_name, title, department, role_name/id, access_level, permission_type, resource_type, employee_id, status, office_location, cost_center, industry_specializations, product_certifications, loan_approval_limit, assigned_relationships, manager_id, effective_date.
 
 ### `alert`
-PK: `alert_id` (text). FKs: directed_to_banker_id → corridor_banker, related_document_id → documents, source_counterparty_id → counterparties, source_kyc_due_diligence_id → kyc_due_diligence, source_workflow_id → workflow. Columns: alert_type, alert_title/subject/body, severity, alert_status, alert_priority_score, requires_action, auto_dismiss_on_action, cc_banker_ids (text[]), action_label/url, generated_by/timestamp, acknowledged/resolved_timestamp.
+PK: `alert_id` (text). FKs: directed_to_banker_id → corridor_banker, related_document_id → document, source_counterparty_id → counterparty, source_kyc_due_diligence_id → kyc_due_diligence, source_workflow_id → workflow. Columns: alert_type, alert_title/subject/body, severity, alert_status, alert_priority_score, requires_action, auto_dismiss_on_action, cc_banker_ids (text[]), action_label/url, generated_by/timestamp, acknowledged/resolved_timestamp.
 
 ### `approval`
 PK: `approval_id` (text). FKs: approver_banker_id → corridor_banker, committee_id → committee, committee_meeting_id → committee_meeting, contract_id → contract, workflow_id → workflow. Columns: approval_name/type/stage/status, required, conditions (text[]), requested/reviewed/approved_date, decision_notes.
@@ -475,7 +475,7 @@ PK: `approval_id` (text). FKs: approver_banker_id → corridor_banker, committee
 Committee governance tables. PK: committee_id, meeting_id, member_id respectively. Standard committee structure with quorum, authority_level, voting_rights.
 
 ### `kyc_due_diligence`
-PK: `kyc_due_diligence_id` (text). FK: counterparty_id → counterparties, source_workflow_id → workflow. Comprehensive KYC tracking: screening statuses (sanctions, PEP, adverse media, watchlist), document completeness, risk assessment, compliance approval flow, ~65 columns.
+PK: `kyc_due_diligence_id` (text). FK: counterparty_id → counterparty, source_workflow_id → workflow. Comprehensive KYC tracking: screening statuses (sanctions, PEP, adverse media, watchlist), document completeness, risk assessment, compliance approval flow, ~65 columns.
 
 ### `workflow_event`
 PK: `workflow_event_id` (text). FKs: workflow_id → workflow, changed_by_banker_id → corridor_banker, kyc_due_diligence_id → kyc_due_diligence. Audit trail: event_type, old/new_value, event_notes, event_timestamp.
@@ -503,28 +503,45 @@ PK: `index_rate_id` (text). Reference interest rates: current_rate, current_rate
 
 ---
 
-## Foundry-Era Legacy Tables
+## Migrated / Renamed Tables
 
-These tables appear to be from the original Foundry migration. Some overlap with newer canonical tables.
+The following tables were renamed or merged by migration `20260413_singular_naming_convention.sql` to enforce the singular-noun naming convention.
 
-### `deals` (plural)
-PK: `deal_id` (text). Appears to be the older version of `deal` (singular). Columns: deal_group_id, counterparty_id/name, deal_name, deal_initiated_date, last_updated_date, total_documents/facilities (int4), execution_status, deal_status (default `'ACTIVE'`), approval_stage.
+### Renamed (clean alter)
 
-**Note:** `deal_documents` FK references `deals`, not `deal`. `facilities` FK also references `deals`.
+| Old name (plural) | New name (singular) |
+|---|---|
+| `attachments` | `attachment` |
+| `contract_extraction_passes` | `contract_extraction_pass` |
+| `counterparties` | `counterparty` |
+| `deal_documents` | `deal_document` |
+| `document_chunks` | `document_chunk` |
+| `documents` | `document` |
+| `emails` | `email` |
+| `linked_document_chunks` | `linked_document_chunk` |
+| `prompt_configs` | `prompt_config` |
+| `prospective_counterparties` | `prospective_counterparty` |
 
-### `deal_documents`
-PK: `deal_document_id` (text). FK: deal_id → deals. Columns: facility_id, document_id/name/type/status/version, is_latest_version, is_execution_ready.
+### Merged (data copied into canonical, plural dropped)
 
-### `facilities` (plural)
-PK: `facility_id` (text). FK: deal_id → deals. Older version of `facility` (singular). Columns: deal_group_id, counterparty_id/name, facility_type/name/status, facility_documents (int4).
+| Old name (plural) | Merged into | Notes |
+|---|---|---|
+| `deals` | `deal` | 2 stub rows copied; `deal_document.deal_id` FK retargeted to `deal` |
+| `facilities` | `facility` | 2 stub rows copied; `deal_group_id` and `counterparty_name` columns added to `facility` to preserve data |
 
-### `obligations` (plural)
-PK: `obligation_id` (text). FK: counterparty_id → counterparties. Older/simpler version of `obligation` (singular). Columns: contract_id, obligation_type, status (default `'ACTIVE'`), next_due_date, expected_document_types (text[]), frequency.
+### Dropped
 
-### `prospective_counterparties`
+| Old name | Reason |
+|---|---|
+| `obligations` | Empty Foundry-era duplicate. Canonical `obligation` table is the live one (5 incoming FKs, 56 rows). |
+
+### `deal_document`
+PK: `deal_document_id` (text). FK: deal_id → deal. Columns: facility_id, document_id/name/type/status/version, is_latest_version, is_execution_ready.
+
+### `prospective_counterparty`
 PK: `prospective_counterparty_id` (text). Written by CPC stage. Pre-counterparty entities before promotion. Columns: counterparty_id, counterparty_name, relationship_status, counterparty_type, data_quality_score, mention_count, potential_duplicate, validation_status (default `'PENDING_VALIDATION'`), source_document_id.
 
-### `prompt_configs`
+### `prompt_config`
 PK: `id` (int8). Original prompt configuration table. Columns: prompt_type (NOT NULL), active (default `true`), prompt_text (NOT NULL). Superseded by `crdr_prompt` for extraction prompts.
 
 ---
@@ -621,7 +638,7 @@ Full column listings are in the sections above. For tables with many columns, su
 | obligation_for_validation | ~35 |
 | enriched_workflow | ~35 |
 | workflow_for_validation | ~35 |
-| counterparties | ~30 |
+| counterparty | ~30 |
 | All others | <30 |
 
 ### RLS Status
