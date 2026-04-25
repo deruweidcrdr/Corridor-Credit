@@ -25,6 +25,12 @@ This is the intellectual core of the platform and the primary competitive differ
 - **PQ**: Obligor Liquidity / Current Ratio
 - **PM**: Cost Structure
 
+**Construction Overlay** — For project finance credits in the construction phase (pre-COD), a separate six-dimension policy attaches as an overlay alongside the operating FUND/SYS policy. PF construction credits get **two findings per assessment cycle** — both visible in parallel, no automated rollup. The construction policy goes dormant post-COD; operating policy continues throughout.
+
+Six construction dimensions (CB Construction Budget, CC Contractor, CS Schedule, CT Trajectory, CE Equity, CX eXit) reuse the existing X/Y/Z + SAT/PW/WDW scoring engine. The Y axis semantic is redefined: variance-from-plan during ongoing construction, rather than FUND/SYS's Y3-vs-Y1 trajectory. CX is the bridge dimension — its Y axis explicitly reads the parallel operating policy's PC band, exploiting overlay architecture to make take-out certainty assessable from existing operating-side metrics.
+
+This is designed but not yet wired. Full methodology in `CONSTRUCTION_CREDIT_METHODOLOGY.md`; underlying schema in `CLUSTER_SPEC_CONSTRUCTION_SANDU.md`; pipeline integration in `CONSTRUCTION_EXTRACTION_ROUTING.md`. Activation requires multi-policy routing logic (currently flagged as "not yet wired" in `CRDR_POLICY_DIMENSIONS.md`) and `crdr_assessment_finding` schema migration to add 42 new columns.
+
 ## Obligation-Driven Architecture
 
 The architectural centerpiece. ALL contractual requirements flow through a unified Obligation abstraction layer:
@@ -208,6 +214,12 @@ The output of the projection engine. Wide/pivoted format — one row per counter
 - Non-periodic columns: `dscr_classification` (temporal minimum classification), `dscr_stress_driver` (what drives the minimum), `profile_id` (links to projection profile used), `projection_created_at`
 - The temporal minimum DSCR across the projection horizon is the key output
 - This is the Foundry-era wide schema. Do NOT normalize to one-row-per-period — the wide format matches the read access pattern (one row fetch for a full projection timeline).
+
+### Counterparty Construction Sources & Uses (planned, PF construction credits only)
+Parallel data family to `counterparty_projection`, capturing pre-COD construction-phase content for project finance credits. Disjoint from `counterparty_projection` in schema; designed but not yet wired.
+- Six tables: `counterparty_construction_sources_and_uses` (parent, 1:1 with PF construction counterparty), `construction_source` (1:N — funding sources committed at close), `construction_use` (1:N — budgeted use-of-funds line items), `construction_milestone` (1:N — scheduled physical/financial milestones), `construction_draw_event` (1:N — draws at native cadence), `construction_draw_allocation` (1:N grandchild — decomposes draws across uses)
+- Construction loan and term loan are distinct rows in the canonical `obligation` table, linked by `converts_to_obligation_id`. Conversion happens at COD: construction obligation closes, term obligation activates with principal = construction loan's closing balance (initial commitment + capitalized IDC)
+- Schema in `CLUSTER_SPEC_CONSTRUCTION_SANDU.md`; extraction pipeline in `CONSTRUCTION_EXTRACTION_ROUTING.md`; credit methodology in `CONSTRUCTION_CREDIT_METHODOLOGY.md`
 
 ### Counterparty Risk (Credit Assessment)
 The final analytical output. Produced by the `assessCreditRisk` function using `CRDR_PROMPT_16`.
